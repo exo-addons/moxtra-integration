@@ -27,7 +27,7 @@
     <version>5</version>
   </parent>
   <artifactId>exo-moxtra-parent</artifactId>
-  <version>1.0.0-SNAPSHOT</version>
+  <version>1.0.x-SNAPSHOT</version>
   <packaging>pom</packaging>
   <name>eXo Moxtra :: Parent</name>
   <description>eXo Moxtra extension project reactor</description>

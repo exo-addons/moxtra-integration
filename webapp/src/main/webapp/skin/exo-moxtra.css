@@ -1,0 +1,107 @@
+#UIEmeetingTab-tab {
+	width: 100%;
+	min-height: 100%;
+	position: relative;
+}
+
+.uiIconMoxtra {
+	background-image: url("/moxtra/images/moxtra-icon-gray.png");
+	background-size: 15px 15px;
+	background-position: 0 0;
+}
+
+.moxtraIcon:hover>.uiIconMoxtra {
+	background-image: url("/moxtra/images/moxtra-icon-color.png") !important;
+}
+
+.disabled {
+	opacity: 0.65;
+	pointer-events: none;
+	cursor: not-allowed !important;
+}
+
+.hiddenAction {
+	display: none;
+}
+
+.meetStarted input {
+	color: #fff;
+	background-color: #ff8400;
+}
+
+.meetField {
+	padding-left: 6px;
+	padding-right: 6px;
+}
+
+.meetErrorMessage, .meetCreationInfo {
+	font-size: 12px;
+	display: inline;
+}
+
+.meetSchedule>.input-small {
+	width: 125px;
+}
+
+.poweredByMoxtra {
+	position: absolute;
+	padding-top: 20px;
+	bottom: 0;
+	width: 100%;
+	height: 30px; /* Height of the footer */
+	text-align: right;
+}
+
+.poweredByMoxtra span {
+	vertical-align: bottom;
+	line-height: 28px;
+}
+
+/******** Pnotify icons ********/
+.picon-32.picon-task-complete {
+	background-image: url("icons/oxygen/32/status/task-complete.png")
+}
+
+.picon-32.picon-throbber {
+	background-image: url("icons/oxygen/32/animations/throbber.gif")
+}
+
+.picon-32.picon-dialog-error {
+	background-image: url("icons/oxygen/32/status/dialog-error.png")
+}
+
+.picon-32.picon-dialog-information {
+	background-image: url("icons/oxygen/32/status/dialog-information.png")
+}
+
+.picon-32.picon-dialog-warning {
+	background-image: url("icons/oxygen/32/status/dialog-warning.png")
+}
+
+.picon-32.picon-process-stop {
+	background-image: url("icons/oxygen/32/actions/process-stop.png")
+}
+
+.picon.picon-task-complete {
+	background-image: url("icons/oxygen/16/status/task-complete.png")
+}
+
+.picon.picon-throbber {
+	background-image: url("icons/oxygen/16/animations/throbber.gif")
+}
+
+.picon.picon-dialog-error {
+	background-image: url("icons/oxygen/16/status/dialog-error.png")
+}
+
+.picon.picon-dialog-information {
+	background-image: url("icons/oxygen/16/status/dialog-information.png")
+}
+
+.picon.picon-dialog-warning {
+	background-image: url("icons/oxygen/16/status/dialog-warning.png")
+}
+
+.picon.picon-process-stop {
+	background-image: url("icons/oxygen/16/actions/process-stop.png")
+}

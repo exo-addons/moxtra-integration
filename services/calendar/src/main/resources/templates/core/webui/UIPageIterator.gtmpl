@@ -1,0 +1,71 @@
+<%
+// This template adapted from Calendar project
+
+def rcontext = _ctx.getRequestContext()
+
+def totalPage = uicomponent.availablePage
+def currentPage = uicomponent.currentPage
+
+def requirejs = rcontext.javascriptManager.getRequireJS()
+requirejs.require("PORTLET/calendar/CalendarPortlet","cal")
+requirejs.addScripts("cal.UICalendarPortlet.loadTitle();")
+%>
+
+<div class="pagination uiPageIterator clearfix">
+<ul class="pull-right">
+    
+    <%if ( currentPage == 1 ) {%>
+     <li class="disabled">
+        <a rel="tooltip" data-placement="bottom" title="<%=_ctx.appRes("UIPageIterator.label.previous")%>">
+          <i class="uiIconPrevArrow"></i>
+        </a>
+     </li>
+                  
+    <% } else { %>
+     <li>
+          <a href="<%=uicomponent.event("ShowPage","${currentPage - 1}")%>" rel="tooltip" data-placement="bottom" title="<%=_ctx.appRes("UIPageIterator.label.previous")%>">
+            <i class="uiIconPrevArrow"></i>
+          </a>
+     </li>
+                    
+    <%}%>
+      <%
+      int min = 1
+      int max = totalPage
+      if (totalPage > 5 && currentPage > 2) {
+        min = currentPage - 2
+        max = currentPage + 3
+        if (max > totalPage) max = totalPage
+      } else if ( totalPage > 5 && currentPage < 3 ) {
+        min = 1
+        max = 6
+      }
+      for(i = min ; i <= max; i++) { %>
+      <%  if( i == currentPage) { %>
+            <li class="active"><a href="<%=uicomponent.event("ShowPage","$i")%>">$i</a></li>
+      <%  } else { %>
+            <li><a href="<%=uicomponent.event("ShowPage","$i")%>">$i</a></li>
+      <%  } %>
+      <%}%>
+
+    
+    <% if(currentPage + 1 <= totalPage) { %>
+         <li>
+           <a href="<%=uicomponent.event("ShowPage","${currentPage + 1}")%>" rel="tooltip" data-placement="bottom" title="<%=_ctx.appRes("UIPageIterator.label.next")%>">
+             <i class="uiIconNextArrow"></i>
+           </a>
+         </li>
+    <% } else { %>
+         <li class="disabled">
+           <a rel="tooltip" data-placement="bottom" title="<%=_ctx.appRes("UIPageIterator.label.next")%>">
+             <i class="uiIconNextArrow"></i>
+           </a>
+         </li>
+    <%}%>
+</ul>
+
+<p class="pull-right">
+  <span><%=_ctx.appRes("UIPageIterator.label.totalPage")%>: </span>
+  <span class="pagesTotalNumber">$totalPage</span>
+</p>
+</div>

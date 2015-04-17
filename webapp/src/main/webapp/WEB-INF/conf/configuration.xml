@@ -1,0 +1,191 @@
+<?xml version="1.0" encoding="ISO-8859-1"?>
+<!--
+
+  Copyright (C) 2015 eXo Platform SAS.
+  
+  This is free software; you can redistribute it and/or modify it
+  under the terms of the GNU Lesser General Public License as
+  published by the Free Software Foundation; either version 2.1 of
+  the License, or (at your option) any later version.
+  
+  This software is distributed in the hope that it will be useful,
+  but WITHOUT ANY WARRANTY; without even the implied warranty of
+  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+  Lesser General Public License for more details.
+  
+  You should have received a copy of the GNU Lesser General Public
+  License along with this software; if not, write to the Free
+  Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
+  02110-1301 USA, or see the FSF site: http://www.fsf.org.
+
+-->
+
+<configuration xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+  xsi:schemaLocation="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd http://www.exoplatform.org/xml/ns/kernel_1_2.xsd"
+  xmlns="http://www.exoplatform.org/xml/ns/kernel_1_2.xsd">
+
+  <component>
+    <key>org.exoplatform.moxtra.MoxtraService</key>
+    <type>org.exoplatform.moxtra.MoxtraService</type>
+  </component>
+  
+  <component>
+    <type>org.exoplatform.moxtra.rest.OAuthCodeAuthenticator</type>
+  </component>
+
+  <component>
+    <key>org.exoplatform.moxtra.webui.MoxtraApplicationService</key>
+    <type>org.exoplatform.moxtra.webui.MoxtraApplicationService</type>
+  </component>
+
+  <component>
+    <key>org.exoplatform.moxtra.calendar.MoxtraCalendarService</key>
+    <type>org.exoplatform.moxtra.calendar.MoxtraCalendarService</type>
+  </component>
+  
+  <external-component-plugins>
+    <target-component>org.exoplatform.moxtra.MoxtraService</target-component>
+    <component-plugin>
+      <name>setOAuthClientConfig</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.moxtra.OAuthClientConfiguration</type>
+      <description>set OAuth2 authenticator configuration</description>
+      <init-params>
+        <properties-param>
+          <name>client-configuration</name>
+          <property name="client-id" value="${moxtra.client.id}" />
+          <property name="client-secret" value="${moxtra.client.secret}" />
+          <property name="client-schema" value="${moxtra.client.schema:http}" />
+          <property name="client-host" value="${moxtra.client.host:localhost:8080}" />
+        </properties-param>
+      </init-params>
+    </component-plugin>
+    <component-plugin>
+      <name>setClientStore</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.moxtra.jcr.JCRMoxtraClientStore</type>
+      <description>set Moxtra token store in JCR</description>
+    </component-plugin>
+  </external-component-plugins>
+
+  <external-component-plugins>
+    <target-component>org.exoplatform.moxtra.webui.MoxtraApplicationService</target-component>
+    <component-plugin>
+      <name>addApplication</name>
+      <set-method>addApplicationPlugin</set-method>
+      <type>org.exoplatform.moxtra.webui.MoxtraApplicationActivator</type>
+      <description>add application plugin</description>
+      <init-params>
+        <properties-param>
+          <name>app-configuration</name>
+          <property name="component-id" value="UICalendarPortlet" />
+          <property name="component-type" value="org.exoplatform.calendar.webui.UICalendarPortlet" />
+          <property name="app-type" value="org.exoplatform.moxtra.calendar.MoxtraCalendarApplication" />
+        </properties-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+
+  <external-component-plugins>
+    <target-component>org.exoplatform.services.jcr.RepositoryService</target-component>
+    <component-plugin>
+      <name>add.namespaces</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.services.jcr.impl.AddNamespacesPlugin</type>
+      <init-params>
+        <properties-param>
+          <name>namespaces</name>
+          <property name="moxtra" value="http://www.exoplatform.com/jcr/moxtra/1.0/" />
+        </properties-param>
+      </init-params>
+    </component-plugin>
+    <component-plugin>
+      <name>add.gadget.services.nodeType</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.services.jcr.impl.AddNodeTypePlugin</type>
+      <init-params>
+        <values-param>
+          <name>autoCreatedInNewRepository</name>
+          <description>Cloud Drive node types configuration file</description>
+          <value>jar:/conf/portal/jcr/moxtra-nodetypes.xml</value>
+          <value>jar:/conf/portal/jcr/moxtra-userstore-nodetypes.xml</value>
+          <value>jar:/conf/portal/jcr/moxtra-ui-nodetypes.xml</value>
+        </values-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+
+  <external-component-plugins>
+    <target-component>org.exoplatform.calendar.service.CalendarService</target-component>
+    <component-plugin>
+      <name>moxtra.calendar.eventListener</name>
+      <set-method>addEventListenerPlugin</set-method>
+      <type>org.exoplatform.moxtra.calendar.MoxtraCalendarListener</type>
+      <description>Add Moxtra features to eXo Calendar events</description>
+    </component-plugin>
+  </external-component-plugins>
+  
+  <external-component-plugins>
+    <target-component>org.exoplatform.services.resources.ResourceBundleService</target-component>
+    <component-plugin>
+      <name>ResourceBundle Plugin</name>
+      <set-method>addResourceBundle</set-method>
+      <type>org.exoplatform.services.resources.impl.BaseResourceBundlePlugin</type>
+      <init-params>
+        <values-param>
+          <name>init.resources</name>
+          <description>Store the following resources into the db for the first launch</description>
+          <value>locale.moxtra.Moxtra</value>
+          <value>locale.moxtra.ui.Moxtra</value>
+          <value>locale.moxtra.calendar.Moxtra</value>
+        </values-param>
+        <values-param>
+          <name>portal.resource.names</name>
+          <description>The properties files of the portal, those file will be merged into one ResoruceBundle properties</description>
+          <value>locale.moxtra.Moxtra</value>
+          <value>locale.moxtra.ui.Moxtra</value>
+          <value>locale.moxtra.calendar.Moxtra</value>
+        </values-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins>
+  
+  <!-- external-component-plugins>
+    <target-component>org.exoplatform.services.jcr.impl.ext.action.SessionActionCatalog</target-component>
+    <component-plugin>
+      <name>addActions</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.services.jcr.impl.ext.action.AddActionsPlugin</type>
+      <description>add actions plugin</description>
+      <init-params>
+        <object-param>
+          <name>actions</name>
+          <object type="org.exoplatform.services.jcr.impl.ext.action.AddActionsPlugin$ActionsConfig">
+            <field name="actions">
+              <collection type="java.util.ArrayList">
+                <value>
+                  <object type="org.exoplatform.services.jcr.impl.ext.action.ActionConfiguration">
+                    <field name="eventTypes">
+                      <string>addNode</string>
+                    </field>
+                    <field name="nodeTypes">
+                      <string>exo:calendarEvent</string>
+                    </field>
+                    <field name="isDeep">
+                      <boolean>true</boolean>
+                    </field>
+                    <field name="actionClassName">
+                      <string>org.exoplatform.moxtra.jcr.CreateEventAction</string>
+                    </field>
+                  </object>
+                </value>
+              </collection>
+            </field>
+          </object>
+        </object-param>
+      </init-params>
+    </component-plugin>
+  </external-component-plugins -->
+  
+  <!-- import>war:/conf/dms/dms-ext-configuration.xml</import -->
+</configuration>

@@ -1,0 +1,243 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<nodeTypes xmlns:nt="http://www.jcp.org/jcr/nt/1.0" xmlns:mix="http://www.jcp.org/jcr/mix/1.0"
+  xmlns:jcr="http://www.jcp.org/jcr/1.0">
+
+  <!-- Base nodetype for all items in Moxtra services -->
+  <nodeType name="moxtra:base" isMixin="false" hasOrderableChildNodes="false" primaryItemName="">
+    <supertypes>
+      <supertype>nt:base</supertype>
+    </supertypes>
+  </nodeType>
+  
+  <!-- Base nodetype for all Moxtra objects -->
+  <nodeType name="moxtra:object" isMixin="false" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:id" requiredType="String" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:name" requiredType="String" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+  </nodeType>
+  
+  <!-- Moxtra user -->
+  <nodeType name="moxtra:userObject" isMixin="false" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
+    <supertypes>
+      <supertype>moxtra:object</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:email" requiredType="String" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:type" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:firstName" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:lastName" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:createdTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:updatedTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="*" requiredType="Underfined" autoCreated="false" mandatory="false"
+        onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="*" requiredType="Underfined" autoCreated="false" mandatory="false"
+        onParentVersion="COPY" protected="false" multiple="true">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+  </nodeType>
+
+  <!-- List of Moxtra users -->
+  <nodeType name="moxtra:usersList" isMixin="false" hasOrderableChildNodes="true" primaryItemName="">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+    </supertypes>
+    <childNodeDefinitions>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:userObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:userObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+
+  <!-- Moxtra binder to be added to any node -->
+  <nodeType name="moxtra:binderObject" isMixin="false" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
+    <supertypes>
+      <supertype>moxtra:object</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:revision" requiredType="Long" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:thumbnailUrl" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:createdTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:updatedTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="*" requiredType="Underfined" autoCreated="false" mandatory="false"
+        onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="*" requiredType="Underfined" autoCreated="false" mandatory="false"
+        onParentVersion="COPY" protected="false" multiple="true">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+    <childNodeDefinitions>
+      <childNodeDefinition name="moxtra:users" defaultPrimaryType="moxtra:usersList"
+        autoCreated="false" mandatory="true" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:usersList</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:object" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:object</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+  
+  <!-- List of Moxtra binders -->
+  <nodeType name="moxtra:bindersList" isMixin="false" hasOrderableChildNodes="true" primaryItemName="">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+    </supertypes>
+    <childNodeDefinitions>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:binderObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:binderObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+
+  <!-- Moxtra meet to be added to any node -->
+  <nodeType name="moxtra:meetObject" isMixin="false" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
+    <supertypes>
+      <supertype>moxtra:binderObject</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:startTime" requiredType="Date" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:endTime" requiredType="Date" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:sessionKey" requiredType="String" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:startMeetUrl" requiredType="String" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:autoRecording" requiredType="Boolean" autoCreated="false"
+        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+        <defaultValues>
+          <defaultValue>false</defaultValue>
+        </defaultValues>
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:sessionId" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:agenda" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+  </nodeType>
+  
+  <!-- List of Moxtra meets -->
+  <nodeType name="moxtra:meetsList" isMixin="false" hasOrderableChildNodes="true" primaryItemName="">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+    </supertypes>
+    <childNodeDefinitions>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:meetObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:meetObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+  
+  <!-- Moxtra services mixin, a place for Moxtra feature references to be stored in any node -->
+  <nodeType name="moxtra:services" isMixin="true" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:creator" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:createdTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+    <childNodeDefinitions>
+      <childNodeDefinition name="moxtra:meet" defaultPrimaryType="moxtra:meetObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:meetObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+      <childNodeDefinition name="moxtra:meets" defaultPrimaryType="moxtra:meetsList" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:meetsList</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+      <childNodeDefinition name="moxtra:binder" defaultPrimaryType="moxtra:binderObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:binderObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+      <childNodeDefinition name="moxtra:binders" defaultPrimaryType="moxtra:bindersList" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:bindersList</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+
+
+</nodeTypes>

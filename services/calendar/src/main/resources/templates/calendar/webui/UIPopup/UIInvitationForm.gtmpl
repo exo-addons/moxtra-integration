@@ -1,0 +1,68 @@
+<%
+ // adapted template from Calendar webapp
+ import org.exoplatform.calendar.CalendarUtils
+ import org.exoplatform.webui.core.UIPopupWindow
+ import org.exoplatform.moxtra.calendar.webui.UIEmeetingTab
+ 
+ def rcontext = _ctx.getRequestContext()  
+ 
+ def uiForm = uicomponent // current component already UIForm
+ def requireJS = rcontext.javascriptManager.getRequireJS()
+
+ requireJS.require("PORTLET/calendar/CalendarPortlet","cal")
+ requireJS.addScripts("cal.UICalendarPortlet.autoFocusFirstInput('" + uicomponent.id + "');")
+ 
+ // find moxtra app
+ def formContainer = uiForm.parent.parent.parent.parent
+ def moxtraTab = formContainer.findComponentById(UIEmeetingTab.class.getSimpleName())
+ def moxtra = moxtraTab.moxtra
+ 
+ // eXo Moxtra script not required here as UIEmeetingTab add it
+ //def currentUser = CalendarUtils.getCurrentUser()
+ //requireJS.require('SHARED/exoMoxtra','moxtra')
+ //requireJS.addScripts("moxtra.initUser(\"$currentUser\", $moxtra.authorized);")
+%>
+<%uiForm.begin()%>
+<div id="$uicomponent.id" class="uiInvitationForm resizable">
+	<div class="form-horizontal">
+		<div class="control-group">
+			<div class="control-label" >
+				<%=uiForm.getLabel(uicomponent.FIELD_PARTICIPANT)%>
+				<a class="actionIcon" id="uiInvitationUser" href="<%=uiForm.event("AddUserParticipant")%>"
+				   rel="tooltip" data-placement="bottom" title="<%=uiForm.getLabel(uicomponent.TOOLTIP_USER)%>">
+                  <i class="uiIconUser uiIconLightGray"></i>
+				</a>
+				<% if (moxtra.meetEnabled) { %>
+				<a class="actionIcon moxtraIcon" id="uiInvitationMoxtraUser" href="<%=uiForm.event("AddMoxtraParticipant")%>"
+				   rel="tooltip" data-placement="bottom" title="<%=uiForm.getLabel("AddMoxtraParticipant")%>">
+                  <i class="uiIconMoxtra uiIconLightGray"></i>
+				</a><%}%>:
+			</div>
+			<div class="controls participant descriptionArea">
+			<%	uiFormTextAreaInput = uiForm.getChildById(uicomponent.FIELD_PARTICIPANT);
+		  		uiFormTextAreaInput.setRows(6);
+     			uiForm.renderField(uicomponent.FIELD_PARTICIPANT)
+		  %>
+			</div>
+		</div>
+		<div class="control-group invitationGroup">
+			<div class="control-label" >
+				<%=uiForm.getLabel(uicomponent.FIELD_INVITATION_MSG)%>:
+			</div>
+			<div class="controls invitation descriptionArea">
+				<%uiForm.renderField(uicomponent.FIELD_INVITATION_MSG)%>
+			</div>
+		</div>
+		
+	</div>
+</div>
+<div class="uiAction uiActionBorder">
+	<% for(action in uicomponent.getActions()) { 
+       def actionLabel = _ctx.appRes(uicomponent.getName() + ".action." + action)
+       def link = uicomponent.event(action)
+  %>
+	<button onclick="$link" type="button" class="btn">$actionLabel</button>
+	<% } %>
+	<%uicomponent.renderChild(UIPopupWindow.class);%>
+</div>
+<%uiForm.end()%>

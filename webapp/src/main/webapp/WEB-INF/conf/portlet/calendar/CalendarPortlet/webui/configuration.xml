@@ -1,0 +1,11 @@
+<webui-configuration>
+  <application> 
+    <ui-component-root>org.exoplatform.calendar.webui.UICalendarPortlet</ui-component-root>
+    <state-manager>org.exoplatform.webui.application.portlet.ParentAppStateManager</state-manager>
+    
+    <!-- App listener for Moxtra support -->
+    <application-lifecycle-listeners>       
+      <listener>org.exoplatform.moxtra.webui.MoxtraLifecycle</listener> 
+    </application-lifecycle-listeners>
+  </application>
+</webui-configuration>

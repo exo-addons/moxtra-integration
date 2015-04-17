@@ -1,0 +1,86 @@
+<%
+// It is adopted template from Platform UI system:/groovy/webui/organization/account/UIUserSelector.gtmpl
+
+ import org.exoplatform.webui.core.UIPopupWindow
+ uiform.begin()
+ def rcontext = _ctx.getRequestContext()
+ 
+ def searchLabel = uiform.getLabel('searchUser')
+ rcontext.getJavascriptManager().require("SHARED/selectors", "selectors")
+                                .addScripts("selectors.UIUserSelector.init('$uiform.id','','$searchLabel');")
+                                .require("SHARED/bts_tooltip").require("SHARED/jquery", "\$")
+                                .addScripts("\$('.uiUserSelector *[rel=\"tooltip\"]').tooltip();")
+%>
+<div class="uiUserSelector">
+	<div class="selectUserContainer resizable">
+      <div class="uiSearch clearfix">
+      <!-- We need searchByGroup for selectors.js -->
+			<span class="searchByGroup"></span>
+			<span class="searchByUser">
+				<span class="inputLarge ">
+					<a id="" class="btnSearchUser" data-placement="left" rel="tooltip" href="<%=uicomponent.event('Search')%>" data-original-title="Quick Search"><i class="uiIconSearch uiIconLightGray"></i></a>
+					<%uiform.renderField(uiform.FIELD_KEYWORD)%>
+				</span>
+				<span class="selectboxMedium">
+				<%uiform.renderField(uiform.FIELD_FILTER)%>
+				</span>
+			</span>
+      </div>
+      
+			<table id="UIListUsers" class="uiGrid table table-hover table-striped">
+				<thead>
+					<tr>
+						<th class="center">
+						<span class="uiCheckbox">
+							<input type="checkbox" class="checkbox" name="selectall"/><span></span>
+						</span>							
+						</th>
+						<th>
+							<%=uiform.getLabel('name')%>
+						</th>
+						<th>
+							<%=uiform.getLabel('email')%>
+						</th>
+					</tr>
+				</thead>
+				<tbody>
+					<% if (uicomponent.pageUsers.size() == 0)	{%>
+					<tr>
+						<td class="empty center" colspan="3">
+							<%=_ctx.appRes("UIUserSelector.msg.empty")%>
+						</td>
+					</tr>
+					<% } %>
+					<%
+						for (user in uicomponent.pageUsers) {							
+					%>
+						<tr>
+							<td class="center">
+							<%
+          			def userEmail = user.email ?: ''
+         				def checkboxField = uicomponent.getChildById(user.name)
+								if (checkboxField) { 
+          				uicomponent.renderField(checkboxField) 
+          			}
+							%>
+							</td>
+							<td><div class="text" title="$user.name">$user.name</div></td>
+							<td><a href="javascript:void(0);" class="text" title="$userEmail">$userEmail</a></td>
+						</tr>
+					<%}%>
+				</tbody>
+			</table>
+			<%
+			if (uicomponent.availablePage > 1) {%>
+				<div class="pageIteratorBorder">
+					<% _ctx.include('classpath:templates/core/webui/UIPageIterator.gtmpl') %>
+				</div>
+			<% } %>
+	</div>
+	<div class="uiAction uiActionBorder">
+		<%for (action in uicomponent.actions) {%>
+				<a href="<%=uicomponent.event(action)%>" class="btn "><%=uiform.getLabel("action.$action")%></a>
+		<%}%>
+	</div>
+</div>
+<% uiform.end() %>

@@ -1,0 +1,18 @@
+<div class="moxtraCalendar">
+<%
+def calPopup = uicomponent.getChild(org.exoplatform.calendar.webui.popup.UIPopupAction.class)
+def calPopupWindow = calPopup.getChild(org.exoplatform.webui.core.UIPopupWindow.class)
+if (calPopupWindow) {
+  %><div class="moxtraPopupWindow"></div><%
+  def calPopupContainer = calPopupWindow.getUIComponent()
+	if (calPopupContainer) {
+	  %><div class="moxtraPopupContainer"></div><%
+	  def eventForm = calPopupContainer.getChild(org.exoplatform.calendar.webui.popup.UIEventForm.class)
+	  if (eventForm) {
+	  	%><div class="moxtraEventForm"></div><%
+	    eventForm.addChild(new org.exoplatform.moxtra.calendar.webui.UIEmeetingTab("Moxtra"))
+	  }
+	}
+}
+%>
+</div>

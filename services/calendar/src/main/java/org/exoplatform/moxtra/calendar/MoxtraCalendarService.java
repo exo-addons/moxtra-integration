@@ -264,7 +264,7 @@ public class MoxtraCalendarService {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Meet not found or not complete for event " + event.getSummary() + " in "
                 + eventNode.getName() + ". " + e.getMessage());
-            //e.printStackTrace();
+            // e.printStackTrace();
           }
           existing = null;
         }
@@ -331,7 +331,7 @@ public class MoxtraCalendarService {
               if (meet.isDeleted()) {
                 // created new meet also can be marked as deleted (don't delete not created yet meet)
                 if (!meet.isNew()) {
-                  boolean cancelVideoDownload = meet.getAutoRecording() || meet.isAutoRecordingChanged();
+                  boolean cancelVideoDownload = meet.isAutoRecording() || meet.isAutoRecordingChanged();
                   moxtra.deleteMeet(meet);
                   JCR.removeServices(eventNode);
                   if (cancelVideoDownload) {
@@ -361,7 +361,7 @@ public class MoxtraCalendarService {
                   // other data (see method's Javadoc) - it is OK.
                   MoxtraMeet remoteMeet = moxtra.getMeet(meet.getSessionKey());
                   writeMeet(meetNode, meet, remoteMeet.getUsers());
-                  if (meet.getAutoRecording()) {
+                  if (meet.isAutoRecording()) {
                     // schedule meet video download
                     createDownloadJob(event, meet, meetNode, null);
                   }
@@ -372,9 +372,9 @@ public class MoxtraCalendarService {
                     throw new MoxtraCalendarException("Meet not enabled for this event " + event.getSummary());
                   }
                   // if auto-record enabled and end time changed
-                  boolean updateVideoDownload = meet.getAutoRecording() && meet.isEndTimeChanged();
+                  boolean updateVideoDownload = meet.isAutoRecording() && meet.isEndTimeChanged();
                   // if auto-record was disabled
-                  boolean cancelVideoDownload = !meet.getAutoRecording() && meet.isAutoRecordingChanged();
+                  boolean cancelVideoDownload = !meet.isAutoRecording() && meet.isAutoRecordingChanged();
                   moxtra.updateMeet(meet);
                   meetNode = JCR.getMeet(eventNode);
                   // update meet using local meet editor
@@ -518,7 +518,7 @@ public class MoxtraCalendarService {
           Node meetNode = JCR.getMeet(eventNode);
           // read locally stored meet
           MoxtraMeet meet = readMeet(meetNode);
-          if (meet.getAutoRecording()) {
+          if (meet.isAutoRecording()) {
             // check meet status
             if (MoxtraMeet.SESSION_ENDED.equals(meet.getStatus())) {
               // meet session already finished - we can try to download the video
@@ -792,13 +792,9 @@ public class MoxtraCalendarService {
     }
     JCR.setStartMeetUrl(meetNode, meet.getStartMeetUrl());
     JCR.setSessionKey(meetNode, meet.getSessionKey());
-    Boolean autorec = meet.getAutoRecording();
-    if (autorec != null) {
-      JCR.setAutoRecording(meetNode, autorec);
-    }
     // JCR.setSessionId(meetNode, meet.getSessionId());
-    // meet users
     if (meet.isNew()) {
+      JCR.setAutoRecording(meetNode, meet.isAutoRecording()); // using "is" for new meet
       // create local users
       Node usersNode = JCR.addUsers(meetNode);
       // add users from given list (of actual remote users)
@@ -812,56 +808,64 @@ public class MoxtraCalendarService {
         JCR.setEmail(pnode, participant.getEmail());
         JCR.setType(pnode, participant.getType());
       }
-    } else if (meet.isEditor()) {
-      // update local users
-      Node usersNode = JCR.getUsers(meetNode);
-      if (meet.isUsersRemoved()) {
-        for (MoxtraUser removed : meet.getRemovedUsers()) {
-          try {
-            usersNode.getNode(removed.getEmail()).remove();
-          } catch (PathNotFoundException e) {
-            // already not found
-          }
-        }
-      }
-      if (meet.isUsersAdded()) {
-        for (MoxtraUser participant : meet.getAddedUsers()) {
-          Node pnode = usersNode.addNode(participant.getEmail());
-          JCR.setId(pnode, participant.getId());
-          JCR.setName(pnode, participant.getName());
-          JCR.setEmail(pnode, participant.getEmail());
-          JCR.setType(pnode, participant.getType());
-        }
-      }
     } else {
-      // merge local users with users from the meet
-      List<MoxtraUser> meetUsers = meet.getUsers();
-      if (meetUsers.size() > 0) {
+      // XXX special notion for auto-recording in updates: it may be null read from Moxtra
+      // using getter not "is" for existing meet
+      Boolean autorec = meet.getAutoRecording();
+      if (autorec != null) {
+        JCR.setAutoRecording(meetNode, autorec);
+      }
+      if (meet.isEditor()) {
+        // update local users
         Node usersNode = JCR.getUsers(meetNode);
-        Set<String> existingEmails = new HashSet<String>();
-        // add/update current meet users
-        for (MoxtraUser participant : meetUsers) {
-          String email = participant.getEmail();
-          existingEmails.add(email);
-          Node pnode;
-          try {
-            pnode = usersNode.getNode(email);
-          } catch (PathNotFoundException e) {
-            pnode = usersNode.addNode(email);
-          }
-          JCR.setId(pnode, participant.getId());
-          JCR.setName(pnode, participant.getName());
-          JCR.setEmail(pnode, email);
-          JCR.setType(pnode, participant.getType());
-        }
-        // remove not in the meet users list
-        for (NodeIterator piter = usersNode.getNodes(); piter.hasNext();) {
-          Node pnode = piter.nextNode();
-          if (!existingEmails.contains(pnode.getName())) {
-            pnode.remove();
+        if (meet.isUsersRemoved()) {
+          for (MoxtraUser removed : meet.getRemovedUsers()) {
+            try {
+              usersNode.getNode(removed.getEmail()).remove();
+            } catch (PathNotFoundException e) {
+              // already not found
+            }
           }
         }
-      } // else, meet may have empty users only if it is started currently - ignore it
+        if (meet.isUsersAdded()) {
+          for (MoxtraUser participant : meet.getAddedUsers()) {
+            Node pnode = usersNode.addNode(participant.getEmail());
+            JCR.setId(pnode, participant.getId());
+            JCR.setName(pnode, participant.getName());
+            JCR.setEmail(pnode, participant.getEmail());
+            JCR.setType(pnode, participant.getType());
+          }
+        }
+      } else {
+        // merge local users with users from the meet
+        List<MoxtraUser> meetUsers = meet.getUsers();
+        if (meetUsers.size() > 0) {
+          Node usersNode = JCR.getUsers(meetNode);
+          Set<String> existingEmails = new HashSet<String>();
+          // add/update current meet users
+          for (MoxtraUser participant : meetUsers) {
+            String email = participant.getEmail();
+            existingEmails.add(email);
+            Node pnode;
+            try {
+              pnode = usersNode.getNode(email);
+            } catch (PathNotFoundException e) {
+              pnode = usersNode.addNode(email);
+            }
+            JCR.setId(pnode, participant.getId());
+            JCR.setName(pnode, participant.getName());
+            JCR.setEmail(pnode, email);
+            JCR.setType(pnode, participant.getType());
+          }
+          // remove not in the meet users list
+          for (NodeIterator piter = usersNode.getNodes(); piter.hasNext();) {
+            Node pnode = piter.nextNode();
+            if (!existingEmails.contains(pnode.getName())) {
+              pnode.remove();
+            }
+          }
+        } // else, meet may have empty users only if it is started currently - ignore it
+      }
     }
   }
 
@@ -909,7 +913,13 @@ public class MoxtraCalendarService {
     }
     String startMeetUrl = JCR.getStartMeetUrl(meetNode).getString();
     String sessionKey = JCR.getSessionKey(meetNode).getString();
-    boolean autoRecording = JCR.getAutoRecording(meetNode).getBoolean();
+    Boolean autorec;
+    try {
+      autorec = JCR.getAutoRecording(meetNode).getBoolean();
+    } catch (PathNotFoundException e) {
+      // can be null if such value was read from Moxtra
+      autorec = null;
+    }
     // JCR.setSessionId(meetNode, meet.getSessionId());
     // meet users
     List<MoxtraUser> users = new ArrayList<MoxtraUser>();
@@ -933,7 +943,7 @@ public class MoxtraCalendarService {
                                              updatedTime,
                                              startTime,
                                              endTime,
-                                             autoRecording,
+                                             autorec,
                                              users);
 
     MoxtraClient moxtra = moxtraService.getClient();

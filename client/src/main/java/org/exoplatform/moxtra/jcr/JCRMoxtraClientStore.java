@@ -132,13 +132,13 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
   // TODO NOT USED
   public void saveMeet(MoxtraClient client, MoxtraMeet meet) throws MoxtraStoreException {
     try {
-      // 
+      //
       Node userNode = userNode();
 
       Node meetsNode;
       try {
         meetsNode = JCR.getMeets(userNode);
-      } catch(PathNotFoundException e) {
+      } catch (PathNotFoundException e) {
         meetsNode = JCR.addMeets(userNode);
       }
 
@@ -153,6 +153,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
           JCR.setName(pnode, participant.getName());
           JCR.setEmail(pnode, participant.getEmail());
         }
+        JCR.setAutoRecording(meetNode, meet.isAutoRecording()); // using is for new meet
       } else {
         // update local node
         meetNode = meetsNode.getNode(meet.getBinderId());
@@ -170,6 +171,12 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
             JCR.setEmail(pnode, participant.getEmail());
           }
         }
+        // XXX special notion for auto-recording in updates: it may be null from Moxtra
+        // using getter not is for existing meet
+        Boolean autorec = meet.getAutoRecording();
+        if (autorec != null) {
+          JCR.setAutoRecording(meetNode, autorec);
+        }
       }
       // meet metadata
       JCR.setId(meetNode, meet.getBinderId());
@@ -180,7 +187,6 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
       JCR.setEndTime(meetNode, meet.getEndTime());
       JCR.setCreatedTime(meetNode, meet.getCreatedTime());
       JCR.setUpdatedTime(meetNode, meet.getUpdatedTime());
-      JCR.setAutoRecording(meetNode, meet.getAutoRecording());
       JCR.setRevision(meetNode, meet.getRevision());
       JCR.setSessionKey(meetNode, meet.getSessionKey());
       // JCR.setThumbnailUrl(meetNode, meet.getThumbnailUrl());

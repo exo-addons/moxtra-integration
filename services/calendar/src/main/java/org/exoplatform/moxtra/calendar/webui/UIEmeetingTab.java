@@ -65,7 +65,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 /**
- * Event/Tasl tab with Moxtra settings.<br>
+ * Event tab with Moxtra settings.<br>
  * 
  * Created by The eXo Platform SAS
  * 
@@ -75,7 +75,7 @@ import java.util.TimeZone;
 @ComponentConfigs({ @ComponentConfig(
                                      template = "classpath:templates/calendar/webui/UIPopup/UIEmeetingTab.gtmpl",
                                      events = { @EventConfig(listeners = StartMeetActionListener.class,
-                                                             phase = Phase.DECODE)
+                                                             phase = Phase.PROCESS)
                                      // @EventConfig(listeners = DisableMeetActionListener.class),
                                      // @EventConfig(listeners = EnableAutorecordingActionListener.class),
                                      // @EventConfig(listeners = DisableAutorecordingtActionListener.class),
@@ -143,10 +143,8 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public static final String    CONTAINER_MOXTRA_USER_SELECTOR  = "UIMoxtraUserSelectorPopupContainer";
 
-  public static final String    DATE_FORMAT_PATTERN             = "yyyy-MM-dd HH:mm:ss";                      // w/o
-                                                                                                               // TZ
+  public static final String    DATE_FORMAT_PATTERN             = "yyyy-MM-dd HH:mm:ss";
 
-  // constants from UIEventForm
   protected static final String TAB_EVENTDETAIL                 = "eventDetail".intern();
 
   protected static final String FIELD_CALENDAR                  = "calendar".intern();
@@ -218,7 +216,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     @Override
     public void execute(Event<UIEmeetingTab> event) throws Exception {
       UIEmeetingTab uiMoxtraTab = event.getSource();
-      // TODO show human-readable error message
       uiMoxtraTab.moxtra.enableMeet();
       UICheckBoxInput enableCheckbox = uiMoxtraTab.getChildById(FIELD_ENABLE_MEET);
       enableCheckbox.setValue(true);
@@ -237,7 +234,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     @Override
     public void execute(Event<UIEmeetingTab> event) throws Exception {
       UIEmeetingTab uiMoxtraTab = event.getSource();
-      // TODO show human-readable error message
       uiMoxtraTab.moxtra.disableMeet();
       UICheckBoxInput enableCheckbox = uiMoxtraTab.getChildById(FIELD_ENABLE_MEET);
       enableCheckbox.setValue(false);
@@ -250,9 +246,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     @Override
     public void execute(Event<UIEmeetingTab> event) throws Exception {
       UIEmeetingTab moxtraTab = event.getSource();
-      // MoxtraMeet meet = moxtraTab.moxtra.getMeet();
-      // moxtraTab.setMeetUsers(meet.getUsers());
-      // event.getRequestContext().addUIComponentToUpdateByAjax(moxtraTab);
 
       // init popup for adding Moxtra users
       // parent container is UIPopupContainer from Calendar webapp, we will add a UIPopupContainer from PLF UI
@@ -318,7 +311,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
       }
 
       moxtraTab.setMeetUsers(meet.getUsers());
-
       event.getRequestContext().addUIComponentToUpdateByAjax(moxtraTab);
     }
   }
@@ -351,15 +343,9 @@ public class UIEmeetingTab extends UIFormInputWithActions {
           if (moxtra.isAuthorized()) {
             user = moxtra.getUser();
             meet = moxtra.enableMeet();
-            // TODO we may show helpful tip how to add participants to the meet
-            // requireJS.require("SHARED/jquery", "$");
-            // requireJS.addScripts("$('#" + FIELD_ENABLE_MEET_AUTORECORDING + "').tooltip('show');");
             res = true;
           } else {
             // need authorize user
-            // event.getRequestContext()
-            // .getUIApplication()
-            // .addMessage(new ApplicationMessage("UIEventForm.label." + ACTION_AUTH_HINT, null));
             requireJS.require("SHARED/jquery", "$");
             requireJS.addScripts("$('a.moxtraAuthLink').tooltip('show');");
             res = false; // unchecked
@@ -441,12 +427,11 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     UIForm eventForm = getParentForm();
     String label;
     if (isMeetSaved()) {
-      String meetStatus = meet.getStatus();
-      if (MoxtraMeet.SESSION_STARTED.equals(meetStatus)) {
+      if (meet.isStarted()) {
         label = eventForm.getLabel(FIELD_STARTED_MEET);
-      } else if (MoxtraMeet.SESSION_ENDED.equals(meetStatus)) {
+      } else if (meet.isEnded()) {
         label = eventForm.getLabel(FIELD_ENDED_MEET);
-      } else if (MoxtraMeet.SESSION_SCHEDULED.equals(meetStatus)) {
+      } else if (meet.isScheduled()) {
         if (isHostUser()) {
           label = eventForm.getLabel(FIELD_ENABLE_MEET);
         } else {
@@ -492,26 +477,15 @@ public class UIEmeetingTab extends UIFormInputWithActions {
   }
 
   public boolean isMeetStarted() throws MoxtraCalendarException {
-    return isMeetEnabled() && MoxtraMeet.SESSION_STARTED.equals(meet.getStatus());
+    return isMeetEnabled() && meet.isStarted();
   }
 
   public boolean isCanStartMeet() throws MoxtraCalendarException {
-    if (isMeetEnabled() && meet.getStartMeetUrl() != null) {
-      String meetStatus = meet.getStatus();
-      if (MoxtraMeet.SESSION_STARTED.equals(meetStatus)) {
-        return true;
-      } else if (MoxtraMeet.SESSION_ENDED.equals(meetStatus) || MoxtraMeet.SESSION_DELETED.equals(meetStatus)) {
-        return false;
-      }
-      if (isHostUser()) {
+    if (isMeetEnabled()) {
+      if (isHostUser() && !(meet.isNew() || meet.isEnded() || meet.wasDeleted() || meet.isExpired())) {
         return true; // host user can do anytime if not ended
       }
-      // otherwise check time rage
-      Calendar startTime = getCalendar(meet.getStartTime());
-      // minus default maximum allowed by Moxtra
-      startTime.add(Calendar.MINUTE, -MoxtraMeet.SESSION_START_BEFORE_MINUTES);
-      Calendar now = getCalendar();
-      return startTime.equals(now) || startTime.after(now);
+      return meet.canStart();
     }
     return false;
   }
@@ -527,14 +501,18 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     return "javascript:void(0);";
   }
 
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void setActionField(String fieldName, List<ActionData> actions) {
-    moxtraActions.put(fieldName, actions);
-  }
+  // TODO cleanup
+  // /**
+  // * {@inheritDoc}
+  // */
+  // @Override
+  // @Deprecated
+  // public void setActionField(String fieldName, List<ActionData> actions) {
+  // moxtraActions.put(fieldName, actions);
+  // }
 
+  @Deprecated
+  // TODO NOT USED, but mentioned in the template
   public List<ActionData> getActionField(String fieldName) {
     return moxtraActions.get(fieldName);
   }
@@ -560,11 +538,9 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     if (isMeetEnabled()) {
       meetEnabled = true;
 
-      String meetStatus = meet.getStatus();
-      meetEnded = MoxtraMeet.SESSION_ENDED.equals(meetStatus)
-          || MoxtraMeet.SESSION_DELETED.equals(meetStatus);
-
-      meetStarted = MoxtraMeet.SESSION_STARTED.equals(meetStatus);
+      // we treat expired as ended here
+      meetEnded = meet.isEnded() || meet.wasDeleted() || meet.isExpired();
+      meetStarted = meet.isStarted();
 
       if (meet.isNew()) {
         isHostUser = true; // current user owner of a new meet
@@ -582,7 +558,7 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
       // participants = meet.getUsers();
 
-      autoRecord = meet.getAutoRecording();
+      autoRecord = meet.isAutoRecording();
 
       if (!meet.isNew()) {
         // init UI for existing meet
@@ -625,22 +601,22 @@ public class UIEmeetingTab extends UIFormInputWithActions {
       // removal from grid
       // participantAction = new String[] { "Delete" };
       // add action
-      List<ActionData> actions = new ArrayList<ActionData>();
-      ActionData addUser = new ActionData();
-      addUser.setActionListener(ACTION_SELECT_MOXTRA_USERS);
-      addUser.setActionName(ACTION_SELECT_MOXTRA_USERS);
-      addUser.setActionParameter(this.getId());
-      addUser.setActionType(ActionData.TYPE_ICON);
-      addUser.setCssIconClass("uiIconPlus uiIconLightGray");
-      actions.add(addUser);
-      ActionData emailUser = new ActionData();
-      emailUser.setActionListener(ACTION_INVITE_EMAIL_USERS);
-      emailUser.setActionName(ACTION_INVITE_EMAIL_USERS);
-      emailUser.setActionParameter(this.getId());
-      emailUser.setActionType(ActionData.TYPE_ICON);
-      emailUser.setCssIconClass("uiIconMail uiIconLightGray");
-      actions.add(emailUser);
-      this.setActionField(FIELD_INVITE_MOXTRA_USER, actions);
+      // List<ActionData> actions = new ArrayList<ActionData>();
+      // ActionData addUser = new ActionData();
+      // addUser.setActionListener(ACTION_SELECT_MOXTRA_USERS);
+      // addUser.setActionName(ACTION_SELECT_MOXTRA_USERS);
+      // addUser.setActionParameter(this.getId());
+      // addUser.setActionType(ActionData.TYPE_ICON);
+      // addUser.setCssIconClass("uiIconPlus uiIconLightGray");
+      // actions.add(addUser);
+      // ActionData emailUser = new ActionData();
+      // emailUser.setActionListener(ACTION_INVITE_EMAIL_USERS);
+      // emailUser.setActionName(ACTION_INVITE_EMAIL_USERS);
+      // emailUser.setActionParameter(this.getId());
+      // emailUser.setActionType(ActionData.TYPE_ICON);
+      // emailUser.setCssIconClass("uiIconMail uiIconLightGray");
+      // actions.add(emailUser);
+      // this.setActionField(FIELD_INVITE_MOXTRA_USER, actions);
     } else {
       // participantAction = new String[] {};
     }

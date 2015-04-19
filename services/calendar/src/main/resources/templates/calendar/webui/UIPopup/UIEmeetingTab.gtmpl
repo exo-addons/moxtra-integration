@@ -81,7 +81,8 @@
            		if (uicomponent.canStartMeet) { %>
         <span class="meetStartAction" rel="tooltip" data-placement="bottom" 
         		title="<%= uiForm.getLabel(uicomponent.meetStarted ? uicomponent.MESSAGE_STARTED_MEET_HINT : (uicomponent.hostUser ? uicomponent.MESSAGE_START_MEET_HINT : uicomponent.MESSAGE_JOIN_MEET_HINT)) %>">
-					<a class="btn" onclick="<%=uicomponent.event(uicomponent.ACTION_START_MEET)%>" href="$uicomponent.startMeetLink" target="_blank">
+        		<% // onclick "=uicomponent.event(uicomponent.ACTION_START_MEET)" %>
+					<a class="btn" href="$uicomponent.startMeetLink" target="_blank">
 							<%= uiForm.getLabel(uicomponent.hostUser && !uicomponent.meetStarted ? uicomponent.ACTION_START_MEET : uicomponent.ACTION_JOIN_MEET)%></a>
 				</span>
          	<%	} 

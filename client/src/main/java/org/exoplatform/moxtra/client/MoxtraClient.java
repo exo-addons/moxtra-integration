@@ -1548,7 +1548,7 @@ public class MoxtraClient {
       // params.put("end_time", meet.getEndTime().getTime());
       params.put("starts", formatDate(meet.getStartTime()));
       params.put("ends", formatDate(meet.getEndTime()));
-      params.put("auto_recording", meet.getAutoRecording());
+      params.put("auto_recording", meet.isAutoRecording());
       // TODO join_before_minutes
       try {
         RESTResponse resp = restRequest(API_MEETS_SCHEDULE,
@@ -1809,7 +1809,7 @@ public class MoxtraClient {
           haveUpdates = true;
         }
         if (meet.isAutoRecordingChanged()) {
-          params.put("auto_recording", meet.getAutoRecording());
+          params.put("auto_recording", meet.isAutoRecording());
           haveUpdates = true;
         }
         // TODO join_before_minutes

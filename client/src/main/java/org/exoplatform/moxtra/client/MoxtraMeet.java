@@ -376,12 +376,94 @@ public class MoxtraMeet extends MoxtraBinder {
   public String getStartMeetUrl() {
     return startMeetUrl != null ? startMeetUrl : (isEditor() ? original.getStartMeetUrl() : null);
   }
-  
+
   /**
-   * @return the status
+   * @return the meet status in Moxtra
    */
   public String getStatus() {
     return status != null ? status : (isEditor() ? original.getStatus() : null);
+  }
+
+  public boolean isStarted() {
+    return SESSION_STARTED.equals(getStatus());
+  }
+
+  /**
+   * Check if meet already had started and ended in Moxtra.
+   * 
+   * @return <code>true</code> if meet ended in Moxtra, <code>false</code> otherwise
+   */
+  public boolean isEnded() {
+    return SESSION_ENDED.equals(getStatus());
+  }
+
+  /**
+   * Check if meet scheduled in Moxtra.
+   * 
+   * @return <code>true</code> if meet scheduled in Moxtra, <code>false</code> otherwise
+   */
+  public boolean isScheduled() {
+    return SESSION_SCHEDULED.equals(getStatus());
+  }
+
+  /**
+   * Check if meet was deleted remotely in Moxtra. <br>
+   * Don't confuse this method with {@link #isDeleted()} which
+   * describes local state of this meet editor instance before the actual deletion in Moxtra.
+   * 
+   * @return <code>true</code> if meet removed in Moxtra, <code>false</code> otherwise
+   */
+  public boolean wasDeleted() {
+    return SESSION_DELETED.equals(getStatus());
+  }
+
+  /**
+   * Check if scheduled meet not already expired its planned end time.
+   * 
+   * @return <code>true</code> if end time already gone, <code>false</code> otherwise
+   */
+  public boolean isExpired() {
+    if (isScheduled()) {
+      // find if scheduled meet already expired its planned end time
+      Calendar now = Moxtra.getCalendar();
+      Date et = getEndTime();
+      if (et != null) {
+        Calendar endTime = Moxtra.getCalendar(et);
+        // Moxtra seems allow start schedule meet in next 10-15 min after its planned end
+        endTime.add(Calendar.MINUTE, 14);
+        return now.after(endTime);
+      } // end time will be not defined for started meet when reading it from Moxtra - not expired
+    }
+    return false;
+  }
+
+  /**
+   * Check if meet can be started. Meet can be started when it is in scheduled state and its start date is
+   * near current time (before 30 min if other not defined exactly for this meet). If meet wasn't started at
+   * planned time it still may be started during the planned day if other will not be defined by Moxtra API.<br>
+   * Note that this method doesn't cover a case for host user: he/she can start a meet in any time before the
+   * scheduled time.
+   * 
+   * @return <code>true</code> if meet can be started, <code>false</code> otherwise
+   */
+  public boolean canStart() {
+    if (getStartMeetUrl() != null) {
+      if (isStarted()) {
+        return true;
+      } else if (isEnded() || wasDeleted()) {
+        return false;
+      } else {
+        Calendar now = Moxtra.getCalendar();
+        Date st = getStartTime();
+        if (st != null) {
+          Calendar startTime = Moxtra.getCalendar(st);
+          // can start before 30min the actual date (it is default in Moxtra)
+          startTime.add(Calendar.MINUTE, -SESSION_START_BEFORE_MINUTES);
+          return (startTime.equals(now) || startTime.after(now)) && !isExpired();
+        } // else, it's smth unexpected - consider as cannot be started
+      }
+    }
+    return false;
   }
 
   /**
@@ -415,10 +497,18 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * @return the autoRecording
+   * @return {@link Boolean} the auto-recording flag for the meet, can be <code>null</code> when reading from Moxtra
    */
   public Boolean getAutoRecording() {
-    return autoRecording != null ? autoRecording : (isEditor() ? original.getAutoRecording() : false);
+    return autoRecording != null ? autoRecording : (isEditor() ? original.getAutoRecording() : null);
+  }
+  
+  /**
+   * Tells if auto-recording enabled for the meet.
+   */
+  public boolean isAutoRecording() {
+    Boolean autorec = getAutoRecording();
+    return autorec != null ? autorec : false;
   }
 
   /**

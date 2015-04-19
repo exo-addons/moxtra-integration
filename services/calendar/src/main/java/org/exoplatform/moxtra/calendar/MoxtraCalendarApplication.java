@@ -96,6 +96,13 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
   protected final ThreadLocal<UIForm>                    requestForm              = new ThreadLocal<UIForm>();
 
   /**
+   * Associated UICalendarViewContainer. Main purpose is caching to reduce UI children traversing in
+   * activation
+   * and completion (save or delete).
+   */
+  protected final ThreadLocal<UIContainer>               requestViewContainer     = new ThreadLocal<UIContainer>();
+
+  /**
    * Meets associated with components in the app.<br>
    * Components (forms) are stateful in general (like event form or calendar views). Additionally the same
    * instance can be used for different events. As result this map should be intialized in each request and
@@ -155,7 +162,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     if (isQuickAddForm(form)) {
       initQuickAddForm(form);
     } else {
-      initEventForm(form); // TODO not used
+      initEventForm(form); // not used
     }
   }
 
@@ -167,26 +174,13 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
   public void activate(UIApplication uiApp) {
     this.uiApp.set(uiApp); // for information mainly
 
-    // TODO cleanup
-    // UICalendarPortlet calendarPortlet = (UICalendarPortlet) uiApp;
-    // UICalendarWorkingContainer calContainer = uiApp.getChild(UICalendarWorkingContainer.class);
-    // if (calContainer != null) {
-    // if (LOG.isDebugEnabled()) {
-    // LOG.debug(">> activate: " + calContainer);
-    // }
-    //
-    // UIPopupWindow quickEventPopup = calContainer.getChildById("UIQuickAddEventPopupWindow");
-    // UIQuickAddEvent quickAddForm = (UIQuickAddEvent) quickEventPopup.getUIComponent();
-    // quickAddForm.addUIFormInput(new UICheckBoxInput("withMoxtraMeet", "withMoxtraMeet", false));
-    // }
-
     UIContainer calContainer = findComponent(uiApp, "UICalendarWorkingContainer");
     if (calContainer != null) {
       // *********** UIQuickAddEvent ***********
       // XXX We need activate quick-add form here also (together with activateForm() in template),
       // because we need a proper state on decode phase of a request for event form (and activateForm() will
       // do only in rendering phase, via UICalendarWorkingContainer.active() method)
-      List<UIPopupWindow> uiQuickAddPopups = new ArrayList<UIPopupWindow>();
+      // List<UIPopupWindow> uiQuickAddPopups = new ArrayList<UIPopupWindow>();
       // TODO UIQuickAddEvent doesn't have Moxtra checkbox temporarily
       // UIPopupWindow uiQuickAddEventPopup = calContainer.getChildById(QUICK_ADD_EVENT_POPUP_ID);
       // if (uiQuickAddEventPopup != null) {
@@ -196,49 +190,67 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       // if (uiQuickAddTaskPopup != null) {
       // uiQuickAddPopups.add(uiQuickAddTaskPopup);
       // }
-      for (UIPopupWindow uiQuickAddPopup : uiQuickAddPopups) {
-        // UIComponent popupComponent = uiQuickAddPopup.getUIComponent();
-        // if (popupComponent instanceof UIForm) {
-        // initQuickAddForm((UIForm) popupComponent);
-        // }
+      // for (UIPopupWindow uiQuickAddPopup : uiQuickAddPopups) {
+      // UIComponent popupComponent = uiQuickAddPopup.getUIComponent();
+      // if (popupComponent instanceof UIForm) {
+      // initQuickAddForm((UIForm) popupComponent);
+      // }
 
-        // TODO this stuff DOESN'T WORK via MoxtraLifecycle - as the popup will be added in rendering phase of
-        // the calendar portlet in UICalendarWorkingContainer.active() method.
-        // if (uiQuickAddPopup instanceof org.exoplatform.moxtra.calendar.webui.UIPopupWindow) {
-        // if (popupComponent != null && popupComponent instanceof UIForm) {
-        // try {
-        // initQuickAddForm((UIForm) popupComponent);
-        // } catch (Exception e) {
-        // LOG.error("Error reactivating existing popup window for quick-add form in Calendar app", e);
-        // }
-        // }
-        // } else {
-        // try {
-        // org.exoplatform.moxtra.calendar.webui.UIPopupWindow newPopupWindow =
-        // calContainer.addChild(org.exoplatform.moxtra.calendar.webui.UIPopupWindow.class,
-        // null,
-        // QUICK_ADD_EVENT_POPUP_ID);
-        // if (LOG.isDebugEnabled()) {
-        // LOG.debug(">> activate quick-add: " + newPopupWindow);
-        // }
-        // newPopupWindow.initMoxtra(this, true);
-        // newPopupWindow.setId(uiQuickAddPopup.getId());
-        // newPopupWindow.setRendered(uiQuickAddPopup.isRendered());
-        // calContainer.removeChildById(QUICK_ADD_EVENT_POPUP_ID);
-        // calContainer.addChild(newPopupWindow);
-        // } catch (Exception e) {
-        // LOG.error("Error creating new popup window for quick-add form in Calendar app", e);
-        // }
-        // }
-      }
+      // TODO this stuff DOESN'T WORK via MoxtraLifecycle - as the popup will be added in rendering phase of
+      // the calendar portlet in UICalendarWorkingContainer.active() method.
+      // if (uiQuickAddPopup instanceof org.exoplatform.moxtra.calendar.webui.UIPopupWindow) {
+      // if (popupComponent != null && popupComponent instanceof UIForm) {
+      // try {
+      // initQuickAddForm((UIForm) popupComponent);
+      // } catch (Exception e) {
+      // LOG.error("Error reactivating existing popup window for quick-add form in Calendar app", e);
+      // }
+      // }
+      // } else {
+      // try {
+      // org.exoplatform.moxtra.calendar.webui.UIPopupWindow newPopupWindow =
+      // calContainer.addChild(org.exoplatform.moxtra.calendar.webui.UIPopupWindow.class,
+      // null,
+      // QUICK_ADD_EVENT_POPUP_ID);
+      // if (LOG.isDebugEnabled()) {
+      // LOG.debug(">> activate quick-add: " + newPopupWindow);
+      // }
+      // newPopupWindow.initMoxtra(this, true);
+      // newPopupWindow.setId(uiQuickAddPopup.getId());
+      // newPopupWindow.setRendered(uiQuickAddPopup.isRendered());
+      // calContainer.removeChildById(QUICK_ADD_EVENT_POPUP_ID);
+      // calContainer.addChild(newPopupWindow);
+      // } catch (Exception e) {
+      // LOG.error("Error creating new popup window for quick-add form in Calendar app", e);
+      // }
+      // }
+      // }
 
       // ********** UICalendarViewContainer with calendar views ***********
       UIContainer viewContainer = findComponent(uiApp, "UICalendarViewContainer");
       if (viewContainer != null) {
-        // search for classes created from UICalendarView or implementing CalendarView
-        UIForm viewForm = findChildBySuperType(viewContainer, "UICalendarView");
-        if (viewForm != null) {
-          initViewForm(viewForm);
+        this.requestViewContainer.set(viewContainer);
+        UIComponent renderedComp;
+        try {
+          renderedComp = (UIComponent) MethodUtils.invokeMethod(viewContainer, "getRenderedChild", null);
+        } catch (Exception e) {
+          // ignore error, try get from the container directly
+          // search for classes implementing CalendarView
+          renderedComp = findRenderedChildByInterface(viewContainer, "CalendarView");
+        }
+        if (renderedComp != null) {
+          if (renderedComp instanceof UIForm) {
+            initViewForm((UIForm) renderedComp);
+          } else {
+            // but for UIListView it lies in a UIListContainer
+            if (renderedComp instanceof UIContainer) {
+              // there are two comps in list container: UIListView and UIPreview, we use list view in the app
+              UIForm listForm = findComponent((UIContainer) renderedComp, "UIListView");
+              if (listForm != null && listForm.isRendered()) {
+                initViewForm(listForm);
+              }
+            }
+          }
         }
       }
     }
@@ -293,6 +305,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       this.requestForm.remove();
       this.meets.remove(form);
     }
+    this.requestViewContainer.remove();
   }
 
   public void initEventFormContainer(UIContainer formContainer) {
@@ -343,22 +356,21 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       // XXX obtain CalendarEvent in nasty way... we have no other way
       String eventId;
       CalendarEvent event;
-      // String eventId = (String) MethodUtils.invokeMethod(form, "getLastUpdatedEventId", null);
       String objId = WebuiRequestContext.getCurrentInstance().getRequestParameter(UIComponent.OBJECTID);
       if (objId != null && objId.startsWith("Event")) {
-        // grabbed from UIWeekView
-        // String calType = event.getRequestContext().getRequestParameter(eventId + CALTYPE);
-        // "eventId + CALTYPE" for event move
-        // "calType" for even delete
         eventId = objId;
       } else {
-        // it may be set for UIMonthView request
+        // it will be set for UIMonthView request
         eventId = WebuiRequestContext.getCurrentInstance().getRequestParameter(UICalendarView.EVENTID);
-      }
-      if (eventId == null) {
-        // XXX this will be correct only in case of Deletion Confirmation popup submit, otherwise this field
-        // persts in the form even in next requests
-        eventId = (String) FieldUtils.readField(form, "singleDeletedEventId", true);
+        if (eventId == null) {
+          // this method field will be set by UIListView, UIDayView and UIWeekView
+          eventId = (String) MethodUtils.invokeMethod(form, "getLastUpdatedEventId", null);
+          if (eventId == null) {
+            // XXX this will be correct only in case of Deletion Confirmation popup submit, otherwise this
+            // field persists in the form even in next requests
+            eventId = (String) FieldUtils.readField(form, "singleDeletedEventId", true);
+          }
+        }
       }
       if (eventId != null) {
         event = moxtra.getEvent(eventId);
@@ -596,22 +608,6 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     return meet != null ? !meet.isDeleted() : false;
   }
 
-  /**
-   * Check if Moxtra meet can be start.<br>
-   * 
-   * @return boolean <code>true</code> if meet can be started, <code>false</code> otherwise
-   * @throws MoxtraCalendarException
-   */
-  public boolean canStartMeet() throws MoxtraCalendarException {
-    MoxtraMeet meet = meet();
-    if (meet != null) {
-      Date startTime = meet.getStartTime();
-      Date now = Calendar.getInstance().getTime();
-      return startTime.equals(now) || startTime.after(now);
-    }
-    return false;
-  }
-
   public boolean isActivated() {
     return this.requestForm.get() != null;
   }
@@ -673,11 +669,19 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
   }
 
   public void saveMeet() throws Exception {
-    String eventId = getLastUpdatedEventId();
-    if (eventId != null) {
-      String calendarId = getEventCalendarId(); // can be null, but saveMeet() can handle it
-      CalendarEvent event = moxtra().getEvent(eventId);
-      moxtra().saveMeet(calendarId, event);
+    Set<String> eventIds = getEventIds();
+    if (eventIds.size() > 0) {
+      // this way we handle several events
+      // TODO ensure multiple selection supported in other places
+      for (String eventId : eventIds) {
+        String calendarId = getEventCalendarId(); // can be null, but saveMeet() can handle it
+        CalendarEvent event = moxtra().getEvent(eventId);
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(">> saveMeet: event " + eventId + " \"" + event.getSummary() + "\""
+              + (calendarId != null ? " in " + calendarId : ""));
+        }
+        moxtra().saveMeet(calendarId, event);
+      }
     } else {
       LOG.error("Error saving meet: cannot find event id");
       throw new MoxtraCalendarException("Error saving meet: cannot find event id");
@@ -722,20 +726,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     // // }
     // // }
     // }
-    // if (meet != null) {
-    // this.meets.put(form, meet);
-    // }
-    // } else {
-    // // meet already enabled by quick-add form
-    // if (LOG.isDebugEnabled()) {
-    // LOG.debug("Using existing meet (enabled by quick-add form) for " + form);
-    // }
-    // }
-    // }
 
-    // this.form = form;
-    // this.userName = PortalRequestContext.getCurrentInstance().getRemoteUser();
-    // this.moxtra = (MoxtraCalendarService) form.getApplicationComponent(MoxtraCalendarService.class);
     this.requestForm.set(form);
     moxtra().initContext(this);
   }
@@ -779,26 +770,117 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    */
   @SuppressWarnings("unchecked")
   protected <T extends UIComponent> T findChildBySuperType(UIContainer container, String superTypeName) {
-    // TODO kind of caching could do a good job here as traversing isn't best approach from perf POV
-    // (thread-local caching)
+    List<T> childs = findChildsBySuperType(container, superTypeName, false);
     T child = null;
-    for (UIComponent cc : container.getChildren()) {
-      Class<?> superType = cc.getClass().getSuperclass();
-      if (superType != null && superType.getSimpleName().equals(superTypeName)) {
-        if (child != null) {
-          if (cc.isRendered()) {
-            child = (T) cc;
-            break;
-          }
-        } else {
+    for (UIComponent cc : childs) {
+      if (child != null) {
+        if (cc.isRendered()) {
           child = (T) cc;
-          if (cc.isRendered()) {
-            break;
-          }
+          break;
+        }
+      } else {
+        child = (T) cc;
+        if (cc.isRendered()) {
+          break;
         }
       }
     }
     return child;
+  }
+
+  /**
+   * Find first rendered UI component in children of given container by a super type name. <br>
+   * 
+   * @param container {@link UIContainer}
+   * @param superTypeName {@link String}
+   * @return {@link UIComponent} or <code>null</code>
+   */
+  @SuppressWarnings("unchecked")
+  protected <T extends UIComponent> T findRenderedChildBySuperType(UIContainer container, String superTypeName) {
+    // TODO kind of caching could do a good job here as traversing isn't best approach from perf POV
+    // (thread-local caching)
+    List<T> childs = findChildsBySuperType(container, superTypeName, false);
+    for (UIComponent cc : childs) {
+      if (cc.isRendered()) {
+        return (T) cc;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find UI component children in given container by a super type name. <br>
+   * 
+   * @param container {@link UIContainer}
+   * @param superTypeName {@link String}
+   * @return {@link UIComponent} or <code>null</code>
+   */
+  @SuppressWarnings("unchecked")
+  protected <T extends UIComponent> List<T> findChildsBySuperType(UIContainer container,
+                                                                  String superTypeName,
+                                                                  boolean deep) {
+    // TODO kind of caching could do a good job here as traversing isn't best approach from perf POV
+    // (thread-local caching)
+    List<T> childs = new ArrayList<T>();
+    for (UIComponent cc : container.getChildren()) {
+      Class<?> superType = cc.getClass().getSuperclass();
+      if (superType != null && superType.getSimpleName().equals(superTypeName)) {
+        childs.add((T) cc);
+        if (deep && cc instanceof UIContainer) {
+          List<T> ccChilds = findChildsBySuperType((UIContainer) cc, superTypeName, deep);
+          childs.addAll(ccChilds);
+        }
+      }
+    }
+    return childs;
+  }
+
+  /**
+   * Find first rendered UI component in children of given container by an interface name. <br>
+   * 
+   * @param container {@link UIContainer}
+   * @param interfaceName {@link String}
+   * @return {@link UIComponent} or <code>null</code>
+   */
+  @SuppressWarnings("unchecked")
+  protected <T extends UIComponent> T findRenderedChildByInterface(UIContainer container, String interfaceName) {
+    // TODO kind of caching could do a good job here as traversing isn't best approach from perf POV
+    // (thread-local caching)
+    List<T> childs = findChildsByInterface(container, interfaceName, false);
+    for (UIComponent cc : childs) {
+      if (cc.isRendered()) {
+        return (T) cc;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find UI component children in given container by an interface name. <br>
+   * 
+   * @param container {@link UIContainer}
+   * @param interfaceName {@link String}
+   * @return {@link UIComponent} or <code>null</code>
+   */
+  @SuppressWarnings("unchecked")
+  protected <T extends UIComponent> List<T> findChildsByInterface(UIContainer container,
+                                                                  String interfaceName,
+                                                                  boolean deep) {
+    // TODO kind of caching could do a good job here as traversing isn't best approach from perf POV
+    // (thread-local caching)
+    List<T> childs = new ArrayList<T>();
+    for (UIComponent cc : container.getChildren()) {
+      for (Class<?> interfaceType : cc.getClass().getInterfaces()) {
+        if (interfaceType.getSimpleName().equals(interfaceName)) {
+          childs.add((T) cc);
+          if (deep && cc instanceof UIContainer) {
+            List<T> ccChilds = findChildsByInterface((UIContainer) cc, interfaceName, deep);
+            childs.addAll(ccChilds);
+          }
+        }
+      }
+    }
+    return childs;
   }
 
   /**
@@ -863,50 +945,77 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     return null;
   }
 
-  protected String getLastUpdatedEventId() {
+  /**
+   * Event ids associated with current context (updated or deleted in the request).
+   * 
+   * @return {@link Set} of {@link String} with event ids
+   */
+  protected Set<String> getEventIds() {
     // TODO may be search for event id from an action code of concrete form? it will be more accurate
-    String eventId = null;
-    UIForm form = this.requestForm.get();
-    if (form != null) {
-      // FIXME similar code in activate()
-      UIApplication uiApp = this.uiApp.get();
-      UIContainer viewContainer = findComponent(uiApp, "UICalendarViewContainer");
-      if (viewContainer != null) {
-        // search for classes created from UICalendarView or implementing CalendarView
-        UIForm viewForm = findChildBySuperType(viewContainer, "UICalendarView");
-        if (viewForm != null) {
-          try {
-            eventId = (String) MethodUtils.invokeMethod(viewForm, "getLastUpdatedEventId", null);
-          } catch (Exception e) {
-            // ignore
-          }
-          // try as for UIListView and single event op
-          if (eventId == null || eventId.length() == 0) {
-            try {
-              eventId = (String) MethodUtils.invokeMethod(viewForm, "getSelectedEvent", null);
-            } catch (Exception e) {
-              // ignore
-            }
-          }
-          // try as for UIMonthView or UIListView and multiple events move
-          if (eventId == null || eventId.length() == 0) {
-            try {
-              @SuppressWarnings("unchecked")
-              List<CalendarEvent> events = (List<CalendarEvent>) MethodUtils.invokeMethod(viewForm,
-                                                                                          "getSelectedEvents",
-                                                                                          null);
-              if (events != null && events.size() > 0) {
-                // FIXME it's bad thing below, need better logic to extract an event
-                eventId = events.get(0).getId();
-              }
-            } catch (Exception e) {
-              // ignore
-            }
-          }
+    Set<String> eventIds = new LinkedHashSet<String>();
+    UIContainer viewContainer = this.requestViewContainer.get();
+    if (viewContainer != null) {
+      // FYI first source could be a request form, but as for UIEventForm it itself saves last saved eventId
+      // in its calendarView, thus we read that value and do similarly for others usecases
+      // UIApplication uiApp = this.uiApp.get();
+      // UIContainer viewContainer = findComponent(uiApp, "UICalendarViewContainer");
+      UIComponent viewForm;
+      try {
+        viewForm = (UIComponent) MethodUtils.invokeMethod(viewContainer, "getRenderedChild", null);
+      } catch (Exception e) {
+        // ignore error, try get from the container directly
+        // search for classes implementing CalendarView
+        viewForm = findRenderedChildByInterface(viewContainer, "CalendarView");
+      }
+      String eventId = null;
+      if (viewForm != null) {
+        try {
+          // method of CalendarView
+          eventId = (String) MethodUtils.invokeMethod(viewForm, "getLastUpdatedEventId", null);
+        } catch (Exception e) {
+          // ignore
         }
       }
+      // TODO cleanup
+      // if (eventId == null) {
+      // // try as for UIListView and single event
+      // UIContainer listContainer = findComponent(viewContainer, "UIListContainer");
+      // if (listContainer != null && listContainer.isRendered()) {
+      // viewForm = findComponent(viewContainer, "UIListView");
+      // if (viewForm != null && viewForm.isRendered()) {
+      // try {
+      // // TODO MethodUtils.invokeMethod(listContainer, "getLastUpdatedEventId", null)
+      // eventId = (String) MethodUtils.invokeMethod(viewForm, "getSelectedEvent", null);
+      // } catch (Exception e) {
+      // // ignore
+      // }
+      // }
+      // }
+      // }
+      if (eventId != null) {
+        eventIds.add(eventId);
+      } else if (viewForm != null && viewForm.isRendered()) {
+        // final attempt to find in multiple selection
+        // try as for UIMonthView or UIListView and multiple events move
+        // XXX but this approach may return wrong events: selected doesn't mean updated
+        try {
+          @SuppressWarnings("unchecked")
+          List<CalendarEvent> events = (List<CalendarEvent>) MethodUtils.invokeMethod(viewForm,
+                                                                                      "getSelectedEvents",
+                                                                                      null);
+          if (events != null) {
+            for (CalendarEvent ce : events) {
+              eventIds.add(ce.getId());
+            }
+          }
+        } catch (Exception e) {
+          // ignore
+        }
+      }
+    } else if (LOG.isDebugEnabled()) {
+      LOG.debug("<<< requestViewContainer not set for " + this.requestForm.get());
     }
-    return eventId;
+    return eventIds;
   }
 
   /**
@@ -1064,7 +1173,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       mergedConfigs.add(original);
     }
   }
-  
+
   @Deprecated
   protected MoxtraMeet getEventMeet(String eventId) {
     SoftReference<MoxtraMeet> mref = this.eventMeets.get(eventId);
@@ -1076,5 +1185,5 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     }
     return null;
   }
-  
+
 }

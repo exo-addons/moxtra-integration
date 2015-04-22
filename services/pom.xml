@@ -33,6 +33,7 @@
 
   <modules>
     <module>calendar</module>
+    <module>meet-button</module>
     <!-- module>social</module -->
   </modules>
 </project>

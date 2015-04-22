@@ -42,17 +42,17 @@ import java.util.WeakHashMap;
  */
 public class MoxtraApplicationActivator extends BaseComponentPlugin {
 
-  public static final String CONF_APP_TYPE       = "app-type";
+  public static final String                            CONF_APP_TYPE       = "app-type";
 
-  public static final String CONF_COMPONENT_TYPE = "component-type";
+  public static final String                            CONF_COMPONENT_TYPE = "component-type";
 
-  public static final String CONF_COMPONENT_ID   = "component-id";
+  public static final String                            CONF_COMPONENT_ID   = "component-id";
 
-  protected static final Log                            LOG  = ExoLogger.getLogger(MoxtraApplicationActivator.class);
+  protected static final Log                            LOG                 = ExoLogger.getLogger(MoxtraApplicationActivator.class);
 
   protected final Map<String, String>                   config;
 
-  protected final Map<UIApplication, MoxtraApplication> apps = new WeakHashMap<UIApplication, MoxtraApplication>();
+  protected final Map<UIApplication, MoxtraApplication> apps                = new WeakHashMap<UIApplication, MoxtraApplication>();
 
   /**
    * @throws ConfigurationException
@@ -88,7 +88,8 @@ public class MoxtraApplicationActivator extends BaseComponentPlugin {
    */
   public boolean isCompatible(UIApplication uiApp) {
     boolean res;
-    if (getComponentId().equals(uiApp.getId())) {
+    String compId = getComponentId();
+    if (compId == null || compId.equals(uiApp.getId())) {
       res = true;
     } else {
       res = false;
@@ -148,7 +149,11 @@ public class MoxtraApplicationActivator extends BaseComponentPlugin {
       }
     }
 
-    app.activate(uiApp);
+    if (app != null) {
+      app.activate(uiApp);
+    } else {
+      LOG.warn("Moxtra app not found or cannot be initialized for " + uiApp);
+    }
   }
 
   /**

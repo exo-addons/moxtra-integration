@@ -52,6 +52,12 @@
     </dependency>
     <dependency>
       <groupId>org.exoplatform.addons</groupId>
+      <artifactId>exo-moxtra-services-meet-button</artifactId>
+      <scope>compile</scope>
+      <type>jar</type>
+    </dependency>
+    <dependency>
+      <groupId>org.exoplatform.addons</groupId>
       <artifactId>exo-moxtra-config</artifactId>
       <scope>compile</scope>
       <type>jar</type>

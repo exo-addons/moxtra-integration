@@ -10,6 +10,7 @@
   def currentUser = CalendarUtils.getCurrentUser()
   requireJS.require('SHARED/exoMoxtra','moxtra')
   requireJS.addScripts("moxtra.initUser(\"$currentUser\", $uicomponent.authorized);")
+  requireJS.addScripts("moxtra.initCalendar();")
   
   /**
    * TODO NOT USED

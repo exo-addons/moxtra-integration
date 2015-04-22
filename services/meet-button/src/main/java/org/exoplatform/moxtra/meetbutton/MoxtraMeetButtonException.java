@@ -16,44 +16,30 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.moxtra.webui;
+package org.exoplatform.moxtra.meetbutton;
 
-import org.exoplatform.webui.core.UIApplication;
+import org.exoplatform.moxtra.MoxtraException;
 
 /**
- * Moxtra application configuration in eXo Platform.<br>
+ * Moxtra Meet button error.<br>
  * 
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraApplication.java 00000 Mar 11, 2015 pnedonosko $
+ * @version $Id: MoxtraMeetButtonException.java 00000 Mar 29, 2015 pnedonosko $
  * 
  */
-public interface MoxtraApplication {
-
-  public static final String                 USER_INIT_SCRIPT       = "MoxtraUserInitScript".intern();
-  
-  
-  /**
-   * Application initialization. Should be done before using activate/deactivate methods.
-   */
-  void init();
-  
-  /**
-   * Activate Moxtra support in the app.
-   * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
-   */
-  void activate(UIApplication uiApp);
+public class MoxtraMeetButtonException extends MoxtraException {
 
   /**
-   * Deactivate Moxtra support in the app.
    * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
    */
-  void deactivate(UIApplication uiApp);
+  private static final long serialVersionUID = 4300807987960404480L;
+
+  /**
+   * @param message
+   */
+  public MoxtraMeetButtonException(String message) {
+    super(message);
+  }
 }

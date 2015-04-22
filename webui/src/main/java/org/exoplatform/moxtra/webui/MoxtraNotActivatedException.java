@@ -18,42 +18,28 @@
  */
 package org.exoplatform.moxtra.webui;
 
-import org.exoplatform.webui.core.UIApplication;
+import org.exoplatform.moxtra.MoxtraException;
 
 /**
- * Moxtra application configuration in eXo Platform.<br>
+ * Moxtra application not activated for current WebUI component.<br>
  * 
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraApplication.java 00000 Mar 11, 2015 pnedonosko $
+ * @version $Id: MoxtraNotActivatedException.java 00000 Apr 16, 2015 pnedonosko $
  * 
  */
-public interface MoxtraApplication {
-
-  public static final String                 USER_INIT_SCRIPT       = "MoxtraUserInitScript".intern();
-  
-  
-  /**
-   * Application initialization. Should be done before using activate/deactivate methods.
-   */
-  void init();
-  
-  /**
-   * Activate Moxtra support in the app.
-   * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
-   */
-  void activate(UIApplication uiApp);
+public class MoxtraNotActivatedException extends MoxtraException {
 
   /**
-   * Deactivate Moxtra support in the app.
    * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
    */
-  void deactivate(UIApplication uiApp);
+  private static final long serialVersionUID = -8474867227597444079L;
+
+  /**
+   * @param message
+   */
+  public MoxtraNotActivatedException(String message) {
+    super(message);
+  }
 }

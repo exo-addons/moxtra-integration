@@ -104,6 +104,12 @@
       </dependency>
       <dependency>
         <groupId>org.exoplatform.addons</groupId>
+        <artifactId>exo-moxtra-services-meet-button</artifactId>
+        <version>${project.version}</version>
+        <type>jar</type>
+      </dependency>
+      <dependency>
+        <groupId>org.exoplatform.addons</groupId>
         <artifactId>exo-moxtra-webapp</artifactId>
         <version>${project.version}</version>
         <type>war</type>

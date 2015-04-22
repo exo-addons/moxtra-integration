@@ -34,6 +34,8 @@ import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.webui.MoxtraApplication;
+import org.exoplatform.moxtra.webui.MoxtraNotActivatedException;
+import org.exoplatform.moxtra.webui.MoxtraNotInitializedException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.webui.application.WebuiApplication;
@@ -51,8 +53,6 @@ import org.exoplatform.webui.form.UIFormStringInput;
 
 import java.lang.ref.SoftReference;
 import java.util.ArrayList;
-import java.util.Calendar;
-import java.util.Date;
 import java.util.HashSet;
 import java.util.Iterator;
 import java.util.LinkedHashSet;
@@ -142,11 +142,11 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     this.moxtra = (MoxtraCalendarService) container.getComponentInstanceOfType(MoxtraCalendarService.class);
   }
 
-  public boolean isAuthorized() throws MoxtraCalendarException {
+  public boolean isAuthorized() throws MoxtraNotInitializedException {
     return moxtra().isAuthorized();
   }
 
-  public String getAuthorizationLink() throws MoxtraCalendarException,
+  public String getAuthorizationLink() throws MoxtraNotInitializedException,
                                       OAuthSystemException,
                                       MoxtraConfigurationException {
     return moxtra().getOAuth2Link();
@@ -516,7 +516,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     // }
   }
 
-  public MoxtraMeet enableMeet() throws MoxtraCalendarException {
+  public MoxtraMeet enableMeet() throws MoxtraNotActivatedException {
     if (LOG.isDebugEnabled()) {
       LOG.debug(">> enableMeet: " + uiApp.get());
     }
@@ -546,7 +546,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     return meet;
   }
 
-  public MoxtraMeet disableMeet() throws MoxtraCalendarException {
+  public MoxtraMeet disableMeet() throws MoxtraNotActivatedException {
     if (LOG.isDebugEnabled()) {
       LOG.debug(">> disableMeet: " + uiApp.get());
     }
@@ -573,9 +573,10 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    * return {@link MoxtraMeetNotFoundException}.
    * 
    * @return {@link MoxtraMeet} instance
-   * @throws MoxtraCalendarException
+   * @throws MoxtraNotActivatedException
+   * @throws MoxtraMeetNotFoundException
    */
-  public MoxtraMeet getMeet() throws MoxtraCalendarException {
+  public MoxtraMeet getMeet() throws MoxtraNotActivatedException, MoxtraMeetNotFoundException {
     MoxtraMeet meet = meet();
     if (meet != null) {
       return meet;
@@ -588,10 +589,10 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    * deleting.<br>
    * 
    * @return boolean <code>true</code> if meet available to get it, <code>false</code> otherwise
-   * @throws MoxtraCalendarException
+   * @throws MoxtraNotActivatedException
    * @see {@link #getMeet()}
    */
-  public boolean hasMeet() throws MoxtraCalendarException {
+  public boolean hasMeet() throws MoxtraNotActivatedException {
     MoxtraMeet meet = meet();
     return meet != null;
   }
@@ -600,10 +601,10 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    * Check if Moxtra meet enabled for this app.<br>
    * 
    * @return boolean <code>true</code> if meet enabled, <code>false</code> otherwise
-   * @throws MoxtraCalendarException
+   * @throws MoxtraNotActivatedException
    * @see {@link #getMeet()}
    */
-  public boolean isMeetEnabled() throws MoxtraCalendarException {
+  public boolean isMeetEnabled() throws MoxtraNotActivatedException {
     MoxtraMeet meet = meet();
     return meet != null ? !meet.isDeleted() : false;
   }
@@ -1061,16 +1062,16 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     // }
   }
 
-  protected MoxtraCalendarService moxtra() throws MoxtraCalendarException {
+  protected MoxtraCalendarService moxtra() throws MoxtraNotInitializedException {
     MoxtraCalendarService moxtra = this.moxtra;
     if (moxtra != null) {
       return moxtra;
     } else {
-      throw new MoxtraCalendarException("Moxtra application not initialized");
+      throw new MoxtraNotInitializedException("Moxtra application not initialized");
     }
   }
 
-  protected UIForm form() throws MoxtraCalendarException {
+  protected UIForm form() throws MoxtraNotActivatedException {
     UIForm form = this.requestForm.get();
     if (form != null) {
       return form;
@@ -1086,8 +1087,10 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    * @param userName
    * @return {@link MoxtraMeet} instance for already enabled meet or <code>null</code>
    * @throws MoxtraCalendarException
+   * @throws MoxtraNotInitializedException
    */
-  protected MoxtraMeet findFormMeet(UIForm form) throws MoxtraCalendarException {
+  protected MoxtraMeet findFormMeet(UIForm form) throws MoxtraNotInitializedException,
+                                                MoxtraCalendarException {
     // XXX obtain CalendarEvent in nasty way... we have no other way
     try {
       CalendarEvent event = (CalendarEvent) FieldUtils.readField(form, "calendarEvent_", true);
@@ -1111,7 +1114,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     }
   }
 
-  protected MoxtraMeet meet() throws MoxtraCalendarException {
+  protected MoxtraMeet meet() throws MoxtraNotActivatedException {
     MoxtraMeet meet = this.meets.get(form());
     return meet;
   }

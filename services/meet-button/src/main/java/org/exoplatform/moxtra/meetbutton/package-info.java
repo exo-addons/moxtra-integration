@@ -16,29 +16,7 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.moxtra.calendar;
-
 /**
- * Moxtra application not activated for current WebUI component.<br>
- * 
- * Created by The eXo Platform SAS
- * 
- * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraNotActivatedException.java 00000 Apr 16, 2015 pnedonosko $
- * 
+ * Add Meet Button to eXo user profiles and popups.
  */
-public class MoxtraNotActivatedException extends MoxtraCalendarException {
-
-  /**
-   * 
-   */
-  private static final long serialVersionUID = -8474867227597444079L;
-
-  /**
-   * @param message
-   */
-  public MoxtraNotActivatedException(String message) {
-    super(message);
-    // TODO Auto-generated constructor stub
-  }
-}
+package org.exoplatform.moxtra.meetbutton;

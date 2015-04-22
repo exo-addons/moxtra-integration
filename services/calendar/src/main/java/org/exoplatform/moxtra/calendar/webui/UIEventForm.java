@@ -20,11 +20,10 @@ package org.exoplatform.moxtra.calendar.webui;
 
 import org.exoplatform.calendar.service.Utils;
 import org.exoplatform.moxtra.calendar.MoxtraCalendarException;
-import org.exoplatform.moxtra.calendar.MoxtraNotActivatedException;
 import org.exoplatform.moxtra.calendar.webui.UIEventForm.AddParticipantActionListener;
 import org.exoplatform.moxtra.calendar.webui.UIEventForm.CancelActionListener;
 import org.exoplatform.moxtra.calendar.webui.UIEventForm.SaveActionListener;
-import org.exoplatform.moxtra.client.MoxtraMeet;
+import org.exoplatform.moxtra.webui.MoxtraNotActivatedException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.web.application.ApplicationMessage;

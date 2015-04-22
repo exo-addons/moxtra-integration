@@ -16,44 +16,43 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.moxtra.webui;
-
-import org.exoplatform.webui.core.UIApplication;
+package org.exoplatform.moxtra;
 
 /**
- * Moxtra application configuration in eXo Platform.<br>
+ * Runtime Moxtra error.<br>
  * 
- * Created by The eXo Platform SAS
+ * Created by The eXo Platform SAS.
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraApplication.java 00000 Mar 11, 2015 pnedonosko $
+ * @version $Id: MoxtraException.java 00000 Feb 26, 2015 pnedonosko $
  * 
  */
-public interface MoxtraApplication {
-
-  public static final String                 USER_INIT_SCRIPT       = "MoxtraUserInitScript".intern();
-  
-  
-  /**
-   * Application initialization. Should be done before using activate/deactivate methods.
-   */
-  void init();
-  
-  /**
-   * Activate Moxtra support in the app.
-   * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
-   */
-  void activate(UIApplication uiApp);
+public class MoxtraRuntimeException extends RuntimeException {
 
   /**
-   * Deactivate Moxtra support in the app.
    * 
-   * @param uiApp {@link UIApplication} WebUI app instance
-   * 
-   * @see #isCompatible(UIApplication)
    */
-  void deactivate(UIApplication uiApp);
+  private static final long serialVersionUID = 5974505546580589166L;
+
+  /**
+   * @param message
+   */
+  public MoxtraRuntimeException(String message) {
+    super(message);
+  }
+
+  /**
+   * @param cause
+   */
+  public MoxtraRuntimeException(Throwable cause) {
+    super(cause);
+  }
+
+  /**
+   * @param message
+   * @param cause
+   */
+  public MoxtraRuntimeException(String message, Throwable cause) {
+    super(message, cause);
+  }
 }

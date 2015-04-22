@@ -17,10 +17,6 @@
  def moxtraTab = formContainer.findComponentById(UIEmeetingTab.class.getSimpleName())
  def moxtra = moxtraTab.moxtra
  
- // eXo Moxtra script not required here as UIEmeetingTab add it
- //def currentUser = CalendarUtils.getCurrentUser()
- //requireJS.require('SHARED/exoMoxtra','moxtra')
- //requireJS.addScripts("moxtra.initUser(\"$currentUser\", $moxtra.authorized);")
 %>
 <%uiForm.begin()%>
 <div id="$uicomponent.id" class="uiInvitationForm resizable">

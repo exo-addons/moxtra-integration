@@ -328,10 +328,10 @@ public class MoxtraCalendarService {
                                            event.getId());
             if (eventNode != null) {
               MoxtraClient moxtra = moxtraService.getClient();
-              if (meet.isDeleted()) {
+              if (meet.hasDeleted()) {
                 // created new meet also can be marked as deleted (don't delete not created yet meet)
                 if (!meet.isNew()) {
-                  boolean cancelVideoDownload = meet.isAutoRecording() || meet.isAutoRecordingChanged();
+                  boolean cancelVideoDownload = meet.isAutoRecording() || meet.hasAutoRecordingChanged();
                   moxtra.deleteMeet(meet);
                   JCR.removeServices(eventNode);
                   if (cancelVideoDownload) {
@@ -372,9 +372,9 @@ public class MoxtraCalendarService {
                     throw new MoxtraCalendarException("Meet not enabled for this event " + event.getSummary());
                   }
                   // if auto-record enabled and end time changed
-                  boolean updateVideoDownload = meet.isAutoRecording() && meet.isEndTimeChanged();
+                  boolean updateVideoDownload = meet.isAutoRecording() && meet.hasEndTimeChanged();
                   // if auto-record was disabled
-                  boolean cancelVideoDownload = !meet.isAutoRecording() && meet.isAutoRecordingChanged();
+                  boolean cancelVideoDownload = !meet.isAutoRecording() && meet.hasAutoRecordingChanged();
                   moxtra.updateMeet(meet);
                   meetNode = JCR.getMeet(eventNode);
                   // update meet using local meet editor
@@ -818,7 +818,7 @@ public class MoxtraCalendarService {
       if (meet.isEditor()) {
         // update local users
         Node usersNode = JCR.getUsers(meetNode);
-        if (meet.isUsersRemoved()) {
+        if (meet.hasUsersRemoved()) {
           for (MoxtraUser removed : meet.getRemovedUsers()) {
             try {
               usersNode.getNode(removed.getEmail()).remove();
@@ -827,7 +827,7 @@ public class MoxtraCalendarService {
             }
           }
         }
-        if (meet.isUsersAdded()) {
+        if (meet.hasUsersAdded()) {
           for (MoxtraUser participant : meet.getAddedUsers()) {
             Node pnode = usersNode.addNode(participant.getEmail());
             JCR.setId(pnode, participant.getId());

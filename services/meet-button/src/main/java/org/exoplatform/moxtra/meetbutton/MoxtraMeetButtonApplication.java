@@ -30,7 +30,6 @@ import org.exoplatform.moxtra.webui.MoxtraNotActivatedException;
 import org.exoplatform.moxtra.webui.MoxtraNotInitializedException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.services.security.ConversationState;
 import org.exoplatform.web.application.JavascriptManager;
 import org.exoplatform.web.application.RequireJS;
 import org.exoplatform.webui.application.WebuiApplication;
@@ -86,7 +85,7 @@ public class MoxtraMeetButtonApplication implements MoxtraApplication {
     return moxtra().getClient().isAuthorized();
   }
 
-  public String getAuthorizationLink() throws OAuthSystemException, MoxtraConfigurationException {
+  public String getAuthorizationLink() throws OAuthSystemException {
     return moxtra().getClient().authorizer().authorizationLink();
   }
 
@@ -102,45 +101,36 @@ public class MoxtraMeetButtonApplication implements MoxtraApplication {
     String appId = uiApp.getId();
     if (appId.equals("UISpaceActivityStreamPortlet") || appId.equals("UIUserActivityStreamPortlet")
         || appId.equals("UIMembersPortlet") || appId.equals("UIAllPeoplePortlet")
-        || appId.equals("UIConnectionsPortlet")) {
+        || appId.equals("UIProfilePortlet") || appId.equals("UIConnectionsPortlet")) {
+      try {
+        WebuiRequestContext requestContext = (WebuiRequestContext) WebuiRequestContext.getCurrentInstance();
+        JavascriptManager jsManager = requestContext.getJavascriptManager();
+        RequireJS requireJS = jsManager.getRequireJS();
 
-      WebuiRequestContext requestContext = (WebuiRequestContext) WebuiRequestContext.getCurrentInstance();
-      JavascriptManager jsManager = requestContext.getJavascriptManager();
-      RequireJS requireJS = jsManager.getRequireJS();
+        Object obj = requestContext.getAttribute(USER_INIT_SCRIPT);
+        if (obj == null) {
+          String userName = requestContext.getRemoteUser();
+          if (LOG.isDebugEnabled()) {
+            LOG.debug(">> Activating app for Meet Button: " + uiApp + ", user " + userName);
+          }
 
-      Object obj = requestContext.getAttribute(USER_INIT_SCRIPT);
-      if (obj == null) {
-        String userName = requestContext.getRemoteUser();
-        if (LOG.isDebugEnabled()) {
-          LOG.debug(">> Activating app for Meet Button: " + uiApp + ", user " + userName);
-        }
-        try {
           String authLink = getAuthorizationLink();
           // requireJS.require("SHARED/jquery", "$");
           // requireJS.addScripts("$('a.moxtraAuthLink').tooltip('show');");
           requireJS.require("SHARED/exoMoxtra", "moxtra");
-          requireJS.addScripts("moxtra.initUser('" + userName + "', '" + isAuthorized() + "', '" + authLink
+          requireJS.addScripts("moxtra.initUser('" + userName + "', " + isAuthorized() + ", '" + authLink
               + "');");
           requestContext.setAttribute(USER_INIT_SCRIPT, userName);
-        } catch (OAuthSystemException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
-        } catch (MoxtraConfigurationException e) {
-          // TODO Auto-generated catch block
-          e.printStackTrace();
+        } else {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("<< Application already activated for Meet Button: " + uiApp + ", user " + obj);
+          }
         }
-      } else {
-        if (LOG.isDebugEnabled()) {
-          LOG.debug("<< Application already activated for Meet Button: " + uiApp + ", user " + obj);
-        }
+        requireJS.addScripts("moxtra.initMeetButton('" + appId + "');");
+      } catch (OAuthSystemException e) {
+        LOG.error("Error activating app for Meet Button: " + e.getMessage(), e);
       }
-      requireJS.addScripts("moxtra.initMeetButton('" + appId + "');");
     }
-
-    // TODO cleanup
-    // UIContainer calContainer = findComponent(uiApp, "UICalendarWorkingContainer");
-    // if (calContainer != null) {
-    // }
   }
 
   /**

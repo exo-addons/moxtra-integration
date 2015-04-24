@@ -120,7 +120,7 @@ public class MoxtraMeet extends MoxtraBinder {
 
   protected String                   status;
 
-  protected MoxtraUser               hostUser;
+  private transient MoxtraUser               hostUser;
 
   /**
    * Original meet in editor instance. In other cases it is <code>null</code>.
@@ -348,6 +348,21 @@ public class MoxtraMeet extends MoxtraBinder {
     }
     throw new MoxtraException("Cannot find meet owner in participants");
   }
+  
+  /**
+   * Tells if given user is invited in this meet.
+   * 
+   * @param user {@link MoxtraUser}
+   * @return boolean <code>true</code> if user invited in this meet, <code>false</code> otherwise
+   */
+  public boolean hasUser(MoxtraUser user) {
+    for (MoxtraUser mu : getUsers()) {
+      if (mu.equals(user)) {
+        return true;
+      }
+    }
+    return false;
+  }
 
   /**
    * @return the sessionKey
@@ -408,12 +423,12 @@ public class MoxtraMeet extends MoxtraBinder {
 
   /**
    * Check if meet was deleted remotely in Moxtra. <br>
-   * Don't confuse this method with {@link #isDeleted()} which
+   * Don't confuse this method with {@link #hasDeleted()} which
    * describes local state of this meet editor instance before the actual deletion in Moxtra.
    * 
    * @return <code>true</code> if meet removed in Moxtra, <code>false</code> otherwise
    */
-  public boolean wasDeleted() {
+  public boolean isDeleted() {
     return SESSION_DELETED.equals(getStatus());
   }
 
@@ -450,7 +465,7 @@ public class MoxtraMeet extends MoxtraBinder {
     if (getStartMeetUrl() != null) {
       if (isStarted()) {
         return true;
-      } else if (isEnded() || wasDeleted()) {
+      } else if (isEnded() || isDeleted()) {
         return false;
       } else {
         Calendar now = Moxtra.getCalendar();
@@ -459,7 +474,7 @@ public class MoxtraMeet extends MoxtraBinder {
           Calendar startTime = Moxtra.getCalendar(st);
           // can start before 30min the actual date (it is default in Moxtra)
           startTime.add(Calendar.MINUTE, -SESSION_START_BEFORE_MINUTES);
-          return (startTime.equals(now) || startTime.after(now)) && !isExpired();
+          return (startTime.equals(now) || now.after(startTime)) && !isExpired();
         } // else, it's smth unexpected - consider as cannot be started
       }
     }
@@ -522,7 +537,7 @@ public class MoxtraMeet extends MoxtraBinder {
     }
   }
 
-  public boolean isAutoRecordingChanged() {
+  public boolean hasAutoRecordingChanged() {
     if (isEditor() && this.autoRecording != null) {
       return !this.autoRecording.equals(original.getAutoRecording());
     } else {
@@ -531,8 +546,8 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * Set new start time. If it is after the current end time, then it will be adjusted for 30 min before the
-   * end time.
+   * Set new start time. 
+   *
    * 
    * @param newStartTime the startTime to set
    */
@@ -544,7 +559,7 @@ public class MoxtraMeet extends MoxtraBinder {
     }
   }
 
-  public boolean isStartTimeChanged() {
+  public boolean hasStartTimeChanged() {
     if (isEditor() && this.startTime != null) {
       return !this.startTime.equals(original.getStartTime());
     } else {
@@ -553,8 +568,8 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * Set new end time. If it is before the current start time, then it will be adjusted for 30 min after the
-   * start time.
+   * Set new end time. 
+   *
    * 
    * @param newEndTime the endTime to set
    */
@@ -566,7 +581,7 @@ public class MoxtraMeet extends MoxtraBinder {
     }
   }
 
-  public boolean isEndTimeChanged() {
+  public boolean hasEndTimeChanged() {
     if (isEditor() && this.endTime != null) {
       return !this.endTime.equals(original.getEndTime());
     } else {
@@ -585,7 +600,7 @@ public class MoxtraMeet extends MoxtraBinder {
     }
   }
 
-  public boolean isAgendaChanged() {
+  public boolean hasAgendaChanged() {
     if (isEditor() && this.agenda != null) {
       return !this.agenda.equals(original.getAgenda());
     } else {

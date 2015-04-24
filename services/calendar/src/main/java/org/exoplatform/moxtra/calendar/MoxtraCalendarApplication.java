@@ -529,7 +529,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       if (LOG.isDebugEnabled()) {
         LOG.debug(">>> enableMeet: " + uiApp.get() + " new meet " + meet);
       }
-    } else if (meet.isDeleted()) {
+    } else if (meet.hasDeleted()) {
       // was marked as deleted, unmark it
       meet.undelete();
       if (LOG.isDebugEnabled()) {
@@ -606,7 +606,7 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
    */
   public boolean isMeetEnabled() throws MoxtraNotActivatedException {
     MoxtraMeet meet = meet();
-    return meet != null ? !meet.isDeleted() : false;
+    return meet != null ? !meet.hasDeleted() : false;
   }
 
   public boolean isActivated() {
@@ -616,19 +616,6 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
   public boolean isInitialized() {
     return this.moxtra != null;
   }
-
-  // TODO cleanup
-  // @Deprecated
-  // public String getCalendarId(UIForm form) throws MoxtraCalendarException {
-  // if (form != null) {
-  // return getCalendarId(form);
-  // // } TODO
-  // // else if (quickAddForm != null) {
-  // // return getQuickAddCalendarId(quickAddForm);
-  // } else {
-  // throw new MoxtraCalendarException("Moxtra application form not activated");
-  // }
-  // }
 
   /**
    * Current Moxtra user.

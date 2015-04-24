@@ -137,6 +137,17 @@
 			return initRequest(request);
 		};
 
+		var findInviteeMeet = function(inviteeEmail, async) {
+			var request = $.ajax({
+				async : async ? true : false,
+				type : "GET",
+				url : serverUrl + "/portal/rest/moxtra/meet/find?invitee=" + encodeURIComponent(inviteeEmail),
+				dataType : "json"
+			});
+
+			return initRequest(request);
+		};
+
 		var postMeet = function(name, agenda, startTime, endTime, autoRecording, async) {
 			var request = $.ajax({
 				async : async ? true : false,
@@ -281,26 +292,16 @@
 		/**
 		 * Create a meet with given parameters.
 		 */
-		var createMeet = function($button, name, agenda, startTime, endTime, autoRecording, users) {
-			//if (!$button.data("moxtra-meet-creating")) {
-			//var cursorCss = $button.css("cursor");
-			//$button.css("cursor", "wait");
-			//$button.data("moxtra-meet-creating", true);
-			//try {
-			var createProc = postMeet(name, agenda, startTime, endTime, autoRecording);
-			createProc.done(function(meet) {
+		var createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
+			var create = postMeet(name, agenda, startTime, endTime, autoRecording, true);
+			create.done(function(meet) {
 				if (meet) {
-					// open meet in new window: add a href to the button and click it again
-					// $button.attr("href", meet.startMeetUrl);
-					// $button.addClass("meetReady");
-					// $button.click();
-
 					// then add users to the meet asynchronously
-					var inviteProc = postMeetInviteUsers(meet.sessionKey, users, false);
-					inviteProc.done(function(meet) {
+					var invite = postMeetInviteUsers(meet.sessionKey, users, true);
+					invite.done(function(meet) {
 						// TODO do we have something to do here? Show a notice to an user that meet created?
 					});
-					inviteProc.fail(function(error) {
+					invite.fail(function(error) {
 						// TODO notif user about an error
 						log("ERROR: Error inviting users to meet " + name + ". " + (error.message ? error.message : error), error);
 					});
@@ -308,16 +309,11 @@
 					log("ERROR: Empty object returned for meet " + name);
 				}
 			});
-			createProc.fail(function(error) {
+			create.fail(function(error) {
 				// TODO notif user about an error
 				log("ERROR: Error creating meet " + name + ". " + (error.message ? error.message : error), error);
 			});
-			return createProc;
-			//} finally {
-			//$button.data("moxtra-meet-creating", false);
-			//	$button.css("cursor", cursorCss);
-			//}
-			//}
+			return create;
 		};
 
 		this.initUser = function(userName, isAuthorized, authLinkUrl) {
@@ -389,9 +385,12 @@
 		 */
 		this.initMeetButton = function(compId) {
 			var $tiptip = $("#tiptip_content");
-			if ($tiptip.size() == 0 || $tiptip.hasClass("DisabledEvent")) {
-				setTimeout($.proxy(this.initMeetButton, this), 250, compId);
-				return;
+			// if not in user profile wait for UIUserProfilePopup script load
+			if (window.location.href.indexOf("/portal/intranet/profile") < 0) {
+				if ($tiptip.size() == 0 || $tiptip.hasClass("DisabledEvent")) {
+					setTimeout($.proxy(this.initMeetButton, this), 250, compId);
+					return;
+				}
 			}
 
 			// had classes uiIconWeemoVideoCalls uiIconWeemoLightGray
@@ -402,8 +401,119 @@
 				compId = "UIWorkingWorkspace";
 			}
 
-			// attachWeemoToPopups (to tiptip_content elem)
-			$("#" + compId).find('a:[href*="/profile/"]').each(function() {
+			function addButton($userAction, userName, userTitle, pullRight) {
+				if ($userAction.size() > 0 && $userAction.find("a.meetStartAction").size() === 0) {
+					var meetName = "Meeting with " + userTitle;
+					// check if meet wasn't already started for this user in this page
+					// TODO use dedicated elem for such caching on client
+					var meetReady = $("a.meetStartAction.meetReady[data-moxtra-meet-invitee='" + userName + "']");
+					var meetButton = "<a type='button' class='btn meetStartAction moxtraIcon";
+					if (pullRight) {
+						meetButton += " pull-right";
+					}
+					if (meetReady.size() > 0) {
+						meetButton += " meetReady";
+					}
+					meetButton += "' title='Start meeting with " + userTitle + "' target='_blank' style='margin-left:5px;'";
+					if (meetReady.size() > 0) {
+						meetButton += " href='" + meetReady.attr("href") + "'";
+					}
+					meetButton += ">";
+					meetButton += meetLabel;
+					meetButton += "</a>";
+					if (pullRight) {
+						$userAction.prepend(meetButton);
+					} else {
+						$userAction.append(meetButton);
+					}
+					var $button = $userAction.find("a.meetStartAction");
+					$button.click(function(e) {
+						e.preventDefault();
+						if (authorized) {
+							var href = $button.attr("href");
+							if (href) {
+								window.open(href);
+							} else {
+								// Prepare new windpw for future meet in user event thread
+								var meetWindow = window.open("", "_blank");
+								meetWindow.document.write("<div style='cursor:wait; height: 200px; vertical-align: center; margin-right: auto; margin-left: auto; width: 800px; text-align: center;'>Wait, " + meetName + " is opening...</div>");
+								var user = getExoUser(userName, true);
+								user.done(function(user) {
+									// personal talk for about 30min
+									var startTime = new Date();
+									startTime.setMinutes(startTime.getMinutes() + 1);
+									var endTime = new Date();
+									endTime.setMinutes(startTime.getMinutes() + 30);
+									// mark cursor loading
+									var cursorCss = $button.css("cursor");
+									$button.css("cursor", "wait");
+									try {
+										function showMeet(meet) {
+											$button.attr("href", meet.startMeetUrl);
+											$button.addClass("meetReady");
+											$button.attr("title", "Open meeting with " + userTitle);
+											$button.attr("data-moxtra-meet-invitee", userName);
+											meetWindow.location.href = meet.startMeetUrl;
+										}
+
+										function createNewMeet() {
+											var create = createMeet(meetName, "", startTime.getTime(), endTime.getTime(), false, [user.email]);
+											create.done(function(meet) {
+												showMeet(meet);
+											});
+											create.fail(function() {
+												meetWindow.close();
+											});
+										}
+
+										var search = findInviteeMeet(user.email, true);
+										search.done(function(meet) {
+											if (meet) {
+												// meet already exists
+												showMeet(meet);
+											} else {
+												// create a meet
+												createNewMeet();
+											}
+										});
+										search.fail(function() {
+											// create a meet if search failed
+											createNewMeet();
+										});
+									} catch(e) {
+										meetWindow.close();
+										log("Error creating meet " + meetName + " " + error, error);
+									} finally {
+										$button.css("cursor", cursorCss);
+									}
+								});
+								user.fail(function(error) {
+									log("Error reading eXo user " + userName + " " + error, error);
+									// TODO notify the error to an user
+								});
+							}
+						} else {
+							var auth = authorize();
+							auth.done(function() {
+								$button.click();
+							});
+							auth.fail(function(error) {
+								// TODO notif user
+								log("ERROR: Error authorizing user " + ( currentUser ? currentUser : ""), error);
+							});
+						}
+					});
+				}
+			}
+
+			function extractUserName($userLink) {
+				var userName = $userLink.attr("href");
+				return userName.substring(userName.lastIndexOf("/") + 1, userName.length);
+			}
+
+			// user popovers
+			// XXX hardcoded for peopleSuggest as no way found to add MoxtraLifecucle to its portlet (juzu)
+			$("#" + compId + ", #peopleSuggest").find('a:[href*="/profile/"]').each(function() {
 				// attach action to
 				$(this).mouseenter(function() {
 					// need wait for popover initialization
@@ -411,87 +521,37 @@
 						// Find user's first name for a tip
 						var $td = $tiptip.children("#tipName").children("tbody").children("tr").children("td");
 						if ($td.size() > 1) {
+							var $userLink = $("a", $td.get(1));
+							var userTitle = $userLink.text();
+							var userName = extractUserName($userLink);
 							var $userAction = $tiptip.find(".uiAction");
-							if ($userAction.size() > 0 && $userAction.find("a.meetStartAction").size() === 0) {
-								var $userTitle = $("a", $td.get(1));
-								var userTitle = $userTitle.text();
-								var meetButton = "<a type='button' class='btn meetStartAction moxtraIcon' title='Start meeting with " + userTitle + "' target='_blank'";
-								meetButton += " style='margin-left:5px;'>";
-								meetButton += meetLabel;
-								meetButton += "</a>";
-								$userAction.append(meetButton);
-								var $button = $userAction.find("a.meetStartAction");
-								$button.click(function(e) {
-									e.preventDefault();
-									if (authorized) {
-										var href = $button.attr("href");
-										if (href) {
-											log("meetStartAction:clicked " + href);
-											window.open(href);
-										} else {
-											// Find username in eXo, get user email and start a meet with current and this users
-											var userName = $userTitle.attr("href");
-											var userName = userName.substring(userName.lastIndexOf("/") + 1, userName.length);
-											log("meetStartAction:clicked " + userName);
-											var exoUserProc = getExoUser(userName, false);
-											exoUserProc.done(function(user) {
-												var startTime = new Date();
-												startTime.setMinutes(startTime.getMinutes() + 1);
-												var endTime = new Date();
-												// personal talk for about 30min
-												endTime.setMinutes(endTime.getMinutes() + 30);
-												// mark cursor loading
-												var cursorCss = $button.css("cursor");
-												$button.css("cursor", "wait");
-												var meetName = "Meet with " + userTitle;
-												var meetWindow = window.open("", "_blank");
-												try {
-													var proc = createMeet($button, meetName, "", startTime.getTime(), endTime.getTime(), false, [user.email]);
-													//var proc = postMeet("Test", "", startTime.getTime(), endTime.getTime());
-													//window.open("https://www.moxtra.com/398165623");
-													//meetWindow.location.href = JSON.parse(proc.request.responseText).startMeetUrl;
-													proc.done(function(meet) {
-														// open meet in new window: add a href to the button and click it again
-														$button.attr("href", meet.startMeetUrl);
-														$button.addClass("meetReady");
-														meetWindow.location.href = meet.startMeetUrl;
-													});
-													proc.fail(function() {
-														meetWindow.close();
-													});
-												} catch(e) {
-													meetWindow.close();
-													log("Error creating meet " + meetName + " " + error, error);
-												} finally {
-													$button.css("cursor", cursorCss);
-												}
-											});
-											exoUserProc.fail(function(error) {
-												log("Error reading eXo user " + userName + " " + error, error);
-												// TODO notify the error to an user
-											});
-										}
-									} else {
-										log("meetStartAction:clicked authorize");
-										var authProc = authorize();
-										authProc.done(function() {
-											$button.click();
-										});
-										authProc.fail(function(error) {
-											// TODO notif user
-											log("ERROR: Error authorizing user " + ( currentUser ? currentUser : ""), error);
-										});
-									}
-								});
-							}
+							addButton($userAction, userName, userTitle);
 						}
-					}, 750);
+					}, 600);
 				});
 			});
 
-			// attachWeemoToProfile
+			// user panel in connections (all, personal and in space)
+			$("#" + compId).find(".spaceBox").each(function(i, elem) {
+				var $userLink = $(elem).find(".spaceTitle a:first");
+				if ($userLink.size() > 0) {
+					var userTitle = $userLink.text();
+					var userName = extractUserName($userLink);
+					var $userAction = $(elem).find(".connectionBtn");
+					addButton($userAction, userName, userTitle, true);
+				}
+			});
 
-			// attachWeemoToConnections
+			// single user profile
+			$("#" + compId).find("#UIProfile").each(function(i, elem) {
+				var $userName = $(elem).find("#UIBasicInfoSection label[for='username']");
+				var userName = $.trim($userName.siblings().text());
+				var $firstName = $(elem).find("#UIBasicInfoSection label[for='firstName']");
+				var $lastName = $(elem).find("#UIBasicInfoSection label[for='lastName']");
+				var userTitle = $.trim($firstName.siblings().text()) + " " + $.trim($lastName.siblings().text());
+				var $userAction = $(elem).find("#UIHeaderSection h3");
+				addButton($userAction, userName, userTitle);
+			});
 		};
 	}
 

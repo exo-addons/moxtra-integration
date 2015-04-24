@@ -158,12 +158,12 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
         // update local node
         meetNode = meetsNode.getNode(meet.getBinderId());
         Node usersNode = JCR.getUsers(meetNode);
-        if (meet.isUsersRemoved()) {
+        if (meet.hasUsersRemoved()) {
           for (MoxtraUser removed : meet.getRemovedUsers()) {
             usersNode.getNode(removed.getId()).remove();
           }
         }
-        if (meet.isUsersAdded()) {
+        if (meet.hasUsersAdded()) {
           for (MoxtraUser participant : meet.getAddedUsers()) {
             Node pnode = usersNode.addNode(participant.getId());
             JCR.setId(pnode, participant.getId());

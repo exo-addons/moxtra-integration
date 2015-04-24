@@ -24,6 +24,7 @@ import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.NotFoundException;
+import org.exoplatform.moxtra.client.MeetDeletedException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
@@ -32,9 +33,11 @@ import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
 
+import java.util.Calendar;
 import java.util.List;
 
 import javax.annotation.security.RolesAllowed;
+import javax.ws.rs.DELETE;
 import javax.ws.rs.DefaultValue;
 import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
@@ -42,6 +45,7 @@ import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
+import javax.ws.rs.QueryParam;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
@@ -106,6 +110,43 @@ public class MeetService implements ResourceContainer {
     }
   }
 
+  @DELETE
+  @RolesAllowed("users")
+  @Path("/{sessionKey}")
+  public Response delete(@Context UriInfo uriInfo, @PathParam("sessionKey") String sessionKey) {
+    try {
+      if (sessionKey != null) {
+        MoxtraClient client = moxtra.getClient();
+        MoxtraMeet meet = client.getMeet(sessionKey);
+        client.deleteMeet(meet);
+        return Response.ok().build();
+      } else {
+        return Response.status(Status.BAD_REQUEST)
+                       .entity(ErrorInfo.clientError("Meet session_key cannot be null"))
+                       .build();
+      }
+    } catch (NotFoundException e) {
+      return Response.status(Status.NOT_FOUND)
+                     .entity(ErrorInfo.notFoundError("Meet not found " + sessionKey))
+                     .build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error deleting meet " + sessionKey))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error deleting meet " + sessionKey, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error deleting meet")).build();
+    } catch (OAuthSystemException e) {
+      LOG.error("Access error for deleting meet " + sessionKey, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Access error for deleting meet")).build();
+    } catch (OAuthProblemException e) {
+      LOG.warn("Access problem while deleting meet " + sessionKey, e);
+      return Response.status(Status.UNAUTHORIZED)
+                     .entity(ErrorInfo.accessError("Acces problem while deleting meet"))
+                     .build();
+    }
+  }
+
   @POST
   @RolesAllowed("users")
   public Response createNew(@Context UriInfo uriInfo,
@@ -129,7 +170,7 @@ public class MeetService implements ResourceContainer {
                            .build();
           }
           try {
-            meet.editStartTime(Moxtra.getDate(Long.parseLong(endTimeMs)));
+            meet.editEndTime(Moxtra.getDate(Long.parseLong(endTimeMs)));
           } catch (NumberFormatException e) {
             return Response.status(Status.BAD_REQUEST)
                            .entity(ErrorInfo.clientError("Error parsing meet end date " + endTimeMs))
@@ -142,7 +183,7 @@ public class MeetService implements ResourceContainer {
           // XXX need this to get the actual data including the host user in participants
           client.refreshMeet(meet);
 
-          return Response.ok().entity(meet).build();
+          return Response.created(uriInfo.getRequestUri()).entity(meet).build();
         } else {
           return Response.status(Status.BAD_REQUEST)
                          .entity(ErrorInfo.clientError("Meet time(s) required"))
@@ -167,6 +208,47 @@ public class MeetService implements ResourceContainer {
       LOG.warn("Access problem while creating meet " + name, e);
       return Response.status(Status.UNAUTHORIZED)
                      .entity(ErrorInfo.accessError("Acces problem while creating meet " + name))
+                     .build();
+    }
+  }
+
+  @GET
+  @RolesAllowed("users")
+  @Path("/find")
+  public Response find(@Context UriInfo uriInfo, @QueryParam("invitee") String inviteeEmail) {
+    try {
+      if (inviteeEmail != null) {
+        MoxtraClient client = moxtra.getClient();
+        Calendar from = Moxtra.getCalendar();
+        from.add(Calendar.MINUTE, -60); // all created a hour ago
+        for (MoxtraMeet meet : client.getMeets(from.getTime(), 1)) {
+          if (meet.canStart()) {
+            List<MoxtraUser> users = meet.getUsers();
+            MoxtraUser invited = findUser(users, inviteeEmail);
+            if (invited != null && users.size() == 2) {
+              MoxtraUser hoster = meet.getHostUser();
+              if (!hoster.equals(invited) && meet.hasUser(hoster)) {
+                return Response.ok().entity(meet).build();
+              }
+            }
+          }
+        }
+      }
+      return Response.noContent().build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error searching meets with invitee " + inviteeEmail))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error searching meets with invitee " + inviteeEmail, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error reading meet")).build();
+    } catch (OAuthSystemException e) {
+      LOG.error("Access error for searching meets with invitee " + inviteeEmail, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Access error for reading meet")).build();
+    } catch (OAuthProblemException e) {
+      LOG.warn("Access problem while searching meets with invitee " + inviteeEmail, e);
+      return Response.status(Status.UNAUTHORIZED)
+                     .entity(ErrorInfo.accessError("Acces problem while searching meet"))
                      .build();
     }
   }
@@ -220,5 +302,14 @@ public class MeetService implements ResourceContainer {
       LOG.error("Error inviting users to meet " + sessionKey, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error inviting users")).build();
     }
+  }
+
+  protected MoxtraUser findUser(List<MoxtraUser> users, String email) {
+    for (MoxtraUser user : users) {
+      if (email.equals(user.getEmail())) {
+        return user;
+      }
+    }
+    return null;
   }
 }

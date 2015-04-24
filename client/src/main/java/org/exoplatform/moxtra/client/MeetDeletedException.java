@@ -18,7 +18,7 @@
  */
 package org.exoplatform.moxtra.client;
 
-import org.exoplatform.moxtra.MoxtraException;
+import org.exoplatform.moxtra.NotFoundException;
 
 /**
  * Meet session was deleted in Moxtra.<br>
@@ -29,7 +29,7 @@ import org.exoplatform.moxtra.MoxtraException;
  * @version $Id: MeetDeletedException.java 00000 Apr 16, 2015 pnedonosko $
  * 
  */
-public class MeetDeletedException extends MoxtraException {
+public class MeetDeletedException extends NotFoundException {
 
   /**
    * 

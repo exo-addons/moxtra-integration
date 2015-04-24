@@ -121,6 +121,8 @@ public class MoxtraClient {
 
   public static final String     MOXTRA_USER_ME              = "me";
 
+  public static final String     MOXTRA_URL = "https://www.moxtra.com/";
+  
   public static final String     API_V1                      = "https://api.moxtra.com/";
 
   public static final String     API_OAUTH_AUTHORIZE         = API_V1 + "oauth/authorize";
@@ -1756,14 +1758,14 @@ public class MoxtraClient {
                                          OAuthProblemException,
                                          MoxtraException,
                                          MoxtraClientException {
-    if (meet.isNameChanged()) {
+    if (meet.hasNameChanged()) {
       renameBinder(meet);
     }
-    if (meet.isUsersAdded()) {
+    if (meet.hasUsersAdded()) {
       inviteMeetUsers(meet);
       // inviteUsers(meet);
     }
-    if (meet.isUsersRemoved()) {
+    if (meet.hasUsersRemoved()) {
       removeUsers(meet);
     }
   }
@@ -1792,23 +1794,23 @@ public class MoxtraClient {
         // prepare body
         JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
         Map<String, Object> params = new HashMap<String, Object>();
-        if (meet.isNameChanged()) {
+        if (meet.hasNameChanged()) {
           params.put("name", meet.getName());
           haveUpdates = true;
         }
-        if (meet.isAgendaChanged()) {
+        if (meet.hasAgendaChanged()) {
           params.put("agenda", meet.getAgenda());
           haveUpdates = true;
         }
         // params.put("start_time", meet.getStartTime().getTime());
         // params.put("end_time", meet.getEndTime().getTime());
-        if (meet.isStartTimeChanged() || meet.isEndTimeChanged()) {
+        if (meet.hasStartTimeChanged() || meet.hasEndTimeChanged()) {
           meet.checkTime();
           params.put("starts", formatDate(meet.getStartTime()));
           params.put("ends", formatDate(meet.getEndTime()));
           haveUpdates = true;
         }
-        if (meet.isAutoRecordingChanged()) {
+        if (meet.hasAutoRecordingChanged()) {
           params.put("auto_recording", meet.isAutoRecording());
           haveUpdates = true;
         }
@@ -1883,18 +1885,18 @@ public class MoxtraClient {
           }
         }
       }
-      
+
       meet.setStatus(meetStatus);
 
       // TODO user invitation/removal for started also?
       // if (MoxtraMeet.SESSION_SCHEDULED.equals(meetStatus) || MoxtraMeet.SESSION_STARTED.equals(meetStatus))
       // {
       // handle users
-      if (meet.isUsersAdded()) {
+      if (meet.hasUsersAdded()) {
         inviteMeetUsers(meet);
         // inviteUsers(meet);
       }
-      if (meet.isUsersRemoved()) {
+      if (meet.hasUsersRemoved()) {
         removeUsers(meet);
       }
       // }
@@ -1993,7 +1995,7 @@ public class MoxtraClient {
     List<MoxtraUser> users;
     if (meet.isNew()) {
       users = meet.getUsers();
-    } else if (meet.isUsersAdded()) {
+    } else if (meet.hasUsersAdded()) {
       users = meet.getAddedUsers();
     } else {
       users = null;
@@ -2049,7 +2051,7 @@ public class MoxtraClient {
     List<MoxtraUser> users;
     if (binder.isNew()) {
       users = binder.getUsers();
-    } else if (binder.isUsersAdded()) {
+    } else if (binder.hasUsersAdded()) {
       users = binder.getAddedUsers();
     } else {
       users = null;
@@ -2103,7 +2105,7 @@ public class MoxtraClient {
                                               MoxtraClientException {
     // FYI to remove a meet we remove its binder (created by scheduling the meet)
     List<MoxtraUser> users;
-    if (binder.isUsersRemoved()) {
+    if (binder.hasUsersRemoved()) {
       users = binder.getRemovedUsers();
     } else {
       users = null;
@@ -2349,10 +2351,12 @@ public class MoxtraClient {
                                                 OAuthSystemException,
                                                 OAuthProblemException,
                                                 ParseException {
+    String sessionKey;
     JsonValue vsession = vmeet.getElement("session_key");
     if (isNull(vsession)) {
       throw new MoxtraException("Meet request doesn't return meet session key");
     }
+    sessionKey = vsession.getStringValue();
     JsonValue vbid = vmeet.getElement("binder_id");
     if (isNull(vbid)) {
       throw new MoxtraException("Meet request doesn't return meet binder id");
@@ -2495,7 +2499,9 @@ public class MoxtraClient {
     JsonValue vlink = vmeet.getElement("startmeet_url");
     if (isNull(vlink)) {
       // throw new MoxtraException("Meet request doesn't return meet start URL");
-      startMeetUrl = null;
+      // XXX Moxtra doesn't return start url in this service, thus we assume following URL
+      // https://www.moxtra.com/SESSION_KEY
+      startMeetUrl = MOXTRA_URL + sessionKey;
     } else {
       startMeetUrl = vlink.getStringValue();
     }
@@ -2509,7 +2515,7 @@ public class MoxtraClient {
     }
 
     // as for fields that cannot be read: we could do met update and that response return such data
-    MoxtraMeet meet = new MoxtraMeet(vsession.getStringValue(), null, // sessionId
+    MoxtraMeet meet = new MoxtraMeet(sessionKey, null, // sessionId
                                      binderId,
                                      vtopic.getStringValue(), // name
                                      agenda, // XXX agenda cannot be read = null

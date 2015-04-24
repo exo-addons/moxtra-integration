@@ -459,7 +459,7 @@ public class UIEmeetingTab extends UIFormInputWithActions {
   }
 
   public boolean isMeetEnabled() throws MoxtraCalendarException {
-    return meet != null ? !meet.isDeleted() : false;
+    return meet != null ? !meet.hasDeleted() : false;
   }
 
   /**
@@ -482,7 +482,7 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public boolean isCanStartMeet() throws MoxtraCalendarException {
     if (isMeetEnabled()) {
-      if (isHostUser() && !(meet.isNew() || meet.isEnded() || meet.wasDeleted() || meet.isExpired())) {
+      if (isHostUser() && !(meet.isNew() || meet.isEnded() || meet.isDeleted() || meet.isExpired())) {
         return true; // host user can do anytime if not ended
       }
       return meet.canStart();
@@ -539,7 +539,7 @@ public class UIEmeetingTab extends UIFormInputWithActions {
       meetEnabled = true;
 
       // we treat expired as ended here
-      meetEnded = meet.isEnded() || meet.wasDeleted() || meet.isExpired();
+      meetEnded = meet.isEnded() || meet.isDeleted() || meet.isExpired();
       meetStarted = meet.isStarted();
 
       if (meet.isNew()) {

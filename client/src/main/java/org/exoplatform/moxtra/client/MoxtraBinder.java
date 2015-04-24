@@ -57,10 +57,6 @@ public class MoxtraBinder {
    */
   public static final String           USER_STATUS_BOARD_INVITED  = "BOARD_INVITED";
 
-  protected final Boolean              isNew;
-
-  protected boolean                    isDeleted;
-
   /**
    * Binder ID.
    * 
@@ -84,6 +80,10 @@ public class MoxtraBinder {
    * Binder users. Should be initialized by {@link #setUsers(List)}.
    */
   protected List<MoxtraUser>           users;
+
+  protected transient final Boolean    isNew;
+
+  protected transient boolean          deleted;
 
   /**
    * Original binder in editor instance. In other cases it is <code>null</code>.
@@ -112,7 +112,7 @@ public class MoxtraBinder {
                          Date createdTime,
                          Date updatedTime) {
     this.isNew = Boolean.FALSE;
-    this.isDeleted = false;
+    this.deleted = false;
     this.binderId = binderId;
     this.name = name;
     this.revision = revision;
@@ -150,12 +150,12 @@ public class MoxtraBinder {
    */
   protected MoxtraBinder(MoxtraBinder other) {
     this.isNew = null; // should be never used
-    this.isDeleted = false;
+    this.deleted = false;
     this.original = other;
     this.addedUsers = new ArrayList<MoxtraUser>();
     this.removedUsers = new ArrayList<MoxtraUser>();
   }
-  
+
   /**
    * {@inheritDoc}
    */
@@ -208,11 +208,11 @@ public class MoxtraBinder {
    * 
    * @return boolean <code>true</code> if meet should be deleted, <code>false</code> otherwise
    */
-  public boolean isDeleted() {
+  public boolean hasDeleted() {
     if (isEditor()) {
-      return isDeleted;
+      return deleted;
     } else {
-      throw new IllegalStateException("Not editor instance");
+      return false;
     }
   }
 
@@ -221,7 +221,7 @@ public class MoxtraBinder {
    */
   public void delete() {
     if (isEditor()) {
-      this.isDeleted = true;
+      this.deleted = true;
     } else {
       throw new IllegalStateException("Not editor instance");
     }
@@ -233,7 +233,7 @@ public class MoxtraBinder {
    */
   public void undelete() {
     if (isEditor()) {
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       throw new IllegalStateException("Not editor instance");
     }
@@ -379,11 +379,11 @@ public class MoxtraBinder {
     if (isEditor()) {
       return Collections.unmodifiableList(addedUsers);
     } else {
-      throw new IllegalStateException("Not editor instance");
+      return null;
     }
   }
 
-  public boolean isUsersAdded() {
+  public boolean hasUsersAdded() {
     if (isEditor()) {
       return this.addedUsers.size() > 0;
     } else {
@@ -398,11 +398,11 @@ public class MoxtraBinder {
     if (isEditor()) {
       return Collections.unmodifiableList(removedUsers);
     } else {
-      throw new IllegalStateException("Not editor instance");
+      return null;
     }
   }
 
-  public boolean isUsersRemoved() {
+  public boolean hasUsersRemoved() {
     if (isEditor()) {
       return this.removedUsers.size() > 0;
     } else {
@@ -418,14 +418,14 @@ public class MoxtraBinder {
     }
   }
 
-  public boolean isNameChanged() {
+  public boolean hasNameChanged() {
     if (isEditor() && this.name != null) {
       return !this.name.equals(original.getName());
     } else {
       return false;
     }
   }
-  
+
   public boolean isEditor() {
     return original != null;
   }
@@ -441,7 +441,7 @@ public class MoxtraBinder {
     if (isEditor()) {
       this.original.setUsers(users);
       this.users = null;
-      this.isDeleted = false;
+      this.deleted = false;
       this.addedUsers.clear();
       this.removedUsers.clear();
     } else {
@@ -456,7 +456,7 @@ public class MoxtraBinder {
     if (isEditor()) {
       this.original.setBinderId(binderId);
       this.binderId = null;
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.binderId = binderId;
     }
@@ -469,7 +469,7 @@ public class MoxtraBinder {
     if (isEditor()) {
       this.original.setName(name);
       this.name = null;
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.name = name;
     }
@@ -482,7 +482,7 @@ public class MoxtraBinder {
     if (isEditor()) {
       this.original.setRevision(revision);
       this.revision = null;
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.revision = revision;
     }
@@ -494,7 +494,7 @@ public class MoxtraBinder {
   protected void setThumbnailUrl(String url) {
     if (isEditor()) {
       this.original.setThumbnailUrl(url);
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.thumbnailUrl = url;
     }
@@ -506,7 +506,7 @@ public class MoxtraBinder {
   protected void setCreatedTime(Date createdTime) {
     if (isEditor()) {
       this.original.setCreatedTime(createdTime);
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.createdTime = createdTime;
     }
@@ -518,7 +518,7 @@ public class MoxtraBinder {
   protected void setUpdatedTime(Date updatedTime) {
     if (isEditor()) {
       this.original.setUpdatedTime(updatedTime);
-      this.isDeleted = false;
+      this.deleted = false;
     } else {
       this.updatedTime = updatedTime;
     }

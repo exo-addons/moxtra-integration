@@ -58,6 +58,16 @@
 	line-height: 28px;
 }
 
+.meetStartAction {
+	font-weight: normal;
+	font-style: normal;
+	font-variant: normal;
+}
+
+.meetReady>.uiIconMoxtra {
+	background-image: url("/moxtra/images/moxtra-icon-orange.png") !important;
+}
+
 .meetReady:hover>.uiIconMoxtra {
 	background-image: url("/moxtra/images/moxtra-icon-orange.png") !important;
 }

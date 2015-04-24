@@ -444,8 +444,8 @@ public class MoxtraMeet extends MoxtraBinder {
       Date et = getEndTime();
       if (et != null) {
         Calendar endTime = Moxtra.getCalendar(et);
-        // Moxtra seems allow start schedule meet in next 10-15 min after its planned end
-        endTime.add(Calendar.MINUTE, 14);
+        // Moxtra seems allow start schedule meet in next 4-5 min after its planned end
+        endTime.add(Calendar.MINUTE, 4);
         return now.after(endTime);
       } // end time will be not defined for started meet when reading it from Moxtra - not expired
     }

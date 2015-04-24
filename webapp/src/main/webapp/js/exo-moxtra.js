@@ -211,7 +211,7 @@
 			var h = 400;
 			var left = (screen.width / 2) - (w / 2);
 			var top = (screen.height / 2) - (h / 2);
-			return window.open(url, 'Moxtra', 'width=' + w + ',height=' + h + ',top=' + top + ',left=' + left);
+			return window.open(url, "Moxtra", 'width=' + w + ',height=' + h + ',top=' + top + ',left=' + left);
 		};
 
 		var waitAuth = function(authWindow) {
@@ -248,40 +248,45 @@
 			if (authorized) {
 				process.resolve();
 			} else {
-				if (!authLink) {
+				var authWindow;
+				if (authLink) {
+					// open Moxtra OAuth2 login
+					authWindow = openWindow(authLink);
+				} else {
+					authWindow = openWindow("");
 					var userAuthProc = getMoxtraUserAuth();
 					userAuthProc.done(function(authData) {
 						if (authData.authorized) {
 							authorized = true;
+							authWindow.close();
+							process.resolve();
 						} else {
 							authorized = false;
 							authLink = authData.authLink;
 						}
 					});
 					userAuthProc.fail(function(message) {
+						authWindow.close();
 						process.reject("Cannot get authorization link. " + message);
 					});
 				}
-				if (authorized) {
-					process.resolve();
+				if (!authorized && authLink) {
+					authWindow.location.href = authLink;
+					// wait for authentication
+					var auth = waitAuth(authWindow);
+					auth.done(function() {
+						log("INFO: " + currentUser + " user authenticated successfully.");
+						authorized = true;
+						process.resolve();
+					});
+					auth.fail(function(message) {
+						if (message) {
+							log("ERROR: " + currentUser + " authorization error: " + message);
+						}
+						process.reject(message);
+					});
 				} else {
-					if (authLink) {
-						// open Moxtra OAuth2 login
-						var authWindow = openWindow(authLink);
-						// wait for authentication
-						var auth = waitAuth(authWindow);
-						auth.done(function() {
-							log("INFO: " + currentUser + " user authenticated successfully.");
-							authorized = true;
-							process.resolve();
-						});
-						auth.fail(function(message) {
-							if (message) {
-								log("ERROR: " + currentUser + " authorization error: " + message);
-							}
-							process.reject(message);
-						});
-					} else {
+					if (!process.isRejected()) {
 						process.reject("Authorization link not found.");
 					}
 				}
@@ -348,7 +353,7 @@
 		this.initCalendar = function() {
 			// if user not authorized, we force auth login on enable checkbox click immediately,
 			// then we'll proceed the enabler action.
-			var $enableMeet = $("input#enableMoxtraMeet");
+			var $enableMeet = $("input#enableMeet");
 			$enableMeet.change(function(elem) {
 				if (!$enableMeet.data("moxtra-meet-enabling")) {
 					if ($enableMeet.is(":checked")) {
@@ -427,16 +432,19 @@
 						$userAction.append(meetButton);
 					}
 					var $button = $userAction.find("a.meetStartAction");
+					var meetWindow;
 					$button.click(function(e) {
 						e.preventDefault();
-						if (authorized) {
-							var href = $button.attr("href");
-							if (href) {
-								window.open(href);
-							} else {
-								// Prepare new windpw for future meet in user event thread
-								var meetWindow = window.open("", "_blank");
-								meetWindow.document.write("<div style='cursor:wait; height: 200px; vertical-align: center; margin-right: auto; margin-left: auto; width: 800px; text-align: center;'>Wait, " + meetName + " is opening...</div>");
+						var href = $button.attr("href");
+						if (href) {
+							window.open(href);
+						} else {
+							if (authorized) {
+								if (!meetWindow) {
+									// Prepare new windpw for future meet in user event thread
+									meetWindow = window.open("", "_blank");
+									meetWindow.document.write("<div style='cursor:wait; height: 200px; vertical-align: center; margin-right: auto; margin-left: auto; width: 800px; text-align: center;'>Wait, " + meetName + " is opening...</div>");
+								}
 								var user = getExoUser(userName, true);
 								user.done(function(user) {
 									// personal talk for about 30min
@@ -491,16 +499,16 @@
 									log("Error reading eXo user " + userName + " " + error, error);
 									// TODO notify the error to an user
 								});
+							} else {
+								var auth = authorize();
+								auth.done(function() {
+									$button.click();
+								});
+								auth.fail(function(error) {
+									// TODO notif user
+									log("ERROR: Error authorizing user " + ( currentUser ? currentUser : ""), error);
+								});
 							}
-						} else {
-							var auth = authorize();
-							auth.done(function() {
-								$button.click();
-							});
-							auth.fail(function(error) {
-								// TODO notif user
-								log("ERROR: Error authorizing user " + ( currentUser ? currentUser : ""), error);
-							});
 						}
 					});
 				}

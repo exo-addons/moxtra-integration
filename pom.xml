@@ -33,9 +33,9 @@
   <description>eXo Moxtra extension project reactor</description>
 
   <scm>
-    <connection>https://github.com/exo-addons/moxtra-extension/</connection>
-    <developerConnection>https://github.com/exo-addons/moxtra-extension/</developerConnection>
-    <url>https://github.com/exo-addons/moxtra-extension/</url>
+    <connection>https://github.com/exo-addons/moxtra-integration/</connection>
+    <developerConnection>https://github.com/exo-addons/moxtra-integration/</developerConnection>
+    <url>https://github.com/exo-addons/moxtra-integration/</url>
   </scm>
 
   <properties>

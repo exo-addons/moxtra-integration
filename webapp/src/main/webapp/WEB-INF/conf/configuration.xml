@@ -28,15 +28,15 @@
     <key>org.exoplatform.moxtra.MoxtraService</key>
     <type>org.exoplatform.moxtra.MoxtraService</type>
   </component>
-  
+
   <component>
     <type>org.exoplatform.moxtra.rest.OAuthCodeAuthenticator</type>
   </component>
-  
+
   <component>
     <type>org.exoplatform.moxtra.rest.UserService</type>
   </component>
-  
+
   <component>
     <type>org.exoplatform.moxtra.rest.MeetService</type>
   </component>
@@ -50,7 +50,12 @@
     <key>org.exoplatform.moxtra.calendar.MoxtraCalendarService</key>
     <type>org.exoplatform.moxtra.calendar.MoxtraCalendarService</type>
   </component>
-  
+
+  <component>
+    <key>org.exoplatform.moxtra.social.MoxtraSocialService</key>
+    <type>org.exoplatform.moxtra.social.MoxtraSocialService</type>
+  </component>
+
   <external-component-plugins>
     <target-component>org.exoplatform.moxtra.MoxtraService</target-component>
     <component-plugin>
@@ -66,6 +71,88 @@
           <property name="client-schema" value="${moxtra.client.schema:http}" />
           <property name="client-host" value="${moxtra.client.host:localhost:8080}" />
         </properties-param>
+      </init-params>
+    </component-plugin>
+    <component-plugin>
+      <name>setClientStore</name>
+      <set-method>addPlugin</set-method>
+      <type>org.exoplatform.moxtra.jcr.JCRMoxtraClientStore</type>
+      <description>set Moxtra token store in JCR</description>
+    </component-plugin>
+  </external-component-plugins>
+
+  <external-component-plugins>
+    <target-component>org.exoplatform.moxtra.social.MoxtraSocialService</target-component>
+    <component-plugin>
+      <name>configureMimeTypePlugin</name>
+      <set-method>configureMimeTypePlugin</set-method>
+      <type>org.exoplatform.moxtra.social.MimeTypePlugin</type>
+      <description>configure mimetypes supported by eXo Social for Moxtra conversations</description>
+      <init-params>
+        <values-param>
+          <name>addNoteMimetypes</name>
+          <description>add following mimetypes to supported by Moxtra Note</description>
+          <value>text/html</value>
+          <value>application/xhtml</value>
+          <value>application/html+xml</value>
+        </values-param>
+        <!-- values-param>
+          <name>removeNoteMimetypes</name>
+          <description>remove following mimetypes from supported by Moxtra Note</description>
+          <value>application/html+xml</value>
+        </values-param -->
+        <values-param>
+          <name>addDrawMimetypes</name>
+          <description>add following mimetypes to supported by Moxtra Draw (Whiteboard)</description>
+          <value>image/jpeg</value>
+          <value>image/pjpeg</value>
+          <value>image/jpg</value>
+          <value>image/png</value>
+          <value>text/pdf</value>
+          <value>text/csv</value>
+          <value>text/rtf</value>
+          <value>text/javascript</value>
+          <value>application/pdf</value>
+          <value>application/x-pdf</value>
+          <value>application/msword</value>
+          <value>application/xls</value>
+          <value>application/xlt</value>
+          <value>application/vnd.ms-excel</value>
+          <value>application/ppt</value>
+          <value>application/vnd.ms-powerpoint</value>
+          <value>application/rtf</value>
+          <value>application/vnd.oasis.opendocument.graphics</value>
+          <value>application/vnd.oasis.opendocument.presentation</value>
+          <value>application/vnd.oasis.opendocument.spreadsheet</value>
+          <value>application/vnd.oasis.opendocument.spreadsheet-template</value>
+          <value>application/vnd.oasis.opendocument.text</value>
+          <value>application/vnd.openxmlformats-officedocument.presentationml.presentation</value>
+          <value>application/vnd.openxmlformats-officedocument.spreadsheetml.sheet</value>
+          <value>application/vnd.openxmlformats-officedocument.wordprocessingml.document</value>
+          <value>application/vnd.openxmlformats-officedocument.spreadsheetml.template</value>
+          <value>application/vnd.openxmlformats-officedocument.presentationml.template</value>
+          <value>application/vnd.openxmlformats-officedocument.wordprocessingml.template</value>
+          <value>application/vnd.sun.xml.impress</value>
+          <value>application/vnd.sun.xml.writer</value>
+          <value>application/wordperfect</value>
+          <value>application/xml</value>
+          <value>application/xml+dtd</value>
+          <value>application/rss+xml</value>
+          <value>application/atom+xml</value>
+          <value>application/xop+xml</value>
+          <value>application/rdf+xml</value>
+          <value>application/soap+xml</value>
+          <value>application/javascript</value>
+          <value>application/json</value>
+          <value>application/ecmascript</value>
+          <value>application/php</value>
+        </values-param>
+        <values-param>
+          <name>removeDrawMimetypes</name>
+          <description>remove following mimetypes from supported by Moxtra Draw (Whiteboard)</description>
+          <value>audio/*</value>
+          <value>video/*</value>
+        </values-param>
       </init-params>
     </component-plugin>
     <component-plugin>
@@ -144,7 +231,17 @@
       <description>Add Moxtra features to eXo Calendar events</description>
     </component-plugin>
   </external-component-plugins>
-  
+
+  <external-component-plugins>
+    <target-component>org.exoplatform.social.core.space.spi.SpaceService</target-component>
+    <component-plugin>
+      <name>MoxtraSpaceListener</name>
+      <set-method>addSpaceListener</set-method>
+      <type>org.exoplatform.moxtra.social.space.MoxtraSpaceListener</type>
+      <description>Add Moxtra features to eXo Social spaces</description>
+    </component-plugin>
+  </external-component-plugins>
+
   <external-component-plugins>
     <target-component>org.exoplatform.services.resources.ResourceBundleService</target-component>
     <component-plugin>
@@ -206,6 +303,6 @@
       </init-params>
     </component-plugin>
   </external-component-plugins -->
-  
-  <!-- import>war:/conf/dms/dms-ext-configuration.xml</import -->
+
+  <import>war:/conf/dms/dms-ext-configuration.xml</import>
 </configuration>

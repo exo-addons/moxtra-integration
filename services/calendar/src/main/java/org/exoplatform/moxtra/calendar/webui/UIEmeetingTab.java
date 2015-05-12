@@ -16,8 +16,6 @@
  **/
 package org.exoplatform.moxtra.calendar.webui;
 
-import static org.exoplatform.moxtra.Moxtra.getCalendar;
-
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.calendar.service.CalendarSetting;
 import org.exoplatform.commons.utils.LazyPageList;
@@ -56,8 +54,6 @@ import org.exoplatform.webui.form.input.UICheckBoxInput;
 
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;

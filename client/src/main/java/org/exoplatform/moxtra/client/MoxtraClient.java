@@ -121,8 +121,8 @@ public class MoxtraClient {
 
   public static final String     MOXTRA_USER_ME              = "me";
 
-  public static final String     MOXTRA_URL = "https://www.moxtra.com/";
-  
+  public static final String     MOXTRA_URL                  = "https://www.moxtra.com/";
+
   public static final String     API_V1                      = "https://api.moxtra.com/";
 
   public static final String     API_OAUTH_AUTHORIZE         = API_V1 + "oauth/authorize";
@@ -2137,6 +2137,28 @@ public class MoxtraClient {
       }
     } else if (LOG.isDebugEnabled()) {
       LOG.debug("removeUsers: empty users list for " + binder.getBinderId() + " " + binder.getName());
+    }
+  }
+
+  // /{binder_id}/pageupload
+  public void pageUpload(MoxtraBinder binder) throws OAuthSystemException,
+                                               OAuthProblemException,
+                                               MoxtraException,
+                                               MoxtraClientException {
+    // FYI to remove a meet we remove its binder (created by scheduling the meet)
+    if (isAuthorized()) {
+      // prepare body
+      JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
+      Map<String, Object> params = new HashMap<String, Object>();
+      params.put("name", binder.getName());
+      try {
+        String url = API_BINDER.replace("{binder_id}", binder.getBinderId());
+        restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
+      } catch (JsonException e) {
+        throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
+      }
+    } else {
+      throw new MoxtraException("Authorization required");
     }
   }
 

@@ -54,6 +54,59 @@
 	}
 
 	/**
+	 * Add script to current document (to the end of head).
+	 */
+	function loadScript(jsUrl, jsId) {
+		var process = $.Deferred();
+		if ($("head").find("script[src='" + jsUrl + "']").size() == 0) {
+			$.get("https://www.moxtra.com/api/js/moxtra-latest.js", undefined, function(data) {
+				var script = document.createElement("script");
+				script.type = "text/javascript";
+				script.src = jsUrl;
+				script.setAttribute("src", jsUrl);
+				script.text = data;
+				script.id = jsId;
+
+				document.head.appendChild(script);
+				//var headElems = document.getElementsByTagName("head");
+				//headElems[headElems.length - 1].appendChild(script);
+			}, "script");
+		}
+		if (jsId) {
+			function jsReady() {
+				var $js = $("head").find("#" + jsId);
+				return $js.size() > 0;
+			}
+
+			var attempts = 40;
+			// abt 10sec.
+			function waitReady() {
+				attempts--;
+				if (attempts >= 0) {
+					setTimeout(function() {
+						if (jsReady()) {
+							process.resolve();
+						} else {
+							waitReady();
+						}
+					}, 550);
+				} else {
+					process.reject("Script load timeout " + jsUrl);
+				}
+			}
+
+			if (jsReady()) {
+				process.resolve();
+			} else {
+				waitReady();
+			}
+		} else {
+			process.resolve();
+		}
+		return process.promise();
+	}
+
+	/**
 	 * Moxtra integration class.
 	 */
 	function ExoMoxtra() {
@@ -64,7 +117,7 @@
 
 		var authLink;
 
-		var moxtra = new Moxtra();
+		var moxtra = new MoxtraJS();
 
 		var initRequest = function(request) {
 			var process = $.Deferred();
@@ -611,7 +664,7 @@
 						$progress.hide();
 						$editor.show();
 					}
-				});
+				}, getAccessToken);
 			}
 
 			if (binderId && pageId) {
@@ -620,7 +673,7 @@
 				var spaceName = $editor.data("binder-space-name");
 				var pageNodeUUID = $editor.data("binder-page-node-uuid");
 
-				var findAttempts = 10;
+				var findAttempts = 20;
 				function findShowPage() {
 					findAttempts--;
 					var pageFind = findBinderPage(spaceName, pageNodeUUID, true);
@@ -631,7 +684,7 @@
 					pageFind.fail(function(data, status) {
 						if (status == 404 && data.code == "page_not_found") {
 							// page not yet created - need wait it
-							log("WARN: page not found " + pageName + ", attempt: " + findAttempts);
+							log("WARN: page not found in " + binderId + ", attempt: " + findAttempts);
 							if (findAttempts >= 0) {
 								setTimeout(function() {
 									findShowPage();
@@ -705,19 +758,21 @@
 	/**
 	 * Moxtra JS SDK wrapper for on-demand loading of the script. It is used in ExoMoxtra.
 	 */
-	function Moxtra() {
+	function MoxtraJS() {
 
 		var api;
 
 		var loader = $.Deferred();
 
-		var init = function() {
+		var init = function(accessService) {
 			if (!loader.isResolved()) {
 				// load Moxtra JS SDK
-				$.getScript("https://www.moxtra.com/api/js/moxtra-latest.js", function(data, textStatus, jqxhr) {
-					log("Moxtra JS SDK loaded " + textStatus + " " + jqxhr.status);
+				//$.getScript("https://www.moxtra.com/api/js/moxtra-latest.js", function(data, textStatus, jqxhr) {
+				var jsLoader = loadScript("https://www.moxtra.com/api/js/moxtra-latest.js", "moxtrajs");
+				jsLoader.done(function() {
+					log("Moxtra JS SDK added");
 
-					var accessToken = getAccessToken();
+					var accessToken = accessService();
 					accessToken.done(function(token) {
 						var options = {
 							mode : "production",
@@ -741,13 +796,16 @@
 						log("ERROR: cannot init Moxtra JS SDK: " + error);
 					});
 				});
+				jsLoader.fail(function(error) {
+					log("ERROR: cannot load Moxtra JS SDK: " + error);
+				});
 			}
 			return loader.promise();
 		};
 
-		this.showPage = function(binderId, pageId, elemId, callbacks) {
+		this.showPage = function(binderId, pageId, elemId, callbacks, accessService) {
 			var process = $.Deferred();
-			var apiReady = init();
+			var apiReady = init(accessService);
 			apiReady.done(function() {
 				function invoke(eventName, event) {
 					var action = callbacks[eventName];
@@ -782,7 +840,7 @@
 						invoke("receive_feed", event);
 					}
 				};
-				api.chatView(options);
+				api.pageView(options);
 				process.resolve();
 			});
 			return process.promise();

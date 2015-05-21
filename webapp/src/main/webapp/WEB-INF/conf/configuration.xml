@@ -44,6 +44,10 @@
   <component>
     <type>org.exoplatform.moxtra.rest.MeetService</type>
   </component>
+  
+  <component>
+    <type>org.exoplatform.moxtra.social.rest.BinderSpaceService</type>
+  </component>
 
   <component>
     <key>org.exoplatform.moxtra.webui.MoxtraApplicationService</key>

@@ -155,7 +155,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
               // TODO what we do need in the prev?
             }
             uiDocumentWorkspace.addChild(uiEditor);
-            uiEditor.initMoxtra(moxtra, selectedNode, isPageCreating);
+            uiEditor.initMoxtra(moxtra, selectedNode.getUUID(), isPageCreating);
             uiEditor.setRendered(true);
 
             context.addUIComponentToUpdateByAjax(uiExplorer.getChild(UIControl.class));

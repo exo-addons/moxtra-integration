@@ -19,7 +19,7 @@
 %>
 	<a class="actionIcon moxtraAuthLink" rel="tooltip" data-placement="bottom" title="$authLinkHint" href="$authLink" target="_blank">$authLinkLabel</a>
 <%	} else { %>
-	<div id="moxtra-page-editor" style="display:none;" data-binder-id="$uicomponent.binderId" 
+	<div id="moxtra-page-editor" style="display: none;" data-binder-id="$uicomponent.binderId" 
 			<% try {  
   					if (uicomponent.pageCreating) { 
 						%>
@@ -41,7 +41,7 @@
 		<span><%=uicomponent.getString('Moxtra.conversationPageNotOpen') %></span>
 	</div>	
 <%	} %>		
-	<div id="CloseConfirmationMsg" style="display:none;"><%=uicomponent.getString('UIDocumentForm.msg.confirm-close') %></div>
+	<div id="CloseConfirmationMsg" style="display: none;"><%=uicomponent.getString('UIDocumentForm.msg.confirm-close') %></div>
 	<div class="FillOutElement">&nbsp;</div>
 	<div class="poweredByMoxtra">
 		<span><%=uicomponent.getString('Moxtra.poweredBy') %>&nbsp</span><a href="http://www.moxtra.com">

@@ -33,7 +33,7 @@
     <error>
       <errorOpeningInMoxtra>Error opening document in E-Conversation</errorOpeningInMoxtra>
       <noMoxraBinder>E-Conversation must be enabled</noMoxraBinder>
-      <editInMoxtraError>Error opening E-Conversation form</editInMoxtraError>
+      <editPreparingMoxtraEditor>Error preparing E-Conversation form</editPreparingMoxtraEditor>
     </error>
   </Moxtra>
 </bundle>

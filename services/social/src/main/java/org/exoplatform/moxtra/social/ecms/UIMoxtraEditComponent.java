@@ -19,6 +19,7 @@
 package org.exoplatform.moxtra.social.ecms;
 
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.exoplatform.ecm.webui.component.explorer.UIJCRExplorer;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
@@ -53,20 +54,19 @@ public class UIMoxtraEditComponent extends UIContainer implements UIPopupCompone
 
   protected MoxtraSocialService moxtra;
 
-  protected Node                pageNode;
-  
-  protected boolean isPageCreating;
+  protected String              pageNodeUUID;
+
+  protected boolean             isPageCreating;
 
   /**
    * 
    */
   public UIMoxtraEditComponent() {
-    // TODO
   }
 
-  public void initMoxtra(MoxtraSocialService moxtra, Node pageNode, boolean isPageCreating) {
+  public void initMoxtra(MoxtraSocialService moxtra, String pageNodeUUID, boolean isPageCreating) {
     this.moxtra = moxtra;
-    this.pageNode = pageNode;
+    this.pageNodeUUID = pageNodeUUID;
     this.isPageCreating = isPageCreating;
   }
 
@@ -83,15 +83,15 @@ public class UIMoxtraEditComponent extends UIContainer implements UIPopupCompone
    * @throws RepositoryException
    */
   public String getPageNodeUUID() throws RepositoryException {
-    return pageNode.getUUID();
+    return pageNodeUUID;
   }
 
   public boolean isPageCreating() throws MoxtraClientException, RepositoryException, MoxtraException {
     return isPageCreating;
   }
 
-  public Long getPageId() throws MoxtraClientException, RepositoryException, MoxtraException {
-    return moxtra.getBinderSpace().getPage(pageNode).getId();
+  public Long getPageId() throws Exception {
+    return moxtra.getBinderSpace().getPage(pageNode()).getId();
   }
 
   public String getAuthLink() throws MoxtraSocialException,
@@ -117,7 +117,7 @@ public class UIMoxtraEditComponent extends UIContainer implements UIPopupCompone
   public void showError(Throwable e) {
     LOG.error("Error opening EditInMoxtra form", e);
     UIApplication uiApp = getAncestorOfType(UIApplication.class);
-    uiApp.addMessage(new ApplicationMessage("Moxtra.editInMoxtraError", null, ApplicationMessage.ERROR));
+    uiApp.addMessage(new ApplicationMessage("Moxtra.error.editPreparingMoxtraEditor", null, ApplicationMessage.ERROR));
   }
 
   /**
@@ -134,6 +134,13 @@ public class UIMoxtraEditComponent extends UIContainer implements UIPopupCompone
   @Override
   public void deActivate() {
     // nothing
+  }
+
+  // **** internals *****
+
+  protected Node pageNode() throws Exception {
+    UIJCRExplorer uiExplorer = getAncestorOfType(UIJCRExplorer.class);
+    return uiExplorer.getCurrentNode().getSession().getNodeByUUID(pageNodeUUID);
   }
 
 }

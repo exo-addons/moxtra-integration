@@ -28,6 +28,7 @@ import org.exoplatform.webui.config.annotation.ComponentConfig;
  * @version $Id: MoxtraNoteViewer.java 00000 Apr 29, 2015 pnedonosko $
  * 
  */
+@Deprecated
 @ComponentConfig(template = "classpath:templates/moxtra/social/ecms/MoxtraNoteViewer.gtmpl")
 public class MoxtraNoteViewer extends BaseMoxtraSocialDocumentManagerComponent {
 

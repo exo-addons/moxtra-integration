@@ -72,18 +72,20 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
      */
     @Override
     public void onTokenRefresh(AccessToken token) {
-      if (token.isInitialized()) {
-        try {
-          SessionProvider sp = jcrSessions.getSystemSessionProvider(null);
-          ManageableRepository currentRepo = jcrService.getCurrentRepository();
-          Session userSession = sp.getSession(currentRepo.getConfiguration().getDefaultWorkspaceName(),
-                                              currentRepo);
-          Node tokenNode = userSession.getNodeByUUID(tokenNodeUUID);
+      try {
+        SessionProvider sp = jcrSessions.getSystemSessionProvider(null);
+        ManageableRepository currentRepo = jcrService.getCurrentRepository();
+        Session userSession = sp.getSession(currentRepo.getConfiguration().getDefaultWorkspaceName(),
+                                            currentRepo);
+        Node tokenNode = userSession.getNodeByUUID(tokenNodeUUID);
+        if (token.isInitialized()) {
           persistToken(tokenNode, token);
-          tokenNode.save();
-        } catch (RepositoryException e) {
-          LOG.error("Error saving client token", e);
+        } else {
+          resetToken(tokenNode);
         }
+        tokenNode.save();
+      } catch (RepositoryException e) {
+        LOG.error("Error saving client token", e);
       }
     }
   }
@@ -324,6 +326,22 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
       JCR.setCreatedTime(tokenNode, now);
     }
     JCR.setUpdatedTime(tokenNode, now);
+  }
+
+  /**
+   * Reset client token data in given user node (should be already moxtra:accessTokenStore).
+   * 
+   * @param tokenNode {@link Node} of type moxtra:accessTokenStore
+   * @param accesstToken {@link AccessToken}
+   * @throws RepositoryException
+   */
+  protected void resetToken(Node tokenNode) throws RepositoryException {
+    JCR.setAccessToken(tokenNode, null);
+    JCR.setRefreshToken(tokenNode, null);
+    JCR.setExpirationTime(tokenNode, null);
+    JCR.setScope(tokenNode, null);
+    // JCR.setCreatedTime(tokenNode, null); // let created to live
+    JCR.setUpdatedTime(tokenNode, Calendar.getInstance().getTime());
   }
 
   protected boolean loadListenToken(Node userNode, MoxtraClient client) throws RepositoryException {

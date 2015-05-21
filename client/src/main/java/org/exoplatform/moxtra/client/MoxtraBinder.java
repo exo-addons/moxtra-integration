@@ -40,22 +40,43 @@ public class MoxtraBinder {
   /**
    * Creator user type in a binder.
    */
-  public static final String           USER_TYPE_BOARD_OWNER      = "BOARD_OWNER";
+  public static final String USER_TYPE_BOARD_OWNER      = "BOARD_OWNER";
 
   /**
    * Invited user type in a binder with read/writer permissions.
    */
-  public static final String           USER_TYPE_BOARD_READ_WRITE = "BOARD_READ_WRITE";
+  public static final String USER_TYPE_BOARD_READ_WRITE = "BOARD_READ_WRITE";
 
   /**
    * Creator user status in a binder.
    */
-  public static final String           USER_STATUS_BOARD_MEMBER   = "BOARD_MEMBER";
+  public static final String USER_STATUS_BOARD_MEMBER   = "BOARD_MEMBER";
 
   /**
    * Invited user status in a binder.
    */
-  public static final String           USER_STATUS_BOARD_INVITED  = "BOARD_INVITED";
+  public static final String USER_STATUS_BOARD_INVITED  = "BOARD_INVITED";
+
+  /**
+   * Create binder object from given data. Use this method for deserealization from local storage.
+   * 
+   * @param binderId
+   * @param name
+   * @param revision
+   * @param createdTime
+   * @param updatedTime
+   * @return
+   */
+  public static MoxtraBinder create(String binderId,
+                                    String name,
+                                    Long revision,
+                                    Date createdTime,
+                                    Date updatedTime,
+                                    List<MoxtraUser> users) {
+    MoxtraBinder binder = new MoxtraBinder(binderId, name, revision, createdTime, updatedTime);
+    binder.setUsers(users);
+    return binder;
+  }
 
   /**
    * Binder ID.
@@ -81,7 +102,12 @@ public class MoxtraBinder {
    */
   protected List<MoxtraUser>           users;
 
-  protected transient final Boolean    isNew;
+  /**
+   * Binder pages. Should be initialized by {@link #setPages(List)}.
+   */
+  protected List<MoxtraPage>           pages;
+
+  protected transient Boolean    isNew;
 
   protected transient boolean          deleted;
 
@@ -367,8 +393,10 @@ public class MoxtraBinder {
       } else {
         return origUsers;
       }
+    } else if (users != null) {
+      return Collections.unmodifiableList(users);
     } else {
-      return users;
+      return Collections.emptyList();
     }
   }
 
@@ -430,8 +458,31 @@ public class MoxtraBinder {
     return original != null;
   }
 
+  /**
+   * @return the pages
+   */
+  public List<MoxtraPage> getPages() {
+    if (pages != null) {
+      return Collections.unmodifiableList(pages);
+    } else {
+      return Collections.emptyList();
+    }
+  }
+
   // ******* internals *******
 
+  /**
+   * Mark the binder as not new (for refreshing of newly crated). 
+   */
+  protected void resetNew() {
+    if (isEditor()) {
+      this.original.resetNew();
+      this.isNew = null;
+    } else {
+      this.isNew = false;
+    }
+  }
+  
   /**
    * Set binder users.
    * 
@@ -446,6 +497,20 @@ public class MoxtraBinder {
       this.removedUsers.clear();
     } else {
       this.users = users;
+    }
+  }
+
+  /**
+   * Set binder pages.
+   * 
+   * @param pages
+   */
+  protected void setPages(List<MoxtraPage> pages) {
+    if (isEditor()) {
+      this.original.setPages(pages);
+      this.pages = null;
+    } else {
+      this.pages = pages;
     }
   }
 

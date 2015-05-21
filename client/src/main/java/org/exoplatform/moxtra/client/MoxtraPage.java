@@ -102,6 +102,8 @@ public class MoxtraPage {
                     Long revision,
                     Long index,
                     Long number,
+                    String type,
+                    String originalFileName,
                     String url,
                     String thumbnailUrl,
                     String backgroundUrl) {
@@ -109,9 +111,18 @@ public class MoxtraPage {
     this.revision = revision;
     this.index = index;
     this.number = number;
+    this.type = type;
+    this.originalFileName = originalFileName;
     this.url = url;
     this.thumbnailUrl = thumbnailUrl;
     this.backgroundUrl = backgroundUrl;
+  }
+  
+  /**
+   * Local, existing or creating page constructor.
+   */
+  public MoxtraPage(String originalFileName) {
+    this.originalFileName = originalFileName;
   }
 
   /**

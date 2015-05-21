@@ -47,12 +47,17 @@ import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
 import org.apache.http.entity.StringEntity;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntity;
+import org.apache.http.entity.mime.content.InputStreamBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 import org.apache.http.impl.conn.tsccm.ThreadSafeClientConnManager;
 import org.apache.http.protocol.BasicHttpContext;
+import org.apache.http.protocol.HTTP;
 import org.apache.http.protocol.HttpContext;
 import org.apache.http.util.EntityUtils;
 import org.apache.oltu.oauth2.client.OAuthClient;
+import org.apache.oltu.oauth2.client.request.ClientHeaderParametersApplier;
 import org.apache.oltu.oauth2.client.request.OAuthBearerClientRequest;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
 import org.apache.oltu.oauth2.client.response.OAuthAccessTokenResponse;
@@ -63,6 +68,8 @@ import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthRuntimeException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.apache.oltu.oauth2.common.message.types.GrantType;
+import org.apache.oltu.oauth2.common.parameters.BodyURLEncodedParametersApplier;
+import org.apache.oltu.oauth2.common.parameters.QueryParameterApplier;
 import org.apache.oltu.oauth2.common.utils.OAuthUtils;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.moxtra.MoxtraException;
@@ -149,6 +156,10 @@ public class MoxtraClient {
 
   public static final String     API_BINDER_REMOVEUSER       = API_BINDER + "/removeuser";
 
+  public static final String     API_BINDER_PAGEUPLOAD       = API_BINDER + "/pageupload";
+
+  public static final String     API_BINDERS                 = API_V1 + "{user_id}/binders";
+
   public static final String     RESPONSE_SUCCESS            = "RESPONSE_SUCCESS";
 
   public static final String     REQUEST_CONTENT_TYPE_JSON   = "application/json".intern();
@@ -225,6 +236,89 @@ public class MoxtraClient {
     public synchronized Throwable getCause() {
       return cause != null ? cause : super.getCause();
     }
+
+    /**
+     * Message from failed response if cause available.
+     * 
+     * @return String
+     */
+    public String getErrorMessage() {
+      return cause != null ? cause.getMessage() : EMPTY;
+    }
+  }
+
+  protected class RESTRequestBuilder extends OAuthBearerClientRequest {
+
+    public RESTRequestBuilder(String url) {
+      super(url);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RESTRequest buildQueryMessage() throws OAuthSystemException {
+      RESTRequest request = new RESTRequest(url);
+      this.applier = new QueryParameterApplier();
+      return (RESTRequest) applier.applyOAuthParameters(request, parameters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RESTRequest buildBodyMessage() throws OAuthSystemException {
+      RESTRequest request = new RESTRequest(url);
+      this.applier = new BodyURLEncodedParametersApplier();
+      return (RESTRequest) applier.applyOAuthParameters(request, parameters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RESTRequest buildHeaderMessage() throws OAuthSystemException {
+      RESTRequest request = new RESTRequest(url);
+      this.applier = new ClientHeaderParametersApplier();
+      return (RESTRequest) applier.applyOAuthParameters(request, parameters);
+    }
+
+    /**
+     * {@inheritDoc}
+     */
+    @Override
+    public RESTRequestBuilder setAccessToken(String accessToken) {
+      return (RESTRequestBuilder) super.setAccessToken(accessToken);
+    }
+  }
+
+  protected class RESTRequest extends OAuthClientRequest {
+
+    protected HttpEntity bodyEntity;
+
+    protected RESTRequest(String url) {
+      super(url);
+    }
+
+    protected boolean hasEntity() {
+      return bodyEntity != null;
+    }
+
+    /**
+     * @param bodyEntity the bodyEntity to set
+     */
+    protected void setBodyEntity(HttpEntity bodyEntity) {
+      this.bodyEntity = bodyEntity;
+      this.body = null;
+    }
+
+    /**
+     * @return the bodyEntity
+     */
+    protected HttpEntity getBodyEntity() {
+      return bodyEntity;
+    }
+
   }
 
   protected class RESTResponse extends OAuthClientResponse {
@@ -393,13 +487,11 @@ public class MoxtraClient {
         if (!OAuthUtils.isEmpty(requestMethod)) {
           if (OAuth.HttpMethod.POST.equals(requestMethod)) {
             HttpPost post = new HttpPost(location);
-            HttpEntity entity = new StringEntity(request.getBody() == null ? EMPTY : request.getBody());
-            post.setEntity(entity);
+            post.setEntity(entity(request));
             req = post;
           } else if (OAuth.HttpMethod.PUT.equals(requestMethod)) {
             HttpPut put = new HttpPut(location);
-            HttpEntity entity = new StringEntity(request.getBody() == null ? EMPTY : request.getBody());
-            put.setEntity(entity);
+            put.setEntity(entity(request));
             req = put;
           } else if (OAuth.HttpMethod.DELETE.equals(requestMethod)) {
             req = new HttpDelete(location);
@@ -482,6 +574,8 @@ public class MoxtraClient {
           } catch (OAuthProblemException e) {
             // Here we can get the response entity and read extra data about the error
             if (responseBody != EMPTY) {
+              String details;
+              String responseText;
               if (contentType.startsWith(MediaType.APPLICATION_JSON)) {
                 // try read as JSON
                 try {
@@ -489,32 +583,54 @@ public class MoxtraClient {
                   JsonDefaultHandler handler = new JsonDefaultHandler();
                   jsonParser.parse(new StringReader(responseBody), handler);
                   JsonValue responseJson = handler.getJsonObject();
-                  String details = readOAuthProblem(responseJson);
-                  if (details != null) {
-                    if (LOG.isDebugEnabled()) {
-                      LOG.debug("Authorization problem (" + details
-                          + ")\r\n====== Moxtra response JSON ======\r\n" + responseJson.toString()
-                          + "\r\n=========================\r\n", e);
-                    }
-
-                    AuthProblemException cause = new AuthProblemException(details);
-                    AuthProblemException newE = new AuthProblemException(e.getMessage(), cause);
-                    newE.setStackTrace(e.getStackTrace());
-                    newE.setRedirectUri(e.getRedirectUri());
-                    newE.scope(e.getScope());
-                    newE.state(e.getState());
-                    // copy all ex parameters
-                    for (Map.Entry<String, String> pe : e.getParameters().entrySet()) {
-                      newE.setParameter(pe.getKey(), pe.getValue());
-                    }
-                    throw newE;
-                  }
+                  details = readOAuthProblem(responseJson);
+                  responseText = responseJson.toString();
                 } catch (JsonException jsone) {
                   if (LOG.isDebugEnabled()) {
                     LOG.debug("Cannot read errouneus response as JSON", e);
                   }
+                  details = e.getMessage();
+                  responseText = responseBody;
                 }
+              } else {
+                StringBuilder dbuilder = new StringBuilder();
+                dbuilder.append(e.getMessage());
+                dbuilder.append(".");
+                String desc = e.getDescription();
+                if (desc != null && desc.length() > 0) {
+                  dbuilder.append(" ");
+                  dbuilder.append(desc);
+                  dbuilder.append(".");
+                }
+                String err = e.getError();
+                if (err != null && err.length() > 0) {
+                  dbuilder.append(" ");
+                  dbuilder.append(err);
+                  dbuilder.append(".");
+                }
+                dbuilder.append(" [");
+                dbuilder.append(responseCode);
+                dbuilder.append("]");
+
+                details = dbuilder.toString();
+                responseText = responseBody;
               }
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Authorization problem (" + details + ")\r\n====== Moxtra response " + contentType
+                    + " ======\r\n" + responseText + "\r\n=========================\r\n", e);
+              }
+
+              AuthProblemException cause = new AuthProblemException(details);
+              AuthProblemException newE = new AuthProblemException(e.getMessage(), cause);
+              newE.setStackTrace(e.getStackTrace());
+              newE.setRedirectUri(e.getRedirectUri());
+              newE.scope(e.getScope());
+              newE.state(e.getState());
+              // copy all ex parameters
+              for (Map.Entry<String, String> pe : e.getParameters().entrySet()) {
+                newE.setParameter(pe.getKey(), pe.getValue());
+              }
+              throw newE;
             }
             throw e;
           }
@@ -530,6 +646,21 @@ public class MoxtraClient {
       } catch (IllegalStateException e) {
         throw new OAuthRuntimeException(e);
       }
+    }
+
+    protected HttpEntity entity(OAuthClientRequest request) throws UnsupportedEncodingException {
+      HttpEntity entity = null;
+      if (request instanceof RESTRequest) {
+        RESTRequest restRequest = (RESTRequest) request;
+        if (restRequest.hasEntity()) {
+          entity = restRequest.getBodyEntity();
+        }
+      }
+
+      if (entity == null) {
+        entity = new StringEntity(request.getBody() == null ? EMPTY : request.getBody());
+      }
+      return entity;
     }
 
     protected JsonValue readJson(HttpResponse resp) throws JsonException, IllegalStateException, IOException {
@@ -790,10 +921,6 @@ public class MoxtraClient {
         String url = API_USER.replace("{user_id}", userId);
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
 
-        // TODO make dedicated response object for each API service endpoint
-        // and return business object(s) from it,
-        // parse business object by reflection assuming that all public fields should be in a response:
-        // use GSON?
         JsonValue json = resp.getValue();
         JsonValue dv = json.getElement("data");
         if (!isNull(dv)) {
@@ -862,10 +989,6 @@ public class MoxtraClient {
         String url = API_USER_CONTACTS.replace("{user_id}", userId);
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
 
-        // TODO make dedicated response object for each API service endpoint
-        // and return business object(s) from it,
-        // parse business object by reflection assuming that all public fields should be in a response:
-        // use GSON?
         JsonValue json = resp.getValue();
         JsonValue dv = json.getElement("data");
         if (!isNull(dv)) {
@@ -1187,6 +1310,42 @@ public class MoxtraClient {
   }
 
   /**
+   * Refresh given (local) binder with recent information from Moxtra.
+   * 
+   * @param binder {@link MoxtraBinder} binder object to refresh
+   * @throws OAuthSystemException
+   * @throws OAuthProblemException
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  public void refreshBinder(MoxtraBinder binder) throws OAuthSystemException,
+                                                OAuthProblemException,
+                                                MoxtraException,
+                                                MoxtraClientException {
+
+    MoxtraBinder remoteBinder = getBinder(binder.getBinderId());
+    String bid = remoteBinder.getBinderId();
+    if (bid != null && bid.length() > 0) {
+      binder.setBinderId(remoteBinder.getBinderId());
+    }
+    String name = remoteBinder.getName();
+    if (name != null) {
+      binder.setName(name);
+    }
+    // other binder fields
+    binder.setCreatedTime(remoteBinder.getCreatedTime());
+    binder.setUpdatedTime(remoteBinder.getUpdatedTime());
+    binder.setRevision(remoteBinder.getRevision());
+    binder.setThumbnailUrl(remoteBinder.getThumbnailUrl());
+    // pages
+    binder.setPages(remoteBinder.getPages());
+    // users
+    binder.setUsers(remoteBinder.getUsers());
+    // reset isNew
+    binder.resetNew();
+  }
+
+  /**
    * Refresh given (local) meet with recent information from Moxtra.
    * 
    * @param meet {@link MoxtraMeet} meet object to refresh
@@ -1250,6 +1409,8 @@ public class MoxtraClient {
     meet.setThumbnailUrl(remoteMeet.getThumbnailUrl());
     // users
     meet.setUsers(remoteMeet.getUsers());
+    // reset isNew
+    meet.resetNew();
   }
 
   /**
@@ -1420,103 +1581,126 @@ public class MoxtraClient {
       JsonValue json = resp.getValue();
       JsonValue dv = json.getElement("data");
       if (!isNull(dv)) {
-        JsonValue vbid = dv.getElement("id");
-        if (isNull(vbid)) {
-          throw new MoxtraException("Binder request doesn't return id");
-        }
-        JsonValue vbname = dv.getElement("name");
-        if (isNull(vbname)) {
-          throw new MoxtraException("Binder request doesn't return name");
-        }
-        JsonValue vrevision = dv.getElement("revision");
-        if (isNull(vrevision)) {
-          throw new MoxtraException("Binder request doesn't return revision");
-        }
-        JsonValue vcreated = dv.getElement("created_time");
-        if (isNull(vcreated)) {
-          throw new MoxtraException("Binder request doesn't return created_time");
-        }
-        JsonValue vupdated = dv.getElement("updated_time");
-        if (isNull(vupdated)) {
-          throw new MoxtraException("Binder request doesn't return updated_time");
-        }
-        JsonValue vusers = dv.getElement("users");
-        if (isNull(vusers) || !vusers.isArray()) {
-          throw new MoxtraException("Binder request doesn't return users array");
-        }
-
-        // read binder users
-        List<MoxtraUser> users = new ArrayList<MoxtraUser>();
-        for (Iterator<JsonValue> vuiter = vusers.getElements(); vuiter.hasNext();) {
-          JsonValue vue = vuiter.next();
-
-          JsonValue vutype = vue.getElement("type");
-          if (isNull(vutype)) {
-            throw new MoxtraException("Binder request doesn't return user type");
-          }
-          JsonValue vustatus = vue.getElement("status");
-          if (isNull(vustatus)) {
-            throw new MoxtraException("Binder request doesn't return user status");
-          }
-          JsonValue vucreated = vue.getElement("created_time");
-          if (isNull(vucreated)) {
-            throw new MoxtraException("Binder request doesn't return user created time");
-          }
-          JsonValue vuupdated = vue.getElement("updated_time");
-          if (isNull(vuupdated)) {
-            throw new MoxtraException("Binder request doesn't return user updated time");
-          }
-
-          // user element
-          JsonValue vu = vue.getElement("user");
-          if (isNull(vu)) {
-            throw new MoxtraException("Binder request doesn't return user in users");
-          }
-          String userEmail;
-          JsonValue vuemail = vu.getElement("email");
-          if (isNull(vuemail)) {
-            throw new MoxtraException("Binder request doesn't return user email");
-          } else {
-            userEmail = vuemail.getStringValue();
-          }
-          String userId;
-          JsonValue vuid = vu.getElement("id");
-          if (isNull(vuid)) {
-            // throw new MoxtraException("Binder request doesn't return user id");
-            userId = userEmail;
-          } else {
-            userId = vuid.getStringValue();
-          }
-          String userName;
-          JsonValue vuname = vu.getElement("name");
-          if (isNull(vuname)) {
-            // throw new MoxtraException("Binder request doesn't return user name");
-            userName = userEmail;
-          } else {
-            userName = vuname.getStringValue();
-          }
-
-          MoxtraUser user = new MoxtraUser(userId, userName, userEmail, //
-                                           null, // first name
-                                           null, // last name
-                                           vutype.getStringValue(),
-                                           vustatus.getStringValue(),
-                                           new Date(vucreated.getLongValue()),
-                                           new Date(vuupdated.getLongValue()));
-
-          users.add(user);
-        }
-
-        MoxtraBinder binder = new MoxtraBinder(vbid.getStringValue(),
-                                               vbname.getStringValue(),
-                                               vrevision.getLongValue(),
-                                               new Date(vcreated.getLongValue()),
-                                               new Date(vupdated.getLongValue()));
-
-        binder.setUsers(users);
-        return binder;
+        return readBinder(dv);
       } else {
         throw new MoxtraException("Binder request doesn't return an expected body (data)");
+      }
+    } else {
+      throw new MoxtraException("Authorization required");
+    }
+  }
+
+  /**
+   * Get binder list identified by current user.
+   * 
+   * @param user {@link MoxtraUser}
+   * @return list of {@link MoxtraBinder} objects
+   * @throws OAuthSystemException
+   * @throws OAuthProblemException
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  public List<MoxtraBinder> getBinders(MoxtraUser user) throws OAuthSystemException,
+                                                       OAuthProblemException,
+                                                       MoxtraException,
+                                                       MoxtraClientException {
+    if (isAuthorized()) {
+      String url = API_BINDERS.replace("{user_id}", user.getId());
+      RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
+
+      JsonValue json = resp.getValue();
+      JsonValue dv = json.getElement("data");
+      if (!isNull(dv)) {
+        JsonValue vbinders = dv.getElement("binders");
+        if (isNull(vbinders) || !vbinders.isArray()) {
+          throw new MoxtraException("Binders request doesn't return binders array");
+        }
+        List<MoxtraBinder> binders = new ArrayList<MoxtraBinder>();
+        for (Iterator<JsonValue> vbiter = vbinders.getElements(); vbiter.hasNext();) {
+          JsonValue vbe = vbiter.next();
+          JsonValue vbinder = vbe.getElement("binder");
+          if (isNull(vbinder)) {
+            throw new MoxtraException("Binders request doesn't return binder in the array");
+          }
+          // TODO there is also "category" element in Json
+          binders.add(readBinder(vbinder));
+        }
+        return binders;
+      } else {
+        throw new MoxtraException("Binders request doesn't return an expected body (data)");
+      }
+    } else {
+      throw new MoxtraException("Authorization required");
+    }
+  }
+
+  /**
+   * Create new Moxtra binder and join its users as participants. If users is <code>null</code> or empty
+   * then no users will be added explicitly. Binder
+   * 
+   * @param ownerUser {@link MoxtraUser}
+   * @param binder {@link MoxtraBinder}
+   * @throws OAuthSystemException
+   * @throws OAuthProblemException
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  public void createBinder(MoxtraUser ownerUser, MoxtraBinder binder) throws OAuthSystemException,
+                                                                     OAuthProblemException,
+                                                                     MoxtraException,
+                                                                     MoxtraClientException {
+    if (isAuthorized()) {
+      // prepare body
+      JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
+      Map<String, Object> params = new HashMap<String, Object>();
+      params.put("name", binder.getName());
+      try {
+        String url = API_BINDERS.replace("{user_id}", ownerUser.getId());
+        RESTResponse resp = restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params)
+                                                                           .toString());
+
+        JsonValue json = resp.getValue();
+        JsonValue vcode = json.getElement("code");
+        if (!isNull(vcode) && vcode.getStringValue().equals(RESPONSE_SUCCESS)) {
+          JsonValue vdata = json.getElement("data");
+          if (!isNull(vdata)) {
+            JsonValue vbid = vdata.getElement("id");
+            if (isNull(vbid)) {
+              throw new MoxtraException("Binder creation request doesn't return id");
+            }
+            JsonValue vbname = vdata.getElement("name");
+            if (isNull(vbname)) {
+              throw new MoxtraException("Binder creation request doesn't return name");
+            }
+            JsonValue vrevision = vdata.getElement("revision");
+            if (isNull(vrevision)) {
+              throw new MoxtraException("Binder creation request doesn't return revision");
+            }
+            JsonValue vcreated = vdata.getElement("created_time");
+            if (isNull(vcreated)) {
+              throw new MoxtraException("Binder creation request doesn't return created_time");
+            }
+            JsonValue vupdated = vdata.getElement("updated_time");
+            if (isNull(vupdated)) {
+              throw new MoxtraException("Binder creation request doesn't return updated_time");
+            }
+
+            // update binder object with returned data
+            binder.setBinderId(vbid.getStringValue());
+            binder.setName(vbname.getStringValue());
+            binder.setRevision(vrevision.getLongValue());
+            binder.setCreatedTime(getDate(vcreated.getLongValue()));
+            binder.setUpdatedTime(getDate(vupdated.getLongValue()));
+
+            inviteUsers(binder);
+          } else {
+            throw new MoxtraException("Binder creation request doesn't return an expected body (data)");
+          }
+        } else {
+          throw new MoxtraException("Binder creation request doesn't return an expected body (code)");
+        }
+      } catch (JsonException e) {
+        throw new MoxtraClientException("Error creating JSON request from binder creation", e);
       }
     } else {
       throw new MoxtraException("Authorization required");
@@ -1557,10 +1741,6 @@ public class MoxtraClient {
                                         OAuth.HttpMethod.POST,
                                         jsonGen.createJsonObjectFromMap(params).toString());
 
-        // TODO make dedicated response object for each API service endpoint
-        // and return business object(s) from it,
-        // parse business object by reflection assuming that all public fields should be in a response:
-        // use GSON?
         JsonValue json = resp.getValue();
         JsonValue vcode = json.getElement("code");
         if (!isNull(vcode) && vcode.getStringValue().equals(RESPONSE_SUCCESS)) {
@@ -1823,10 +2003,6 @@ public class MoxtraClient {
                                             OAuth.HttpMethod.POST,
                                             jsonGen.createJsonObjectFromMap(params).toString());
 
-            // TODO make dedicated response object for each API service endpoint
-            // and return business object(s) from it,
-            // parse business object by reflection assuming that all public fields should be in a response:
-            // use GSON?
             JsonValue json = resp.getValue();
             JsonValue vcode = json.getElement("code");
             if (!isNull(vcode) && vcode.getStringValue().equals(RESPONSE_SUCCESS)) {
@@ -2140,26 +2316,49 @@ public class MoxtraClient {
     }
   }
 
-  // /{binder_id}/pageupload
-  public void pageUpload(MoxtraBinder binder) throws OAuthSystemException,
-                                               OAuthProblemException,
-                                               MoxtraException,
-                                               MoxtraClientException {
-    // FYI to remove a meet we remove its binder (created by scheduling the meet)
+  /**
+   * Upload pages to the binder identified by {binder_id} via multipart/form-data.
+   * 
+   * @param binder
+   * @param contentType
+   * @param content
+   * @param contentFileName
+   * @throws OAuthSystemException
+   * @throws OAuthProblemException
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  public void pageUpload(MoxtraBinder binder, String contentType, InputStream content, String contentFileName) throws OAuthSystemException,
+                                                                                                              OAuthProblemException,
+                                                                                                              MoxtraException,
+                                                                                                              MoxtraClientException {
     if (isAuthorized()) {
-      // prepare body
-      JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
-      Map<String, Object> params = new HashMap<String, Object>();
-      params.put("name", binder.getName());
-      try {
-        String url = API_BINDER.replace("{binder_id}", binder.getBinderId());
-        restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
-      } catch (JsonException e) {
-        throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
+      String url = API_BINDER_PAGEUPLOAD.replace("{binder_id}", binder.getBinderId());
+      RESTResponse resp = restRequest(url, OAuth.HttpMethod.POST, contentType, content, contentFileName);
+
+      JsonValue json = resp.getValue();
+      JsonValue vcode = json.getElement("code");
+      if (!isNull(vcode)) {
+        String code = vcode.getStringValue();
+        if (!code.equals(RESPONSE_SUCCESS)) {
+          throw new MoxtraException("Page upload request ended with not success: " + code);
+        }
+        // try find and return the page?
+      } else {
+        throw new MoxtraException("Page upload request doesn't return an expected body (code)");
       }
     } else {
       throw new MoxtraException("Authorization required");
     }
+  }
+
+  /**
+   * Current OAuth2 access token.
+   * 
+   * @return String
+   */
+  public String getOAuthAccessToken() {
+    return accessToken();
   }
 
   // ******* internals ********
@@ -2260,10 +2459,10 @@ public class MoxtraClient {
   protected void checkError(RESTResponse resp) throws MoxtraException {
     if (resp.getResponseCode() == HttpStatus.SC_UNAUTHORIZED) {
       RESTError e = readError(resp);
-      throw new MoxtraAccessException("Unauthorized, " + e.message);
+      throw new MoxtraUnauthorizedException("Unauthorized, " + e.message);
     } else if (resp.getResponseCode() == HttpStatus.SC_FORBIDDEN) {
       RESTError e = readError(resp);
-      throw new MoxtraAccessException("Forbidden, " + e.message);
+      throw new MoxtraForbiddenException("Forbidden, " + e.message);
     } else if (resp.getResponseCode() == HttpStatus.SC_NOT_FOUND) {
       RESTError e = readError(resp);
       if (RESPONSE_ERROR_NOT_FOUND.equals(e.code)) {
@@ -2315,29 +2514,53 @@ public class MoxtraClient {
                                                                             OAuthProblemException,
                                                                             MoxtraException,
                                                                             MoxtraClientException {
-    return restRequest(url, method, REQUEST_CONTENT_TYPE_JSON, body);
+    try {
+      StringEntity sentity = new StringEntity(body == null ? EMPTY : body, HTTP.UTF_8);
+      return restRequest(url, method, REQUEST_CONTENT_TYPE_JSON, sentity);
+    } catch (UnsupportedEncodingException e) {
+      throw new MoxtraClientException("Error preparing request " + e.getMessage(), e);
+    }
   }
 
-  protected RESTResponse restRequest(String url, String method, String contentType, String body) throws OAuthSystemException,
-                                                                                                OAuthProblemException,
-                                                                                                MoxtraException,
-                                                                                                MoxtraClientException {
+  protected RESTResponse restRequest(String url,
+                                     String method,
+                                     String contentType,
+                                     InputStream content,
+                                     String contentFileName) throws OAuthSystemException,
+                                                            OAuthProblemException,
+                                                            MoxtraException,
+                                                            MoxtraClientException {
+    MultipartEntity mpentity = new MultipartEntity(HttpMultipartMode.BROWSER_COMPATIBLE);
+    InputStreamBody body = new InputStreamBody(content, contentType, contentFileName);
+    mpentity.addPart("file", body);
+    return restRequest(url, method, null, mpentity);
+  }
+
+  protected RESTResponse restRequest(String url, String method, String contentType, HttpEntity bodyEntity) throws OAuthSystemException,
+                                                                                                          OAuthProblemException,
+                                                                                                          MoxtraException,
+                                                                                                          MoxtraClientException {
     if (isAuthorized()) {
       RESTResponse resp = null;
       boolean wasRetry = false;
       retry: while (true) {
         try {
-          OAuthClientRequest bearerClientRequest = new OAuthBearerClientRequest(url).setAccessToken(accessToken())
-                                                                                    .buildQueryMessage();
+          // OAuthClientRequest bearerClientRequest = new
+          // OAuthBearerClientRequest(url).setAccessToken(accessToken())
+          // .buildQueryMessage();
+
+          RESTRequest clientRequest = new RESTRequestBuilder(url).setAccessToken(accessToken())
+                                                                 .buildQueryMessage();
           if (contentType != null) {
-            bearerClientRequest.setHeader(OAuth.HeaderType.CONTENT_TYPE, contentType);
+            clientRequest.setHeader(OAuth.HeaderType.CONTENT_TYPE, contentType);
           }
 
-          if (body != null) {
-            bearerClientRequest.setBody(body);
+          if (bodyEntity != null) {
+            // clientRequest.setBody(body);
+            clientRequest.setBodyEntity(bodyEntity);
           }
 
-          resp = oAuthClient.resource(bearerClientRequest, method, RESTResponse.class);
+          resp = oAuthClient.resource(clientRequest, method, RESTResponse.class);
 
           checkError(resp);
 
@@ -2351,7 +2574,22 @@ public class MoxtraClient {
           if (resp != null && !wasRetry && resp.getResponseCode() == HttpStatus.SC_UNAUTHORIZED) {
             if (resp.getValue().toString().indexOf("invalid_token") >= 0) {
               // need update access token (by refresh token)
-              authorizer().refresh(); // TODO handle error when refresh failed and need cause reauth in UI
+              try {
+                authorizer().refresh(); // TODO handle error when refresh failed and need cause reauth in UI
+              } catch (AuthProblemException ape) {
+                // catch text of OAuthProblemException in initial occurence:
+                // invalid_token, Invalid refresh token (expired): $REFRESH_TOKEN
+                // or readRefreshTokenForAccessToken of next attemots to refresh using expired refresh_token
+                String err = ape.getErrorMessage();
+                if (err != null) {
+                  if (err.indexOf("invalid_token") >= 0 || err.indexOf("readRefreshTokenForAccessToken") >= 0) {
+                    // it's expired refresh token: reset user authorization, need reauth user
+                    oAuthToken.reset();
+                    throw new MoxtraRenewAccessException("Re-authorization is required", ape);
+                  }
+                }
+                throw ape; // as is
+              }
               wasRetry = true;
               continue retry;
             }
@@ -2555,4 +2793,173 @@ public class MoxtraClient {
     return meet;
   }
 
+  protected MoxtraBinder readBinder(JsonValue vbinder) throws MoxtraException,
+                                                      OAuthSystemException,
+                                                      OAuthProblemException {
+
+    JsonValue vbid = vbinder.getElement("id");
+    if (isNull(vbid)) {
+      throw new MoxtraException("Binder request doesn't return id");
+    }
+    JsonValue vbname = vbinder.getElement("name");
+    if (isNull(vbname)) {
+      throw new MoxtraException("Binder request doesn't return name");
+    }
+    JsonValue vrevision = vbinder.getElement("revision");
+    if (isNull(vrevision)) {
+      throw new MoxtraException("Binder request doesn't return revision");
+    }
+    JsonValue vcreated = vbinder.getElement("created_time");
+    if (isNull(vcreated)) {
+      throw new MoxtraException("Binder request doesn't return created_time");
+    }
+    JsonValue vupdated = vbinder.getElement("updated_time");
+    if (isNull(vupdated)) {
+      throw new MoxtraException("Binder request doesn't return updated_time");
+    }
+
+    // binder pages (TODO lazy reader)
+    JsonValue vpages = vbinder.getElement("pages");
+    List<MoxtraPage> pages = new ArrayList<MoxtraPage>();
+    if (!isNull(vpages) && vpages.isArray()) {
+      for (Iterator<JsonValue> vpiter = vpages.getElements(); vpiter.hasNext();) {
+        JsonValue vp = vpiter.next();
+
+        JsonValue vpid = vp.getElement("id");
+        if (isNull(vpid)) {
+          throw new MoxtraException("Binder request doesn't return page id");
+        }
+        JsonValue vprevision = vp.getElement("revision");
+        if (isNull(vprevision)) {
+          throw new MoxtraException("Binder request doesn't return page revision");
+        }
+        Long index;
+        JsonValue vpindex = vp.getElement("page_index");
+        if (isNull(vpindex)) {
+          // throw new MoxtraException("Binder request doesn't return page index");
+          index = 0l;
+        } else {
+          index = vpindex.getLongValue();
+        }
+        Long number;
+        JsonValue vpnumber = vp.getElement("page_number");
+        if (isNull(vpnumber)) {
+          // throw new MoxtraException("Binder request doesn't return page number");
+          number = 0l;
+        } else {
+          number = vpnumber.getLongValue();
+        }
+        JsonValue vpurl = vp.getElement("page_uri");
+        if (isNull(vpurl)) {
+          throw new MoxtraException("Binder request doesn't return page_uri");
+        }
+        JsonValue vpturl = vp.getElement("thumbnail_uri");
+        if (isNull(vpturl)) {
+          throw new MoxtraException("Binder request doesn't return thumbnail_uri");
+        }
+        JsonValue vpburl = vp.getElement("background_uri");
+        if (isNull(vpburl)) {
+          throw new MoxtraException("Binder request doesn't return background_uri");
+        }
+        JsonValue vptype = vp.getElement("type");
+        if (isNull(vptype)) {
+          throw new MoxtraException("Binder request doesn't return page type");
+        }
+        String origFileName;
+        JsonValue vpfname = vp.getElement("original_file_name");
+        if (isNull(vpfname)) {
+          origFileName = null;
+        } else {
+          origFileName = vpfname.getStringValue();
+        }
+
+        MoxtraPage page = new MoxtraPage(vpid.getLongValue(),
+                                         vprevision.getLongValue(),
+                                         index,
+                                         number,
+                                         vptype.getStringValue(),
+                                         origFileName,
+                                         vpurl.getStringValue(),
+                                         vpturl.getStringValue(),
+                                         vpburl.getStringValue());
+        pages.add(page);
+      }
+    }
+
+    // read binder users
+    JsonValue vusers = vbinder.getElement("users");
+    if (isNull(vusers) || !vusers.isArray()) {
+      throw new MoxtraException("Binder request doesn't return users array");
+    }
+    List<MoxtraUser> users = new ArrayList<MoxtraUser>();
+    for (Iterator<JsonValue> vuiter = vusers.getElements(); vuiter.hasNext();) {
+      JsonValue vue = vuiter.next();
+
+      JsonValue vutype = vue.getElement("type");
+      if (isNull(vutype)) {
+        throw new MoxtraException("Binder request doesn't return user type");
+      }
+      JsonValue vustatus = vue.getElement("status");
+      if (isNull(vustatus)) {
+        throw new MoxtraException("Binder request doesn't return user status");
+      }
+      JsonValue vucreated = vue.getElement("created_time");
+      if (isNull(vucreated)) {
+        throw new MoxtraException("Binder request doesn't return user created time");
+      }
+      JsonValue vuupdated = vue.getElement("updated_time");
+      if (isNull(vuupdated)) {
+        throw new MoxtraException("Binder request doesn't return user updated time");
+      }
+
+      // user element
+      JsonValue vu = vue.getElement("user");
+      if (isNull(vu)) {
+        throw new MoxtraException("Binder request doesn't return user in users");
+      }
+      String userEmail;
+      JsonValue vuemail = vu.getElement("email");
+      if (isNull(vuemail)) {
+        throw new MoxtraException("Binder request doesn't return user email");
+      } else {
+        userEmail = vuemail.getStringValue();
+      }
+      String userId;
+      JsonValue vuid = vu.getElement("id");
+      if (isNull(vuid)) {
+        // throw new MoxtraException("Binder request doesn't return user id");
+        userId = userEmail;
+      } else {
+        userId = vuid.getStringValue();
+      }
+      String userName;
+      JsonValue vuname = vu.getElement("name");
+      if (isNull(vuname)) {
+        // throw new MoxtraException("Binder request doesn't return user name");
+        userName = userEmail;
+      } else {
+        userName = vuname.getStringValue();
+      }
+
+      MoxtraUser user = new MoxtraUser(userId, userName, userEmail, //
+                                       null, // first name
+                                       null, // last name
+                                       vutype.getStringValue(),
+                                       vustatus.getStringValue(),
+                                       new Date(vucreated.getLongValue()),
+                                       new Date(vuupdated.getLongValue()));
+
+      users.add(user);
+    }
+
+    MoxtraBinder binder = new MoxtraBinder(vbid.getStringValue(),
+                                           vbname.getStringValue(),
+                                           vrevision.getLongValue(),
+                                           new Date(vcreated.getLongValue()),
+                                           new Date(vupdated.getLongValue()));
+
+    binder.setUsers(users);
+    binder.setPages(pages);
+    return binder;
+  }
 }

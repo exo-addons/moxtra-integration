@@ -1,0 +1,12 @@
+#{param name=binders/}
+<select name="binderId" class="form-control">
+	<%
+	  for(b in binders) {
+	%>
+	<option value="${b.binderId}">${b.name ? b.name : b.binderId}</option>
+	<%
+	  }
+	%>
+</select>
+
+

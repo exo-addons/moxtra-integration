@@ -1,84 +1,39 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bundle>
-  <UIEventForm>
-    <tab>
-      <label>
-        <UIEmeetingTab>E-Meeting</UIEmeetingTab>
-      </label>
-    </tab>
+  <MoxtraBinderSpacePortlet>
     <label>
-      <enableMeet>Host e-meeting</enableMeet>
-      <startedMeet>E-meeting started</startedMeet>
-      <planedMeet>E-meeting planed</planedMeet>
-      <endedMeet>E-meeting ended</endedMeet>
-      <canceledMeet>E-meeting canceled</canceledMeet>
-      <inviteMoxtraUser>Meet Participants</inviteMoxtraUser>
-      <loginMoxtra>Log in Moxtra</loginMoxtra>
-      <loginMoxtraHint>Authorization in Moxtra required</loginMoxtraHint>
-      <meetAutorecording>Record this meeting</meetAutorecording>
-      <meetAutorecordingHint>Automatically record this meet</meetAutorecordingHint>
-      <meetLink>Meeting link</meetLink>
-      <meetLinkHint>Use this link to open your meet</meetLinkHint>
-      <meetAgenda>Agenda</meetAgenda>
-      <meetSchedule>Schedule</meetSchedule>
-      <meetCreationInfo>Your meeting will be created with title, time and description of this event when it will
-        be saved.</meetCreationInfo>
-      <poweredBy>Powered by</poweredBy>
-      <startMeetHint>Click to start meeting now</startMeetHint>
-      <joinMeetHint>Click to join meeting now</joinMeetHint>
-      <startedMeetHint>Meeting already started. You can join it right now.</startedMeetHint>
-      <StartMeet>Start Meet</StartMeet>
-      <JoinMeet>Join Meet</JoinMeet>
-      <action>
-        <SelectMoxtraUsers>Add Participants from Moxtra</SelectMoxtraUsers>
-        <InviteEmailUsers>Invite Participants by Email</InviteEmailUsers>
-      </action>
+      <name>E-Conversation</name>
     </label>
-  </UIEventForm>
-  <UIEmeetingTab>
-    <header>
-      <name>Name</name>
-      <email>EMail</email>
-      <action>Action</action>
-      <status>Status</status>
-    </header>
-    <action>
-      <title>
-        <Delete>Delete</Delete>
-      </title>
-    </action>
-    <message>
-      <CannotRemoveMeetCreator>You cannot remove meeting creator</CannotRemoveMeetCreator>
-      <ErrorEnablingMeet>Error creating Moxtra meeting. Refer to administrator for a help.</ErrorEnablingMeet>
-      <ErrorReadingUser>Error reading Moxtra user. Refer to administrator for a help.</ErrorReadingUser>
-      <ErrorEnablingMeetAutorecording>Error enabling meeting video auto-recording. Refer to administrator for a
-        help.</ErrorEnablingMeetAutorecording>
-      <ErrorSavingMeet>Error saving meeting: {0}</ErrorSavingMeet>
-    </message>
-  </UIEmeetingTab>
-  <UIInvitationForm>
-    <label>
-      <AddMoxtraParticipant>Pick Moxtra User</AddMoxtraParticipant>
-    </label>
-  </UIInvitationForm>
-  <UIMoxtraUserSelector>
-    <label>
-      <searchUser>Find users</searchUser>
-      <search>Find</search>
-      <action>
-        <AddMoxtraUsers>Add</AddMoxtraUsers>
-        <CloseMoxtraUsers>Close</CloseMoxtraUsers>
-      </action>
-    </label>
-  </UIMoxtraUserSelector>
-  <UIPopupWindow>
-    <title>
-      <UIMoxtraUserSelector>Moxtra Users</UIMoxtraUserSelector>
-    </title>
-  </UIPopupWindow>
-  <UIQuickAddEvent>
-    <label>
-      <UIEnableMoxtraCheckBoxInput>E-meeting</UIEnableMoxtraCheckBoxInput>
-    </label>
-  </UIQuickAddEvent>
+  </MoxtraBinderSpacePortlet>
+  <MoxtraBinderSpaceController>
+    <title>E-Conversation settings</title>
+    <enableBinder>Enable E-Conversation</enableBinder>
+    <enableBinderHint>Enable E-Conversation for this space</enableBinderHint>
+    <selectBinder>Moxtra Binder for conversations</selectBinder>
+    <newBinderHint>Create new Binder</newBinderHint>
+    <selectBinderHint>Use existing Binder</selectBinderHint>
+    <autocreateUsers>Create new users in Binder</autocreateUsers>
+    <autocreateUsersHint>Automatically create new space users in Moxtra Binder</autocreateUsersHint>
+    <syncComments>Synchronize comments with Binder</syncComments>
+    <syncCommentsHints>Automatically synchronize comments with Moxtra Binder</syncCommentsHints>
+    <save>Save</save>
+    <cancel>Cancel</cancel>
+  </MoxtraBinderSpaceController>
+  <ECMContextMenu>
+    <event>
+      <EditInMoxtra>Open in E-Conversation</EditInMoxtra>
+    </event>
+  </ECMContextMenu>
+  <Moxtra>
+    <loginMoxtra>Log in Moxtra</loginMoxtra>
+    <loginMoxtraHint>Authorization in Moxtra required</loginMoxtraHint>
+    <waitConversationPagePreparing>Your conversation is preparing. Please wait.</waitConversationPagePreparing>
+    <conversationPageNotOpen>E-Conversation page cannot be open. Try again in few minutes.</conversationPageNotOpen>
+    <poweredBy>Powered by</poweredBy>
+    <error>
+      <errorOpeningInMoxtra>Error opening document in E-Conversation</errorOpeningInMoxtra>
+      <noMoxraBinder>E-Conversation must be enabled</noMoxraBinder>
+      <editInMoxtraError>Error opening E-Conversation form</editInMoxtraError>
+    </error>
+  </Moxtra>
 </bundle>

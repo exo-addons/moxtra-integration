@@ -31,13 +31,13 @@ import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
-import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraMeetRecording;
 import org.exoplatform.moxtra.client.MoxtraUser;
+import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
 import org.exoplatform.services.cms.drives.DriveData;
 import org.exoplatform.services.cms.drives.ManageDriveService;
@@ -58,7 +58,6 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.io.InputStream;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -81,7 +80,7 @@ import javax.jcr.Session;
  * @version $Id: MoxtraCalendarService.java 00000 Mar 2, 2015 pnedonosko $
  * 
  */
-public class MoxtraCalendarService {
+public class MoxtraCalendarService extends BaseMoxtraService {
 
   public static final String MEET_VIDEO_DOWNLOAD_JOB_GROUP_NAME = "moxtra_meet_download";
 
@@ -164,8 +163,6 @@ public class MoxtraCalendarService {
 
   protected final Environment                            jobEnvironment   = new Environment();
 
-  protected final MoxtraService                          moxtraService;
-
   /**
    * CalendarService implementation required to access JCR data storage.
    */
@@ -195,17 +192,13 @@ public class MoxtraCalendarService {
                                OrganizationService orgService,
                                JobSchedulerServiceImpl schedulerService,
                                ManageDriveService driveService) {
-    this.moxtraService = moxtra;
+    super(moxtra);
     this.sessionProviderService = sessionProviderService;
     this.hierarchyCreator = hierarchyCreator;
     this.calendar = calendar;
     this.orgService = orgService;
     this.schedulerService = schedulerService;
     this.driveService = driveService;
-  }
-
-  public String getOAuth2Link() throws OAuthSystemException {
-    return moxtraService.getClient().authorizer().authorizationLink();
   }
 
   public CalendarEvent getEvent(String eventId) throws Exception {
@@ -256,9 +249,9 @@ public class MoxtraCalendarService {
           existing = readMeet(meetNode);
           // TODO merge local and remote meet data (as local has fields not available when reading from
           // Moxtra)
-          // MoxtraClient moxtra = moxtraService.getClient();
+          // MoxtraClient moxtra = moxtra.getClient();
           // if (moxtra.isAuthorized()) {
-          // existing = moxtraService.getClient().getMeet(existing.getBinderId());
+          // existing = moxtra.getClient().getMeet(existing.getBinderId());
           // }
         } catch (PathNotFoundException e) {
           if (LOG.isDebugEnabled()) {
@@ -327,12 +320,12 @@ public class MoxtraCalendarService {
                                            calendarId != null ? calendarId : event.getCalendarId(),
                                            event.getId());
             if (eventNode != null) {
-              MoxtraClient moxtra = moxtraService.getClient();
+              MoxtraClient client = moxtra.getClient();
               if (meet.hasDeleted()) {
                 // created new meet also can be marked as deleted (don't delete not created yet meet)
                 if (!meet.isNew()) {
                   boolean cancelVideoDownload = meet.isAutoRecording() || meet.hasAutoRecordingChanged();
-                  moxtra.deleteMeet(meet);
+                  client.deleteMeet(meet);
                   JCR.removeServices(eventNode);
                   if (cancelVideoDownload) {
                     // remove scheduled meet video download
@@ -352,14 +345,14 @@ public class MoxtraCalendarService {
                     throw new MoxtraCalendarException("Meet already created for this event "
                         + event.getSummary());
                   }
-                  moxtra.createMeet(meet);
+                  client.createMeet(meet);
                   // save local node after creating remote meet but before adding meet (mixin should be saved)
                   eventNode.save();
                   meetNode = JCR.addMeet(eventNode);
                   // save meet using local meet editor but get actual users from read remote Moxtra
                   // XXX Here we getting only actual users, remote meet cannot be used for
                   // other data (see method's Javadoc) - it is OK.
-                  MoxtraMeet remoteMeet = moxtra.getMeet(meet.getSessionKey());
+                  MoxtraMeet remoteMeet = client.getMeet(meet.getSessionKey());
                   writeMeet(meetNode, meet, remoteMeet.getUsers());
                   if (meet.isAutoRecording()) {
                     // schedule meet video download
@@ -375,7 +368,7 @@ public class MoxtraCalendarService {
                   boolean updateVideoDownload = meet.isAutoRecording() && meet.hasEndTimeChanged();
                   // if auto-record was disabled
                   boolean cancelVideoDownload = !meet.isAutoRecording() && meet.hasAutoRecordingChanged();
-                  moxtra.updateMeet(meet);
+                  client.updateMeet(meet);
                   meetNode = JCR.getMeet(eventNode);
                   // update meet using local meet editor
                   writeMeet(meetNode, meet, null);
@@ -444,7 +437,7 @@ public class MoxtraCalendarService {
         // here we handle event deletion with existing meet
         MoxtraMeet meet = getMeet(event);
         if (meet != null) {
-          moxtraService.getClient().deleteMeet(meet);
+          moxtra.getClient().deleteMeet(meet);
         } else {
           LOG.error("Cannot delete event meet " + event.getSummary() + ", it is not found in calendar "
               + calendarId);
@@ -478,7 +471,7 @@ public class MoxtraCalendarService {
         try {
           // here we handle event deletion with existing meet
           if (app.hasMeet()) {
-            moxtraService.getClient().deleteMeet(app.getMeet());
+            moxtra.getClient().deleteMeet(app.getMeet());
           }
         } catch (MoxtraCalendarException e) {
           LOG.error("Error deleting context meet", e);
@@ -523,8 +516,8 @@ public class MoxtraCalendarService {
             if (MoxtraMeet.SESSION_ENDED.equals(meet.getStatus())) {
               // meet session already finished - we can try to download the video
               // read remote meet for recent data (like download link)
-              MoxtraClient moxtra = moxtraService.getClient();
-              List<MoxtraMeetRecording> recs = moxtra.getMeetRecordings(meet);
+              MoxtraClient client = moxtra.getClient();
+              List<MoxtraMeetRecording> recs = client.getMeetRecordings(meet);
               if (recs.size() > 0) {
                 MoxtraMeetRecording rec = recs.get(0); // FIXME only first now
                 if (rec.getContentLength() > 0) {
@@ -581,7 +574,7 @@ public class MoxtraCalendarService {
                   String fileExt = mimetypeResolver.getExtension(mimeType);
                   fileExt = (fileExt.length() > 0 ? "." + fileExt : fileExt);
 
-                  InputStream is = moxtra.requestGet(rec.getDownloadLink(), rec.getContentType());
+                  InputStream is = client.requestGet(rec.getDownloadLink(), rec.getContentType());
                   Node video = meetFolder.addNode(meetNodeName + fileExt, "nt:file");
                   Node content = video.addNode("jcr:content", "nt:resource");
                   content.setProperty("jcr:mimeType", mimeType);
@@ -631,39 +624,6 @@ public class MoxtraCalendarService {
           + e.getMessage(), e);
     }
     return null;
-  }
-
-  /**
-   * Current user contacts in Moxtra.<br>
-   * 
-   * @return {@link Collection} of {@link MoxtraUser}.
-   * @throws MoxtraCalendarException if no current app activated
-   * @throws MoxtraException
-   * @throws MoxtraAuthenticationException
-   */
-  public List<MoxtraUser> getContacts() throws MoxtraCalendarException,
-                                       MoxtraAuthenticationException,
-                                       MoxtraException {
-    return moxtraService.getClient().getContacts(getUser());
-  }
-
-  /**
-   * Checks if current user is already authorized to access Moxtra services.
-   * 
-   * @return <code>true</code> if user is authorized to access Moxtra services, <code>false</code> otherwise
-   */
-  public boolean isAuthorized() {
-    return moxtraService.getClient().isAuthorized();
-  }
-
-  /**
-   * Current user in Moxtra.<br>
-   * 
-   * @return {@link MoxtraUser}.
-   * @throws MoxtraException
-   */
-  public MoxtraUser getUser() throws MoxtraException {
-    return moxtraService.getClient().getCurrentUser();
   }
 
   public void prepareJobEnvironment(JobDetail job) throws MoxtraCalendarException {
@@ -946,9 +906,9 @@ public class MoxtraCalendarService {
                                              autorec,
                                              users);
 
-    MoxtraClient moxtra = moxtraService.getClient();
-    if (moxtra.isAuthorized()) {
-      moxtra.refreshMeet(localMeet);
+    MoxtraClient client = moxtra.getClient();
+    if (client.isAuthorized()) {
+      client.refreshMeet(localMeet);
 
       // Save back to the local node
       // FIXME with this logic that saved data never used for authorized users as always read from

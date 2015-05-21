@@ -1,0 +1,50 @@
+<%
+	//import org.exoplatform.portal.webui.util.Util
+  
+  def rcontext = _ctx.getRequestContext()
+  //def uiForm = uicomponent.parentForm
+  def requireJS = rcontext.javascriptManager.getRequireJS()
+  
+  // eXo Moxtra script
+  def currentUser = rcontext.remoteUser
+  requireJS.require('SHARED/exoMoxtra','moxtra')
+  requireJS.addScripts("moxtra.initUser(\"$currentUser\", $uicomponent.authorized);")
+  requireJS.addScripts("moxtra.initPage();")
+%>
+<div id="$uicomponent.id" class="uiDocumentFormController resizable" >	
+<%	if (!uicomponent.authorized) {
+  		def authLinkLabel = uicomponent.getString('Moxtra.loginMoxtra') 
+  		def authLinkHint = uicomponent.getString('Moxtra.loginMoxtraHint')
+  		def authLink = uicomponent.authLink 
+%>
+	<a class="actionIcon moxtraAuthLink" rel="tooltip" data-placement="bottom" title="$authLinkHint" href="$authLink" target="_blank">$authLinkLabel</a>
+<%	} else { %>
+	<div id="moxtra-page-editor" style="display:none;" data-binder-id="$uicomponent.binderId" 
+			<% try {  
+  					if (uicomponent.pageCreating) { 
+						%>
+				data-binder-space-name="$uicomponent.spaceName" data-binder-page-node-uuid="$uicomponent.pageNodeUUID"
+			<% 		} else { %>
+				data-binder-page-id="$uicomponent.pageId"
+			<% 		} 
+				 } catch(Throwable e) {
+  					uicomponent.showError(e)
+				 }	
+			%> 
+			>
+		<div></div>
+	</div>
+	<div id="moxtra-page-progress">
+		<span><%=uicomponent.getString('Moxtra.waitConversationPagePreparing') %></span><span class='syncingListView'>&nbsp</span>
+	</div>
+	<div id="moxtra-page-notopen" style="display: none;">
+		<span><%=uicomponent.getString('Moxtra.conversationPageNotOpen') %></span>
+	</div>	
+<%	} %>		
+	<div id="CloseConfirmationMsg" style="display:none;"><%=uicomponent.getString('UIDocumentForm.msg.confirm-close') %></div>
+	<div class="FillOutElement">&nbsp;</div>
+	<div class="poweredByMoxtra">
+		<span><%=uicomponent.getString('Moxtra.poweredBy') %>&nbsp</span><a href="http://www.moxtra.com">
+		<img src="/moxtra/images/moxtra-logo.png" width="108" height="24" alt="Moxtra" align="right"></a>
+	</div>
+</div>

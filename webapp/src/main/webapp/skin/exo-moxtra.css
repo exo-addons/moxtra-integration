@@ -14,6 +14,19 @@
 	background-image: url("/moxtra/images/moxtra-icon-blue.png") !important;
 }
 
+.uiIconEcmsEditInMoxtra {
+	background-image: url("/moxtra/images/moxtra-icon-gray.png") !important;
+	background-repeat: no-repeat;
+	background-position: left center;
+	background-color: transparent;
+	background-size: 15px 15px;
+	background-position: 0 0;
+}
+
+a:hover>.uiIconEcmsEditInMoxtra {
+	background-image: url("/moxtra/images/moxtra-icon-blue.png") !important;
+}
+
 .disabled {
 	opacity: 0.65;
 	
@@ -72,6 +85,15 @@
 	background-image: url("/moxtra/images/moxtra-icon-orange.png") !important;
 }
 
+.preparingIcon {
+	position: relative;
+	display: inline;
+	padding-left: 15px;
+	pointer-events: none;
+	background: url('icons/oxygen/16/animations/throbber.gif') no-repeat left center !important; /* orientation=lt */
+	background: url('icons/oxygen/16/animations/throbber.gif') no-repeat right center !important; /* orientation=rt */
+}
+
 /******** Pnotify icons ********/
 .picon-32.picon-task-complete {
 	background-image: url("icons/oxygen/32/status/task-complete.png")
@@ -105,8 +127,8 @@
 	background-image: url("icons/oxygen/16/animations/throbber.gif")
 }
 
-.picon.picon-dialog-error {
 	background-image: url("icons/oxygen/16/status/dialog-error.png")
+.picon.picon-dialog-error {
 }
 
 .picon.picon-dialog-information {

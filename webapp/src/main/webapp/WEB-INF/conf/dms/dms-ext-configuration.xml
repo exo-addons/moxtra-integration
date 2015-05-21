@@ -32,16 +32,19 @@
       <type>org.exoplatform.webui.ext.UIExtensionPlugin</type>
       <init-params>
         <object-param>
-          <name>OpenEConversation</name>
+          <name>EditInMoxtra</name>
           <object type="org.exoplatform.webui.ext.UIExtension">
             <field name="type">
-              <string>org.exoplatform.ecm.dms.UIActionBar</string>
+              <string>org.exoplatform.ecm.dms.UIWorkingArea</string>
             </field>
             <field name="name">
-              <string>OpenEConversation</string>
+              <string>EditInMoxtra</string>
             </field>
             <field name="component">
-              <string>org.exoplatform.moxtra.social.ecms.OpenEConversationManagerComponent</string>
+              <string>org.exoplatform.moxtra.social.ecms.EditInMoxtraManagerComponent</string>
+            </field>
+            <field name="category">
+              <string>ItemContextMenu_SingleSelection</string>
             </field>
             <field name="rank">
               <int>40</int>
@@ -49,10 +52,19 @@
             <field name="extendedFilters">
               <collection type="java.util.ArrayList">
                 <value>
-                  <object type="org.exoplatform.moxtra.social.ecms.SpaceDocumentsFilter"></object>
+                  <object type="org.exoplatform.moxtra.social.ecms.MoxtraBinderSpaceFilter"></object>
                 </value>
                 <value>
                   <object type="org.exoplatform.ecm.webui.component.explorer.control.filter.IsNotInTrashFilter"></object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.ecm.webui.component.explorer.control.filter.IsNotLockedFilter"></object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.ecm.webui.component.explorer.control.filter.IsCheckedOutFilter"></object>
+                </value>
+                <value>
+                  <object type="org.exoplatform.ecm.webui.component.explorer.control.filter.CanSetPropertyFilter"></object>
                 </value>
                 <value>
                   <object type="org.exoplatform.moxtra.social.ecms.FileTypeFilter">

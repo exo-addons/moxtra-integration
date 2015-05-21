@@ -18,7 +18,6 @@
  */
 package org.exoplatform.moxtra.client;
 
-
 /**
  * Moxtra access error.<br>
  * 
@@ -28,7 +27,7 @@ package org.exoplatform.moxtra.client;
  * @version $Id: MoxtraAccessException.java 00000 Feb 26, 2015 pnedonosko $
  * 
  */
-public class MoxtraAccessException extends MoxtraClientException {
+public abstract class MoxtraAccessException extends MoxtraClientException {
 
   /**
    * 

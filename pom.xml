@@ -45,10 +45,10 @@
     <maven.compiler.target>1.7</maven.compiler.target>
 
     <!-- eXo Modules -->
-    <org.exoplatform.platform.version>4.1.0</org.exoplatform.platform.version>
+    <org.exoplatform.platform.version>4.1.1</org.exoplatform.platform.version>
     
     <org.apache.oltu.oauth2.version>1.0.0</org.apache.oltu.oauth2.version>
-    <com.google.code.gson.version>2.3.1</com.google.code.gson.version>
+    <org.apache.httpmime.version>4.1.2</org.apache.httpmime.version>
 
     <!-- for tests -->
     <org.exoplatform.jcr-services.version>1.15.11-GA</org.exoplatform.jcr-services.version>
@@ -110,6 +110,12 @@
       </dependency>
       <dependency>
         <groupId>org.exoplatform.addons</groupId>
+        <artifactId>exo-moxtra-services-social</artifactId>
+        <version>${project.version}</version>
+        <type>jar</type>
+      </dependency>
+      <dependency>
+        <groupId>org.exoplatform.addons</groupId>
         <artifactId>exo-moxtra-webapp</artifactId>
         <version>${project.version}</version>
         <type>war</type>
@@ -123,9 +129,9 @@
         <type>jar</type>
       </dependency>
       <dependency>
-        <groupId>com.google.code.gson</groupId>
-        <artifactId>gson</artifactId>
-        <version>${com.google.code.gson.version}</version>
+        <groupId>org.apache.httpcomponents</groupId>
+        <artifactId>httpmime</artifactId>
+        <version>${org.apache.httpmime.version}</version>
         <type>jar</type>
       </dependency>
 

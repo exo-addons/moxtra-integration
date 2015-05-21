@@ -41,6 +41,7 @@ buildNumber.properties
 .classpath
 .project
 .buildpath
+.factorypath
 
 # OS
 .DS_Store

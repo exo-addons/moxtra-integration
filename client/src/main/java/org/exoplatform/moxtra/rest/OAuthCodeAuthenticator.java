@@ -25,6 +25,7 @@ import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
 
+import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.CookieParam;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -147,5 +148,17 @@ public class OAuthCodeAuthenticator implements ResourceContainer {
                      .entity("Authorization problem. " + msg)
                      .build();
     }
+  }
+
+  @GET
+  @RolesAllowed("users")
+  @Path("/accesstoken")
+  @Produces(MediaType.APPLICATION_JSON)
+  public Response currentAccess(@Context UriInfo uriInfo, @QueryParam("code") String code) {
+
+    return Response.ok()
+                   .entity("{\"clientId\":\"" + moxtra.getOAuthConfig().getClientId()
+                       + "\",\"accessToken\":\"" + moxtra.getClient().getOAuthAccessToken() + "\"}")
+                   .build();
   }
 }

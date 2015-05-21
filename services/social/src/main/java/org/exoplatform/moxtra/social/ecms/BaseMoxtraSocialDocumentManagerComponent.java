@@ -16,7 +16,6 @@
  */
 package org.exoplatform.moxtra.social.ecms;
 
-import org.exoplatform.ecm.webui.component.explorer.UIJCRExplorer;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.webui.ext.manager.UIAbstractManager;
@@ -40,16 +39,18 @@ public abstract class BaseMoxtraSocialDocumentManagerComponent extends UIAbstrac
     return null;
   }
 
+  @Deprecated
   protected void initContext() throws Exception {
-    UIJCRExplorer uiExplorer = getAncestorOfType(UIJCRExplorer.class);
-    if (uiExplorer != null) {
-      // we store current node in the context
-      String path = uiExplorer.getCurrentNode().getPath();
-      String workspace = uiExplorer.getCurrentNode().getSession().getWorkspace().getName();
-      // TODO CloudDriveContext.init(WebuiRequestContext.getCurrentInstance(), workspace, path);
-    } else {
-      LOG.error("Cannot find ancestor of type UIJCRExplorer in component " + this + ", parent: "
-          + this.getParent());
-    }
+    // TODO cleanup
+    // UIJCRExplorer uiExplorer = getAncestorOfType(UIJCRExplorer.class);
+    // if (uiExplorer != null) {
+    // // we store current node in the context
+    // String path = uiExplorer.getCurrentNode().getPath();
+    // String workspace = uiExplorer.getCurrentNode().getSession().getWorkspace().getName();
+    // // TODO CloudDriveContext.init(WebuiRequestContext.getCurrentInstance(), workspace, path);
+    // } else {
+    // LOG.error("Cannot find ancestor of type UIJCRExplorer in component " + this + ", parent: "
+    // + this.getParent());
+    // }
   }
 }

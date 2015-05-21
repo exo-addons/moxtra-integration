@@ -25,7 +25,11 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
+import javax.jcr.PropertyIterator;
 import javax.jcr.RepositoryException;
+import javax.jcr.nodetype.NodeType;
+import javax.jcr.query.Query;
+import javax.jcr.query.QueryManager;
 
 /**
  * Moxtra storage utility methods for JCR.<br>
@@ -39,6 +43,8 @@ import javax.jcr.RepositoryException;
 public class JCR {
 
   public static final String NODETYPE_SERVICES           = "moxtra:services";
+
+  public static final String NODETYPE_REFERENCEABLE      = "moxtra:referenceable";
 
   public static final String NODETYPE_USER_STORE         = "moxtra:userStore";
 
@@ -58,7 +64,15 @@ public class JCR {
 
   public static final String NODETYPE_USERS_LIST         = "moxtra:usersList";
 
+  public static final String NODETYPE_PAGES_LIST         = "moxtra:pagesList";
+
+  public static final String NODETYPE_PAGE_DOCUMENT      = "moxtra:pageDocument";
+
+  public static final String NODETYPE_PAGE_CONTENT       = "moxtra:pageContent";
+
   public static final String NODETYPE_ACCESS_TOKEN_STORE = "moxtra:accessTokenStore";
+
+  public static final String VALUE_CREATING_ID           = "_creating";
 
   public static boolean isUserStore(Node node) throws RepositoryException {
     return node.isNodeType(NODETYPE_USER_STORE);
@@ -104,24 +118,76 @@ public class JCR {
   }
 
   public static void removeServices(Node node) throws RepositoryException {
-    try {
-      node.getProperty("moxtra:creator").remove();
-    } catch (PathNotFoundException e) {
-      // ignore it
-    }
-    try {
-      node.getProperty("moxtra:createdTime").remove();
-    } catch (PathNotFoundException e) {
-      // ignore it
-    }
+    // TODO cleanup
+    // try {
+    // node.getProperty("moxtra:creator").remove();
+    // } catch (PathNotFoundException e) {
+    // // ignore it
+    // }
+    // try {
+    // node.getProperty("moxtra:createdTime").remove();
+    // } catch (PathNotFoundException e) {
+    // // ignore it
+    // }
 
+    node.removeMixin(NODETYPE_SERVICES);
+    removeMoxtraItems(node);
+  }
+
+  protected static void removeMoxtraItems(Node node) throws RepositoryException {
+    // Nodes will be removed by removeBaseNode() in deep traversing
+    // for (NodeIterator miter = node.getNodes("moxtra:*"); miter.hasNext();) {
+    // miter.nextNode().remove();
+    // }
     for (NodeIterator niter = node.getNodes(); niter.hasNext();) {
-      Node child = niter.nextNode();
-      if (child.isNodeType(NODETYPE_BASE)) {
-        child.remove();
+      removeBaseNode(niter.nextNode());
+    }
+    for (PropertyIterator miter = node.getProperties("moxtra:*"); miter.hasNext();) {
+      miter.nextProperty().remove();
+    }
+  }
+
+  protected static void removeBaseNode(Node node) throws RepositoryException {
+    if (node.isNodeType(NODETYPE_BASE)) {
+      // clean child references recursively
+      cleanBaseNodeReferences(node);
+      node.remove();
+    }
+  }
+
+  protected static void cleanBaseNodeReferences(Node node) throws RepositoryException {
+    if (node.isNodeType(NODETYPE_BASE)) {
+      for (NodeIterator niter = node.getNodes(); niter.hasNext();) {
+        cleanBaseNodeReferences(niter.nextNode());
+      }
+      removeReferences(node);
+    }
+  }
+
+  protected static void removeReferences(Node node) throws RepositoryException {
+    for (PropertyIterator piter = node.getReferences(); piter.hasNext();) {
+      Property refp = piter.nextProperty();
+      Node target = refp.getParent();
+      // Remove Reference property prior the removing mixins on target to avoid infinitive loops,
+      // but Reference property should not be mandatory!
+      refp.remove();
+      if (target.isNodeType(NODETYPE_REFERENCEABLE)) {
+        removeMoxtraMixins(target);
       }
     }
-    node.removeMixin(NODETYPE_SERVICES);
+  }
+
+  protected static void removeMoxtraMixins(Node node) throws RepositoryException {
+    // moxtra referenceable itself can be referenced from other moxtra item, e.g. page document and
+    // its conversations content
+    removeReferences(node);
+    for (NodeType nt : node.getMixinNodeTypes()) {
+      String mixinName = nt.getName();
+      if (mixinName.startsWith("moxtra:")) {
+        node.removeMixin(mixinName);
+      }
+    }
+    removeMoxtraItems(node);
   }
 
   // ********* moxtra:accessTokenStore ***********
@@ -183,7 +249,7 @@ public class JCR {
   public static Node getMeet(Node userNode) throws RepositoryException {
     return userNode.getNode("moxtra:meet");
   }
-  
+
   public static boolean hasMeet(Node userNode) throws RepositoryException {
     return userNode.hasNode("moxtra:meet");
   }
@@ -204,11 +270,136 @@ public class JCR {
     return userNode.getNode("moxtra:users");
   }
 
+  public static boolean hasUsers(Node userNode) throws RepositoryException {
+    return userNode.hasNode("moxtra:users");
+  }
+
+  public static Node addBinder(Node userNode) throws RepositoryException {
+    return userNode.addNode("moxtra:binder");
+  }
+
+  public static Node getBinder(Node userNode) throws RepositoryException {
+    return userNode.getNode("moxtra:binder");
+  }
+
+  public static boolean hasBinder(Node userNode) throws RepositoryException {
+    return userNode.hasNode("moxtra:binder");
+  }
+
+  public static Node addPages(Node binderNode) throws RepositoryException {
+    return binderNode.addNode("moxtra:pages");
+  }
+
+  public static Node getPages(Node binderNode) throws RepositoryException {
+    return binderNode.getNode("moxtra:pages");
+  }
+
+  public static boolean hasPages(Node binderNode) throws RepositoryException {
+    return binderNode.hasNode("moxtra:pages");
+  }
+
+  public static Node addPage(Node binderNode, String nodeName, String pageName) throws RepositoryException {
+    Node pagesNode;
+    try {
+      pagesNode = getPages(binderNode);
+    } catch (PathNotFoundException e) {
+      pagesNode = addPages(binderNode);
+    }
+    Node pageNode = pagesNode.addNode(nodeName);
+    // set initial fake page ID
+    setId(pageNode, VALUE_CREATING_ID);
+    setName(pageNode, pageName);
+    return pageNode;
+  }
+
+  public static boolean hasPage(Node binderNode, String nodeName) throws RepositoryException {
+    return binderNode.hasNode("moxtra:pages/" + nodeName);
+  }
+
+  public static Node getPage(Node binderNode, String nodeName) throws RepositoryException {
+    return binderNode.getNode("moxtra:pages/" + nodeName);
+  }
+
+  public static Property addPageRef(Node document, Node pageNode) throws RepositoryException {
+    return document.setProperty("moxtra:page", pageNode);
+  }
+
+  public static boolean hasPageRef(Node document) throws RepositoryException {
+    return document.hasProperty("moxtra:page");
+  }
+
+  public static Property getPageRef(Node document) throws RepositoryException {
+    return document.getProperty("moxtra:page");
+  }
+
+  public static NodeIterator findPageDocument(Node spaceNode, String pageName) throws RepositoryException {
+    QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE exo:title='" + pageName
+        + "' AND jcr:path LIKE '" + spaceNode.getPath() + "/%'", Query.SQL);
+    NodeIterator res = q.execute().getNodes();
+    if (res.getSize() == 0) {
+      // try by exo:name
+      q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE exo:name='" + pageName
+          + "' AND jcr:path LIKE '" + spaceNode.getPath() + "/%'", Query.SQL);
+      res = q.execute().getNodes();
+      // TODO page also can be created by node name (if not exo:title or exo:name were found)
+    }
+
+    return res;
+  }
+
+  public static void addPageDocument(Node document) throws RepositoryException {
+    document.addMixin(NODETYPE_PAGE_DOCUMENT);
+  }
+
+  public static boolean isPageDocument(Node document) throws RepositoryException {
+    return document.isNodeType(NODETYPE_PAGE_DOCUMENT);
+  }
+
+  public static Property setCreatingTime(Node document, Date time) throws RepositoryException {
+    Calendar cal;
+    if (time != null) {
+      cal = Calendar.getInstance();
+      cal.setTime(time);
+    } else {
+      cal = null;
+    }
+    return document.setProperty("moxtra:creatingTime", cal);
+  }
+
+  public static Property getCreatingTime(Node document) throws RepositoryException {
+    return document.getProperty("moxtra:creatingTime");
+  }
+
+  public static boolean hasCreatingTime(Node document) throws RepositoryException {
+    return document.hasProperty("moxtra:creatingTime");
+  }
+
+  public static Property getOriginalFileName(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:originalFileName");
+  }
+
+  public static Property setOriginalFileName(Node node, String name) throws RepositoryException {
+    return node.setProperty("moxtra:originalFileName", name);
+  }
+
+  public static Property getPageUrl(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:pageUrl");
+  }
+
+  public static Property setPageUrl(Node node, String url) throws RepositoryException {
+    return node.setProperty("moxtra:pageUrl", url);
+  }
+
   public static Property getId(Node node) throws RepositoryException {
     return node.getProperty("moxtra:id");
   }
 
   public static Property setId(Node node, String id) throws RepositoryException {
+    return node.setProperty("moxtra:id", id);
+  }
+
+  public static Property setId(Node node, Long id) throws RepositoryException {
     return node.setProperty("moxtra:id", id);
   }
 
@@ -247,7 +438,7 @@ public class JCR {
   public static Property setType(Node node, String name) throws RepositoryException {
     return node.setProperty("moxtra:type", name);
   }
-  
+
   public static Property setCreatedTime(Node node, Date time) throws RepositoryException {
     Calendar cal;
     if (time != null) {

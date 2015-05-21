@@ -27,6 +27,31 @@
     </propertyDefinitions>
   </nodeType>
   
+  <!-- Base mixin nodetype for all target items associated with Moxtra objects -->
+  <nodeType name="moxtra:referenceable" isMixin="true" hasOrderableChildNodes="false" primaryItemName="moxtra:name">
+    <supertypes>
+      <supertype>mix:referenceable</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:name" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:state" requiredType="Underfined" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:createdTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+      <propertyDefinition name="moxtra:updatedTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
+  </nodeType>
+  
   <!-- Moxtra user -->
   <nodeType name="moxtra:userObject" isMixin="false" hasOrderableChildNodes="false" primaryItemName="moxtra:id">
     <supertypes>
@@ -122,10 +147,16 @@
           <requiredPrimaryType>moxtra:usersList</requiredPrimaryType>
         </requiredPrimaryTypes>
       </childNodeDefinition>
-      <childNodeDefinition name="*" defaultPrimaryType="moxtra:object" autoCreated="false"
+      <childNodeDefinition name="moxtra:pages" defaultPrimaryType="moxtra:pagesList"
+        autoCreated="false" mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:pagesList</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:base" autoCreated="false"
         mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
         <requiredPrimaryTypes>
-          <requiredPrimaryType>moxtra:object</requiredPrimaryType>
+          <requiredPrimaryType>moxtra:base</requiredPrimaryType>
         </requiredPrimaryTypes>
       </childNodeDefinition>
     </childNodeDefinitions>
@@ -258,10 +289,26 @@
     </propertyDefinitions>
   </nodeType>
   
+  <!-- List of Moxtra pages (for use in binder) -->
+  <nodeType name="moxtra:pagesList" isMixin="false" hasOrderableChildNodes="true" primaryItemName="">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+    </supertypes>
+    <childNodeDefinitions>
+      <childNodeDefinition name="*" defaultPrimaryType="moxtra:pageObject" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="true">
+        <requiredPrimaryTypes>
+          <requiredPrimaryType>moxtra:pageObject</requiredPrimaryType>
+        </requiredPrimaryTypes>
+      </childNodeDefinition>
+    </childNodeDefinitions>
+  </nodeType>
+  
   <!-- Mixin for Moxtra page document involved in conversation -->
   <nodeType name="moxtra:pageDocument" isMixin="true" hasOrderableChildNodes="false" primaryItemName="moxtra:page">
     <supertypes>
       <supertype>moxtra:base</supertype>
+      <supertype>moxtra:referenceable</supertype>
     </supertypes>
     <propertyDefinitions>
       <propertyDefinition name="moxtra:page" requiredType="Reference" autoCreated="false"
@@ -276,6 +323,10 @@
         mandatory="false" onParentVersion="COPY" protected="false" multiple="true">
         <valueConstraints />
       </propertyDefinition>
+      <propertyDefinition name="moxtra:creatingTime" requiredType="Date" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
     </propertyDefinitions>
   </nodeType>
   
@@ -284,6 +335,7 @@
     primaryItemName="moxtra:page">
     <supertypes>
       <supertype>moxtra:base</supertype>
+      <supertype>moxtra:referenceable</supertype>
     </supertypes>
     <propertyDefinitions>
       <propertyDefinition name="moxtra:page" requiredType="Reference" autoCreated="false"

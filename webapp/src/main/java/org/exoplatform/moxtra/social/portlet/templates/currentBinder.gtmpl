@@ -1,0 +1,7 @@
+#{param name=binderName/}
+<label class="control-label" for="currentBinder">&{MoxtraBinderSpaceController.selectBinder}</label>
+<div id="moxtra-binder-name" class="controls">
+	<input type="text" name="currentBinder" disabled value="${binderName}" class="form-control">
+</div>
+
+

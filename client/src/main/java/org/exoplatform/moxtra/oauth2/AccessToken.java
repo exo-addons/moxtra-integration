@@ -210,16 +210,25 @@ public class AccessToken {
    * @return <code>true</code> if expired, <code>false</code> otherwise
    */
   public boolean isExpired(Calendar toDate) {
-    return expirationTime.after(toDate);
+    return toDate.after(expirationTime) || toDate.equals(expirationTime);
   }
 
   /**
-   * Return <code>true</code> if this instance of {@link AccessToken} initialized with access token.
+   * Return <code>true</code> if this instance of {@link AccessToken} initialized with access token and not
+   * expired.
    * 
    * @return <code>true</code> if initialized, <code>false</code> otherwise
    */
   public boolean isInitialized() {
-    return accessToken != null;
+    return accessToken != null && !isExpired();
+  }
+
+  /**
+   * Reset token in case of invalidation (e.g. refresh token expired).
+   */
+  public void reset() {
+    load(null, null, null, null);
+    fireListeners();
   }
 
   // ********* internals **********

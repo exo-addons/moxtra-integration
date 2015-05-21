@@ -19,13 +19,11 @@
 package org.exoplatform.moxtra.social.ecms;
 
 import org.exoplatform.ecm.webui.component.explorer.UIJCRExplorer;
-import org.exoplatform.portal.webui.util.Util;
+import org.exoplatform.moxtra.social.MoxtraSocialService;
 import org.exoplatform.services.cms.BasePath;
-import org.exoplatform.services.jcr.ext.common.SessionProvider;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.services.wcm.utils.WCMCoreUtils;
 import org.exoplatform.webui.ext.filter.UIExtensionFilter;
 import org.exoplatform.webui.ext.filter.UIExtensionFilterType;
 
@@ -37,21 +35,25 @@ import javax.jcr.Node;
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: SpaceDocumentsFilter.java 00000 Apr 29, 2015 pnedonosko $
+ * @version $Id: MoxtraBinderSpaceFilter.java 00000 Apr 29, 2015 pnedonosko $
  * 
  */
-public class SpaceDocumentsFilter implements UIExtensionFilter {
+public class MoxtraBinderSpaceFilter implements UIExtensionFilter {
 
-  protected static final Log LOG = ExoLogger.getLogger(SpaceDocumentsFilter.class);
+  protected static final Log LOG = ExoLogger.getLogger(MoxtraBinderSpaceFilter.class);
 
   /**
    * {@inheritDoc}
    */
   @Override
   public boolean accept(Map<String, Object> context) throws Exception {
+    if (context == null) {
+      return true;
+    }
+    
     // only show in space docs' subfolders
     UIJCRExplorer uiExplorer = (UIJCRExplorer) context.get(UIJCRExplorer.class.getName());
-    NodeHierarchyCreator nodeHierarchyCreator = WCMCoreUtils.getService(NodeHierarchyCreator.class);
+    NodeHierarchyCreator nodeHierarchyCreator = uiExplorer.getApplicationComponent(NodeHierarchyCreator.class);
 
     // TODO
     // String userId = Util.getPortalRequestContext().getRemoteUser();
@@ -64,18 +66,14 @@ public class SpaceDocumentsFilter implements UIExtensionFilter {
 
     String driveRootPath = uiExplorer.getDriveData().getHomePath();
 
-    String groupPath = nodeHierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
-    String spacesFolder = groupPath + "/spaces/";
+    String groupsPath = nodeHierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
+    String spacesFolder = groupsPath + "/spaces/";
     if (driveRootPath.startsWith(spacesFolder)) {
       Node currentNode = (Node) context.get(Node.class.getName());
       String nodePath = currentNode.getPath();
       if (nodePath.startsWith(driveRootPath)) {
-        // TODO check selected doc mimetype and allow only for selected types
-        String mimeType = getMimetype(currentNode);
-        
-        
-        // CloudDriveContext.initConnected(WebuiRequestContext.getCurrentInstance(), (Node) personalDocs);
-        return true;
+        MoxtraSocialService moxtra = uiExplorer.getApplicationComponent(MoxtraSocialService.class);
+        return moxtra.getBinderSpace() != null;
       }
     }
     return false;
@@ -96,14 +94,4 @@ public class SpaceDocumentsFilter implements UIExtensionFilter {
   public UIExtensionFilterType getType() {
     return UIExtensionFilterType.MANDATORY;
   }
-  
-  // ******* internals *******
-  
-  protected String getMimetype(Node document) {
-    
-    // TODO
-    return null;
-  }
-  
-
 }

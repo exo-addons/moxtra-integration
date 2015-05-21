@@ -42,4 +42,12 @@ public class MoxtraSocialException extends MoxtraException {
   public MoxtraSocialException(String message) {
     super(message);
   }
+  
+  /**
+   * @param message
+   * @param e
+   */
+  public MoxtraSocialException(String message, Exception e) {
+    super(message, e);
+  }
 }

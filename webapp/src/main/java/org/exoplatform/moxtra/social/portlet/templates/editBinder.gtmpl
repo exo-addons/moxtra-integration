@@ -1,0 +1,14 @@
+<label class="control-label" for="selectBinder">&{MoxtraBinderSpaceController.selectBinder}</label>
+<div class="controls binder-config">
+	<div>
+		<input type="radio" name="selectBinder" checked value="_new" placeholder="&{MoxtraBinderSpaceController.newBinderHint}" class="form-control">
+		<span>Create new binder</span>
+	</div>
+	<div>
+		<input type="radio" name="selectBinder" value="_existing" placeholder="&{MoxtraBinderSpaceController.selectBinderHint}" class="form-control">
+		<span>Use existing binder </span><span id="moxtra-binder-selector"></span>
+	</div>
+</div>
+
+
+

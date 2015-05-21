@@ -51,6 +51,10 @@ public class FileTypeFilter implements UIExtensionFilter {
   protected Set<String>      mimeTypes;
 
   public boolean accept(Map<String, Object> context) throws Exception {
+    if (context == null) {
+      return true;
+    }
+
     if (mimeTypes == null || mimeTypes.isEmpty()) {
       return true;
     }

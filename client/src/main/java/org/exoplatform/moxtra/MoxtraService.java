@@ -40,13 +40,13 @@ import java.util.concurrent.ConcurrentHashMap;
  */
 public class MoxtraService implements Startable {
 
-  protected static final Log                        LOG   = ExoLogger.getLogger(MoxtraService.class);
+  protected static final Log                        LOG     = ExoLogger.getLogger(MoxtraService.class);
 
   protected OAuthClientConfiguration                oAuthConfig;
 
   protected MoxtraClientStore                       usersStore;
 
-  protected ConcurrentHashMap<String, MoxtraClient> users = new ConcurrentHashMap<String, MoxtraClient>();
+  protected ConcurrentHashMap<String, MoxtraClient> clients = new ConcurrentHashMap<String, MoxtraClient>();
 
   /**
    * No dependency constructor.
@@ -71,7 +71,7 @@ public class MoxtraService implements Startable {
   @Override
   public void stop() {
     // cleanup
-    users.clear();
+    clients.clear();
   }
 
   /**
@@ -84,12 +84,12 @@ public class MoxtraService implements Startable {
   public MoxtraClient getClient() {
     // TODO clear pool on user logout or removal: use listeners to related services
     String currentUser = ConversationState.getCurrent().getIdentity().getUserId();
-    MoxtraClient client = users.get(currentUser);
+    MoxtraClient client = clients.get(currentUser);
     if (client == null) {
       synchronized (currentUser) {
-        client = users.get(currentUser);
+        client = clients.get(currentUser);
         if (client == null) {
-          users.put(currentUser, client = createOAuthClient());
+          clients.put(currentUser, client = createOAuthClient());
         }
       }
     }

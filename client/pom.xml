@@ -61,12 +61,12 @@
       <scope>compile</scope>
       <type>jar</type>
     </dependency>
-    <!-- dependency>
-      <groupId>com.google.code.gson</groupId>
-      <artifactId>gson</artifactId>
+    <dependency>
+      <groupId>org.apache.httpcomponents</groupId>
+      <artifactId>httpmime</artifactId>
       <scope>compile</scope>
       <type>jar</type>
-    </dependency -->
+    </dependency>
 
     <!-- for tests -->
     <dependency>

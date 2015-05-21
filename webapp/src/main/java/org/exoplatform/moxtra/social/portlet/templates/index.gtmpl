@@ -1,0 +1,57 @@
+#{param name=isNew/}
+#{param name=moxtraUser/}
+#{param name=authLink/}
+<% 
+	def disabled = isNew ? 'disabled' : ''
+%>
+<div class="container-fluid">
+	<div id="moxtra-binder-body" class="row-fluid">
+		<div class="span6">
+			<h3>&{MoxtraBinderSpaceController.title}</h3>
+		</div>
+		<div id="moxtra-binder-wrapper" class="span6">
+			<div id="moxtra-binder-message" class="moxtra-message">
+				<div class="alert" style="display: none;"></div>
+			</div>
+			<form id="moxtra-binder-settings" action="@{save()}" action-cancel="@{cancel()}" method="post" role="form">
+				<div class="form-horizontal">
+					<fieldset>
+						<div class="control-group">
+							<label class="control-label" for="enableBinder">&{MoxtraBinderSpaceController.enableBinder}</label>
+							<div class="controls">
+								<input type="checkbox" name="enableBinder" ${isNew ? '' : 'checked'} placeholder="&{MoxtraBinderSpaceController.enableBinderHint}" class="form-control" 
+												<%=moxtraUser ? "data-moxtra-user=\"$moxtraUser\"" : '' %>  
+												<%=authLink ? "data-moxtra-authlink=\"$authLink\"" : '' %>>
+							</div>
+						</div>
+						<div id="moxtra-binder-editor" class="control-group binder-config ${disabled}">
+						</div>
+						<div class="control-group binder-config ${disabled}">
+							<label class="control-label" for="autocreateUsers">&{MoxtraBinderSpaceController.autocreateUsers}</label>
+							<div class="controls">
+								<input type="checkbox" name="autocreateUsers" checked placeholder="&{MoxtraBinderSpaceController.autocreateUsersHint}" class="form-control">
+							</div>
+						</div>
+						<div class="control-group binder-config ${disabled}">
+							<label class="control-label" for="syncComments">&{MoxtraBinderSpaceController.syncComments}</label>
+							<div class="controls">
+								<input type="checkbox" name="syncComments" checked placeholder="&{MoxtraBinderSpaceController.syncCommentsHints}" class="form-control">
+							</div>
+						</div>
+						<div class="control-group text-centered form-buttons">
+							<div class="controls">
+								<button type=submit class="btn btn-primary">&{MoxtraBinderSpaceController.save}</button>
+								<button type="button" class="btn binder-cancel" onclick="">&{MoxtraBinderSpaceController.cancel}</button>
+							</div>
+						</div>
+					</fieldset>
+				</div>
+			</form>
+			<div class="poweredByMoxtra">
+				<span>&{Moxtra.poweredBy}&nbsp</span><a href="http://www.moxtra.com">
+				<img src="/moxtra/images/moxtra-logo.png" width="108" height="24" alt="Moxtra" align="right"></a>
+			</div>
+		</div>
+	</div>
+</div>
+

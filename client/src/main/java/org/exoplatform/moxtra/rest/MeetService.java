@@ -24,7 +24,6 @@ import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.NotFoundException;
-import org.exoplatform.moxtra.client.MeetDeletedException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraMeet;

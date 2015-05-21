@@ -38,6 +38,10 @@
   </component>
 
   <component>
+    <type>org.exoplatform.moxtra.rest.BinderService</type>
+  </component>
+
+  <component>
     <type>org.exoplatform.moxtra.rest.MeetService</type>
   </component>
 
@@ -156,10 +160,61 @@
       </init-params>
     </component-plugin>
     <component-plugin>
-      <name>setClientStore</name>
-      <set-method>addPlugin</set-method>
-      <type>org.exoplatform.moxtra.jcr.JCRMoxtraClientStore</type>
-      <description>set Moxtra token store in JCR</description>
+      <name>addSpaceApplication</name>
+      <set-method>addSpaceApplication</set-method>
+      <type>org.exoplatform.social.core.space.SpaceApplicationConfigPlugin</type>
+      <description>Add E-Conversation app to space apps in social service</description>
+      <init-params>
+        <object-param>
+          <!-- Home app will not be used, but required to avoid NPE -->
+          <name>spaceHomeApplication</name>
+          <description>Space Home Application</description>
+          <object type="org.exoplatform.social.core.space.SpaceApplicationConfigPlugin$SpaceApplication">
+            <field name="portletApp">
+              <string>social-portlet</string>
+            </field>
+            <field name="portletName">
+              <string>SpaceActivityStreamPortlet</string>
+            </field>
+            <field name="appTitle">
+              <string>Home</string>
+            </field>
+          </object>
+        </object-param>
+        <object-param>
+          <name>spaceApplicationListConfig</name>
+          <description>space E-Conversation application</description>
+          <object type="org.exoplatform.social.core.space.SpaceApplicationConfigPlugin">
+            <field name="spaceApplicationList">
+              <collection type="java.util.ArrayList">
+                <value>
+                  <object type="org.exoplatform.social.core.space.SpaceApplicationConfigPlugin$SpaceApplication">
+                    <field name="portletApp">
+                      <string>moxtra</string>
+                    </field>
+                    <field name="portletName">
+                      <string>MoxtraBinderSpacePortlet</string>
+                    </field>
+                    <field name="appTitle">
+                      <string>E-Conversation</string>
+                    </field>
+                    <field name="removable">
+                      <boolean>true</boolean>
+                    </field>
+                    <field name="order">
+                      <int>1</int>
+                    </field>
+                    <field name="uri">
+                      <string>econversation</string>
+                    </field>
+                    <!--<field name="icon"><string>SpaceDashboardIcon</string></field>-->
+                  </object>
+                </value>
+              </collection>
+            </field>
+          </object>
+        </object-param>
+      </init-params>
     </component-plugin>
   </external-component-plugins>
 
@@ -255,6 +310,7 @@
           <value>locale.moxtra.Moxtra</value>
           <value>locale.moxtra.ui.Moxtra</value>
           <value>locale.moxtra.calendar.Moxtra</value>
+          <value>locale.moxtra.social.Moxtra</value>
         </values-param>
         <values-param>
           <name>portal.resource.names</name>
@@ -262,6 +318,7 @@
           <value>locale.moxtra.Moxtra</value>
           <value>locale.moxtra.ui.Moxtra</value>
           <value>locale.moxtra.calendar.Moxtra</value>
+          <value>locale.moxtra.social.Moxtra</value>
         </values-param>
       </init-params>
     </component-plugin>

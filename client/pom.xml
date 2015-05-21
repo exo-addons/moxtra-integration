@@ -66,6 +66,12 @@
       <artifactId>httpmime</artifactId>
       <scope>compile</scope>
       <type>jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>org.apache.httpcomponents</groupId>
+          <artifactId>httpcore</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!-- for tests -->

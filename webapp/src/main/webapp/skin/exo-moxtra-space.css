@@ -1,3 +1,13 @@
 /** 
  * CSS dedicated to MoxtraBinderSpace portlet.
  */
+body {
+	margin: 0;
+}
+
+#moxtra-page-editor>div {
+	width: auto;
+	height: 700px;
+	margin: 0;
+	border: 0px;
+}

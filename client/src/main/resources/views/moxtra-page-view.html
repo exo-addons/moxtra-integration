@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="description" content="" />
+<link rel="shortcut icon" href="http://info.moxtra.com/V2/business/images/favicon.png" />
+<link rel="stylesheet" type="text/css" href="/moxtra/skin/exo-moxtra-space.css" />
+<title>Moxtra Pages</title>
+</head>
+<body>
+	<div class="resizable">
+		<div id="moxtra-page-editor" style="display: none;">
+		</div>
+		<div id="moxtra-page-progress">
+			<span>&{Moxtra.waitConversationPagePreparing}</span><span class='syncingListView'>&nbsp</span>
+		</div>
+		<div id="moxtra-page-notopen" style="display: none;">
+			<span>&{Moxtra.conversationPageNotOpen}</span>
+		</div>
+	</div>
+	<script type="text/javascript" src="/platform-extension/javascript/jquery-1.7.1.js"></script>
+	<!-- script type="text/javascript" src="/portal/scripts/4.1.0/SHARED/jquery-min.js"></script -->
+	<script type="text/javascript" src="https://www.moxtra.com/api/js/moxtra-latest.js" id="moxtrajs"></script>
+	<script type="text/javascript">
+		var page = $.Deferred();
+		
+		// this func will be called from space window
+		function showPage(binderId, pageId, callbacks, moxtrajs) {
+			page.resolve(binderId, pageId, callbacks, moxtrajs);
+		}
+    
+		$(function() {
+			// show when page ready
+			page.done(function(binderId, pageId, callbacks, moxtrajs) {
+				setTimeout(function(){
+					var process = moxtrajs.showPage(binderId, pageId, "moxtra-page-editor", callbacks, window.Moxtra);
+					process.done(function() {
+						$("#moxtra-page-editor>div").removeAttr("style");
+					}); 
+				}, 1000);
+			});
+		});
+  </script>
+</body>
+</html>

@@ -60,7 +60,9 @@ import javax.jcr.Session;
                                          listeners = EditInMoxtraManagerComponent.EditInMoxtraActionListener.class) })
 public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManagerComponent {
 
-  protected static final Log LOG = ExoLogger.getLogger(EditInMoxtraManagerComponent.class);
+  public static final String OPEN_IN_NEW_WINDOW = "openInNewWindow";
+
+  protected static final Log LOG                = ExoLogger.getLogger(EditInMoxtraManagerComponent.class);
 
   public static class EditInMoxtraActionListener extends
                                                 UIWorkingAreaActionListener<EditInMoxtraManagerComponent> {
@@ -70,15 +72,9 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
      */
     @Override
     protected void processEvent(Event<EditInMoxtraManagerComponent> event) throws Exception {
-      // TODO upload context node to context binder, wait it will be processed by Moxtra and open in JCR
-      // explorer in a file view (it will be note or draw regarding the mime type in ext filter)
-
       EditInMoxtraManagerComponent editAction = event.getSource();
-      // event.getRequestContext().getAttribute(type)
-
       UIJCRExplorer uiExplorer = editAction.getAncestorOfType(UIJCRExplorer.class);
       if (uiExplorer != null) {
-        // show UIMoxtraEditComponent (idea similar to ECMS's EditDocumentActionComponent)
         UIApplication uiApp = editAction.getAncestorOfType(UIApplication.class);
         String nodePath = event.getRequestContext().getRequestParameter(OBJECTID);
         Node selectedNode = null;
@@ -134,29 +130,51 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
               isPageCreating = false;
             }
 
-            // set current node after page creation
-            uiExplorer.setSelectNode(selectedNode.getPath());
-
-            // add editor UI
             uiExplorer.updateAjax(event);
-            UIMoxtraEditComponent uiEditor = editAction.createUIComponent(UIMoxtraEditComponent.class,
-                                                                          null,
-                                                                          "EditInMoxtraComponent");
 
-            UIDocumentWorkspace uiDocumentWorkspace = uiWorkingArea.getChild(UIDocumentWorkspace.class);
-            if (!uiDocumentWorkspace.isRendered()) {
-              uiWorkingArea.getChild(UIDrivesArea.class).setRendered(false);
-              uiDocumentWorkspace.setRendered(true);
+            String editInNewWindow = event.getRequestContext().getRequestParameter(OPEN_IN_NEW_WINDOW);
+            if (editInNewWindow != null && Boolean.valueOf(editInNewWindow)) {
+              // TODO Moxtra Edit open in new window, we need provide a proper URL for it in this response
+              RequireJS requireJS = context.getJavascriptManager().getRequireJS();
+              // TODO do we really need require and initUser() here?
+              requireJS.require("SHARED/exoMoxtra", "moxtra");
+              requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', "
+                  + moxtra.isAuthorized() + ");");
+              if (isPageCreating) {
+                // set pageId=null and provide space name and node UUID for waiting for page creation
+                requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId()
+                    + "', null, '" + binderSpace.getSpace().getPrettyName() + "', '" + selectedNode.getUUID()
+                    + "');");
+              } else {
+                // open existing page
+                requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId() + "', '"
+                    + binderSpace.getPage(selectedNode).getId() + "');");
+              }
+            } else {
+              // set current node after page creation
+              uiExplorer.setSelectNode(selectedNode.getPath());
+
+              // add editor UI:
+              // show UIMoxtraEditComponent (idea similar to ECMS's EditDocumentActionComponent)
+              UIMoxtraEditComponent uiEditor = editAction.createUIComponent(UIMoxtraEditComponent.class,
+                                                                            null,
+                                                                            "EditInMoxtraComponent");
+
+              UIDocumentWorkspace uiDocumentWorkspace = uiWorkingArea.getChild(UIDocumentWorkspace.class);
+              if (!uiDocumentWorkspace.isRendered()) {
+                uiWorkingArea.getChild(UIDrivesArea.class).setRendered(false);
+                uiDocumentWorkspace.setRendered(true);
+              }
+              uiDocumentWorkspace.getChild(UIDocumentContainer.class).setRendered(false);
+              uiDocumentWorkspace.getChild(UISearchResult.class).setRendered(false);
+              UIMoxtraEditComponent prevEditor = uiDocumentWorkspace.removeChild(UIMoxtraEditComponent.class);
+              if (prevEditor != null) {
+                // TODO what we do need in the prev?
+              }
+              uiDocumentWorkspace.addChild(uiEditor);
+              uiEditor.initMoxtra(moxtra, selectedNode.getUUID(), isPageCreating);
+              uiEditor.setRendered(true);
             }
-            uiDocumentWorkspace.getChild(UIDocumentContainer.class).setRendered(false);
-            uiDocumentWorkspace.getChild(UISearchResult.class).setRendered(false);
-            UIMoxtraEditComponent prevEditor = uiDocumentWorkspace.removeChild(UIMoxtraEditComponent.class);
-            if (prevEditor != null) {
-              // TODO what we do need in the prev?
-            }
-            uiDocumentWorkspace.addChild(uiEditor);
-            uiEditor.initMoxtra(moxtra, selectedNode.getUUID(), isPageCreating);
-            uiEditor.setRendered(true);
 
             context.addUIComponentToUpdateByAjax(uiExplorer.getChild(UIControl.class));
           } else {
@@ -184,13 +202,22 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
   public String renderEventURL(boolean ajax, String name, String beanId, Parameter[] params) throws Exception {
     WebuiRequestContext context = (WebuiRequestContext) WebuiRequestContext.getCurrentInstance();
     if (context.getAttribute(name) == null) {
-      initContext(context);
+      initContext(context, true); // editInNewWindow=true
       context.setAttribute(name, true);
     }
-    return super.renderEventURL(ajax, name, beanId, params);
+    // force open Moxtra editor in new window
+    Parameter[] newParams;
+    if (params == null) {
+      newParams = new Parameter[1];
+    } else {
+      newParams = new Parameter[params.length + 1];
+      System.arraycopy(params, 0, newParams, 0, params.length);
+    }
+    newParams[newParams.length - 1] = new Parameter(OPEN_IN_NEW_WINDOW, String.valueOf(true));
+    return super.renderEventURL(ajax, name, beanId, newParams);
   }
 
-  protected void initContext(WebuiRequestContext context) {
+  protected void initContext(WebuiRequestContext context, boolean editInNewWindow) {
     // add Moxtra JS to proceed auth if required
     MoxtraSocialService moxtra = context.getUIApplication()
                                         .getApplicationComponent(MoxtraSocialService.class);
@@ -198,7 +225,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
     requireJS.require("SHARED/exoMoxtra", "moxtra");
     requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", " + moxtra.isAuthorized()
         + ");");
-    requireJS.addScripts("moxtra.initDocuments();");
+    requireJS.addScripts("moxtra.initDocuments(true);"); // openInNewWindow=true
   }
 
 }

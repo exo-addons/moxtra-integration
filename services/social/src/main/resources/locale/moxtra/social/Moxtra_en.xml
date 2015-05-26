@@ -2,13 +2,13 @@
 <bundle>
   <MoxtraBinderSpacePortlet>
     <label>
-      <name>E-Conversation</name>
+      <name>Moxtra</name>
     </label>
   </MoxtraBinderSpacePortlet>
   <MoxtraBinderSpaceController>
-    <title>E-Conversation settings</title>
-    <enableBinder>Enable E-Conversation</enableBinder>
-    <enableBinderHint>Enable E-Conversation for this space</enableBinderHint>
+    <title>Moxtra settings</title>
+    <enableBinder>Enable Moxtra</enableBinder>
+    <enableBinderHint>Enable Moxtra conversations for this space</enableBinderHint>
     <selectBinder>Moxtra Binder for conversations</selectBinder>
     <newBinderHint>Create new Binder</newBinderHint>
     <selectBinderHint>Use existing Binder</selectBinderHint>
@@ -21,19 +21,19 @@
   </MoxtraBinderSpaceController>
   <ECMContextMenu>
     <event>
-      <EditInMoxtra>Open in E-Conversation</EditInMoxtra>
+      <EditInMoxtra>Open in Moxtra</EditInMoxtra>
     </event>
   </ECMContextMenu>
   <Moxtra>
     <loginMoxtra>Log in Moxtra</loginMoxtra>
     <loginMoxtraHint>Authorization in Moxtra required</loginMoxtraHint>
     <waitConversationPagePreparing>Your conversation is preparing. Please wait.</waitConversationPagePreparing>
-    <conversationPageNotOpen>E-Conversation page cannot be open. Try again in few minutes.</conversationPageNotOpen>
+    <conversationPageNotOpen>Moxtra page cannot be open. Try again in few minutes.</conversationPageNotOpen>
     <poweredBy>Powered by</poweredBy>
     <error>
-      <errorOpeningInMoxtra>Error opening document in E-Conversation</errorOpeningInMoxtra>
-      <noMoxraBinder>E-Conversation must be enabled</noMoxraBinder>
-      <editPreparingMoxtraEditor>Error preparing E-Conversation form</editPreparingMoxtraEditor>
+      <errorOpeningInMoxtra>Error opening document in Moxtra conversation</errorOpeningInMoxtra>
+      <noMoxraBinder>Moxtra must be enabled</noMoxraBinder>
+      <editPreparingMoxtraEditor>Error preparing Moxtra conversation form</editPreparingMoxtraEditor>
     </error>
   </Moxtra>
 </bundle>

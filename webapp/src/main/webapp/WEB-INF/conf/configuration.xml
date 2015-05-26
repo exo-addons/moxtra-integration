@@ -46,6 +46,10 @@
   </component>
   
   <component>
+    <type>org.exoplatform.moxtra.rest.ViewService</type>
+  </component>
+  
+  <component>
     <type>org.exoplatform.moxtra.social.rest.BinderSpaceService</type>
   </component>
 
@@ -324,6 +328,12 @@
           <value>locale.moxtra.calendar.Moxtra</value>
           <value>locale.moxtra.social.Moxtra</value>
         </values-param>
+        <!-- values-param>
+          <name>classpath.resources</name>
+          <description>The resources that start with the following package name should be load from file system</description>
+          <value>locale.moxtra.Moxtra</value>
+          <value>locale.moxtra.social.Moxtra</value>
+        </values-param -->
       </init-params>
     </component-plugin>
   </external-component-plugins>

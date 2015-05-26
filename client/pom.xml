@@ -96,6 +96,7 @@
         <includes>
           <include>**/*.xml</include>
           <include>**/*.properties</include>
+          <include>**/*.html</include>
         </includes>
       </resource>
     </resources>
@@ -104,13 +105,11 @@
         <directory>src/test/resources</directory>
         <includes>
           <include>**/*.properties</include>
-          <include>login.conf</include>
           <include>**/*.xml</include>
-          <include>**/*.txt</include>
           <include>**/*.jpg</include>
-          <include>**/*.pdf</include>
           <include>**/*.policy</include>
           <include>**/*.conf</include>
+          <include>**/*.html</include>
         </includes>
       </testResource>
     </testResources>

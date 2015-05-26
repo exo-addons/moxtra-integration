@@ -130,8 +130,11 @@ public class JCR {
     // // ignore it
     // }
 
-    node.removeMixin(NODETYPE_SERVICES);
-    removeMoxtraItems(node);
+    //removeMoxtraItems(node);
+    for (NodeIterator niter = node.getNodes(); niter.hasNext();) {
+      cleanBaseNodeReferences(niter.nextNode());
+    }
+    node.removeMixin(NODETYPE_SERVICES); // this also removes the type nodes
   }
 
   protected static void removeMoxtraItems(Node node) throws RepositoryException {

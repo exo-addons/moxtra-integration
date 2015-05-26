@@ -6,10 +6,10 @@
 %>
 <div class="container-fluid">
 	<div id="moxtra-binder-body" class="row-fluid">
-		<div class="span6">
+		<div class="span12">
 			<h3>&{MoxtraBinderSpaceController.title}</h3>
 		</div>
-		<div id="moxtra-binder-wrapper" class="span6">
+		<div id="moxtra-binder-wrapper" class="span12">
 			<div id="moxtra-binder-message" class="moxtra-message">
 				<div class="alert" style="display: none;"></div>
 			</div>
@@ -25,18 +25,6 @@
 							</div>
 						</div>
 						<div id="moxtra-binder-editor" class="control-group binder-config ${disabled}">
-						</div>
-						<div class="control-group binder-config ${disabled}">
-							<label class="control-label" for="autocreateUsers">&{MoxtraBinderSpaceController.autocreateUsers}</label>
-							<div class="controls">
-								<input type="checkbox" name="autocreateUsers" checked placeholder="&{MoxtraBinderSpaceController.autocreateUsersHint}" class="form-control">
-							</div>
-						</div>
-						<div class="control-group binder-config ${disabled}">
-							<label class="control-label" for="syncComments">&{MoxtraBinderSpaceController.syncComments}</label>
-							<div class="controls">
-								<input type="checkbox" name="syncComments" checked placeholder="&{MoxtraBinderSpaceController.syncCommentsHints}" class="form-control">
-							</div>
 						</div>
 						<div class="control-group text-centered form-buttons">
 							<div class="controls">

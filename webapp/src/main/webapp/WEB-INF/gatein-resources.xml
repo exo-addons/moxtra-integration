@@ -24,6 +24,12 @@
   xmlns="http://www.gatein.org/xml/ns/gatein_resources_1_3">
 
   <!-- CSS for Moxtra support -->
+  <portal-skin>
+    <skin-name>Default</skin-name>
+    <skin-module>moxtra</skin-module>
+    <css-path>/skin/exo-moxtra-common.css</css-path>
+  </portal-skin>
+  
   <portlet-skin>
     <application-name>moxtra</application-name>
     <portlet-name>MoxtraBinderSpacePortlet</portlet-name>

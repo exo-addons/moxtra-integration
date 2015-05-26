@@ -1,8 +1,5 @@
 <%
-	//import org.exoplatform.portal.webui.util.Util
-  
   def rcontext = _ctx.getRequestContext()
-  //def uiForm = uicomponent.parentForm
   def requireJS = rcontext.javascriptManager.getRequireJS()
   
   // eXo Moxtra script
@@ -41,10 +38,4 @@
 		<span><%=uicomponent.getString('Moxtra.conversationPageNotOpen') %></span>
 	</div>	
 <%	} %>		
-	<div id="CloseConfirmationMsg" style="display: none;"><%=uicomponent.getString('UIDocumentForm.msg.confirm-close') %></div>
-	<div class="FillOutElement">&nbsp;</div>
-	<div class="poweredByMoxtra">
-		<span><%=uicomponent.getString('Moxtra.poweredBy') %>&nbsp</span><a href="http://www.moxtra.com">
-		<img src="/moxtra/images/moxtra-logo.png" width="108" height="24" alt="Moxtra" align="right"></a>
-	</div>
 </div>

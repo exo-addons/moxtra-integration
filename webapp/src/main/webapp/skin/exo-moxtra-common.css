@@ -1,0 +1,23 @@
+/** 
+ * Common CSS for Moxtra integrations.
+ */
+li.active>a>.uiIconAppMoxtraBinderSpacePortlet {
+	background-image: url("/moxtra/images/moxtra-icon-white.png") !important;
+	background-size: 35px 35px;
+	background-position: 0 0;
+	background-color: transparent;
+}
+
+.uiIconAppMoxtraBinderSpacePortlet {
+	background-image: url("/moxtra/images/moxtra-icon-gray.png") !important;
+	background-size: 35px 35px;
+	background-position: 0 0;
+	background-color: transparent;
+}
+
+li>a:hover>.uiIconAppMoxtraBinderSpacePortlet {
+	background-image: url("/moxtra/images/moxtra-icon-white.png") !important;
+	background-size: 35px 35px;
+	background-position: 0 0;
+	background-color: transparent;
+}

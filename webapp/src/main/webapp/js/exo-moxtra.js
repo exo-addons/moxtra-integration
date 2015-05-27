@@ -1,7 +1,7 @@
 /**
  * eXo Moxtra UI support.
  */
-(function($, uiRightClickPopupMenu) {
+(function($) {
 	/**
 	 * Logger to browser console.
 	 */
@@ -115,7 +115,7 @@
 
 		var authorized = false;
 
-		var authLink;
+		var authLink = null;
 
 		var pageWindow;
 
@@ -151,7 +151,7 @@
 				if (!user502) {
 					map[502] = function() {
 						// treat 502 as request error also
-						process.fail("Bad gateway", 502, "error");
+						process.reject("Bad gateway", 502, "error");
 					};
 				}
 				return jQueryStatusCode(map);
@@ -280,13 +280,13 @@
 			return initRequest(request);
 		};
 
-		var moxtra = new MoxtraJS(getAccessToken);
+		var moxtrajs = new MoxtraJS(getAccessToken);
 
 		/**
 		 * Open pop-up with given URL.
 		 */
-		var openWindow = function(url) {
-			var w = 850;
+		var openPopup = function(url) {
+			var w = 700;
 			var h = 400;
 			var left = (screen.width / 2) - (w / 2);
 			var top = (screen.height / 2) - (h / 2);
@@ -330,14 +330,16 @@
 				var authWindow;
 				if (authLink) {
 					// open Moxtra OAuth2 login
-					authWindow = openWindow(authLink);
+					authWindow = openPopup(authLink);
 				} else {
-					authWindow = openWindow("");
+					//authWindow = openPopup("");
 					var userAuthProc = getMoxtraUserAuth();
 					userAuthProc.done(function(authData) {
 						if (authData.authorized) {
 							authorized = true;
-							authWindow.close();
+							if (authWindow) {
+								authWindow.close();
+							}
 							process.resolve();
 						} else {
 							authorized = false;
@@ -345,12 +347,15 @@
 						}
 					});
 					userAuthProc.fail(function(message) {
-						authWindow.close();
+						if (authWindow) {
+							authWindow.close();
+						}
 						process.reject("Cannot get authorization link. " + message);
 					});
 				}
 				if (!authorized && authLink) {
-					authWindow.location.href = authLink;
+					//authWindow.location.href = authLink;
+					authWindow = openPopup(authLink);
 					// wait for authentication
 					var auth = waitAuth(authWindow);
 					auth.done(function() {
@@ -365,7 +370,7 @@
 						process.reject(message);
 					});
 				} else {
-					if (!process.isRejected()) {
+					if (process.state() === "pending") {
 						process.reject("Authorization link not found.");
 					}
 				}
@@ -404,80 +409,129 @@
 		 * Init binder space page in target window.
 		 */
 		var initPageWindow = function(target, binderId, pageId, spaceName, pageNodeUUID) {
+			var process = $.Deferred();
 			var $t = $(target.document);
-			var $editor = $t.find("#moxtra-page-editor");
-			var $progress = $t.find("#moxtra-page-progress");
-			if (!binderId) {
-				binderId = $editor.data("binder-id");
-			}
-			if (binderId) {
-				if (!pageId) {
-					pageId = $editor.data("binder-page-id");
+			// ensure user authorized
+			if (authorized) {
+				var $editor = $t.find("#moxtra-page-editor");
+				var $progress = $t.find("#moxtra-page-progress");
+				if (!binderId) {
+					binderId = $editor.data("binder-id");
 				}
+				if (binderId) {
+					if (!pageId) {
+						pageId = $editor.data("binder-page-id");
+					}
 
-				function showPage() {
-					var callbacks = {
-						start_page : function(event) {
-							$progress.hide();
-							$editor.show();
-						}
-					};
-					if (target === window) {
-						moxtra.showPage(binderId, pageId, "moxtra-page-editor", callbacks);
-					} else {
-						// new MoxtraJS(getAccessToken)
-						try {
-							target.showPage(binderId, pageId, callbacks, moxtra);
-						} catch(e) {
-							log("ERROR: " + e, e);
-						}
-					}
-				}
-
-				if (pageId) {
-					showPage();
-				} else {
-					if (!spaceName) {
-						spaceName = $editor.data("binder-space-name");
-					}
-					if (!pageNodeUUID) {
-						pageNodeUUID = $editor.data("binder-page-node-uuid");
-					}
-					if (spaceName && pageNodeUUID) {
-						var findAttempts = 20;
-						function findShowPage() {
-							findAttempts--;
-							var pageFind = findBinderPage(spaceName, pageNodeUUID, true);
-							pageFind.done(function(page) {
-								pageId = page.id;
-								showPage();
+					function showPage() {
+						var callbacks = {
+							start_page : function(event) {
+								$progress.hide();
+								$editor.show();
+							}
+						};
+						if (target === window) {
+							var page = moxtrajs.showPage(binderId, pageId, "moxtra-page-editor", callbacks);
+							page.done(function() {
+								process.resolve();
 							});
-							pageFind.fail(function(data, status) {
-								if (status == 404 && data.code == "page_not_found") {
-									// page not yet created - need wait it
-									log("WARN: page not found in " + binderId + ", attempt: " + findAttempts);
-									if (findAttempts >= 0) {
-										setTimeout(function() {
-											findShowPage();
-										}, 2500);
+							page.fail(function(m, e) {
+								process.reject(m, e);
+							});
+						} else {
+							try {
+								//target.showPage(binderId, pageId, callbacks, moxtra);
+								target.initUser(currentUser, authorized, authLink);
+								target.initPage(binderId, pageId);
+								// when opening in another window it's resolved for this current one
+								process.resolve();
+							} catch(e) {
+								process.reject(e, e);
+							}
+						}
+					}
+
+					if (pageId) {
+						showPage();
+					} else {
+						if (!spaceName) {
+							spaceName = $editor.data("binder-space-name");
+						}
+						if (!pageNodeUUID) {
+							pageNodeUUID = $editor.data("binder-page-node-uuid");
+						}
+						if (spaceName && pageNodeUUID) {
+							var findAttempts = 20;
+							function findShowPage() {
+								findAttempts--;
+								var pageFind = findBinderPage(spaceName, pageNodeUUID, true);
+								pageFind.done(function(page) {
+									pageId = page.id;
+									showPage();
+								});
+								pageFind.fail(function(data, status) {
+									if (status == 404 && data.code == "page_not_found") {
+										// page not yet created - need wait it
+										log("WARN: page not found in " + binderId + ", attempt: " + findAttempts);
+										if (findAttempts >= 0) {
+											setTimeout(function() {
+												findShowPage();
+											}, 2500);
+										} else {
+											$progress.hide();
+											$t.find("#moxtra-page-notopen").show();
+										}
 									} else {
-										$progress.hide();
-										$t.find("#moxtra-page-notopen").show();
+										process.reject(data);
 									}
-								} else {
-									log("ERROR: " + data);
-								}
-							});
-						}
+								});
+							}
 
-						findShowPage();
-					} else {
-						log("ERROR: spaceName and pageNodeUUID required for initPage()");
+							findShowPage();
+						} else {
+							process.reject("A spaceName and pageNodeUUID required for initPage()");
+						}
 					}
+				} else {
+					process.reject("Moxtra binderId required for initPage()");
 				}
 			} else {
-				log("ERROR: binderId required for initPage()");
+				// temp marker to avoid double invocation during auth
+				var opening = $t.data("moxtra-page-opening");
+				if (opening) {
+					return opening;
+				} else {
+					try {
+						$t.data("moxtra-page-opening", process);
+						var auth = authorize();
+						auth.done(function() {
+							var page = initPageWindow(target, binderId, pageId, spaceName, pageNodeUUID);
+							page.done(function() {
+								process.resolve();
+							});
+							page.fail(function(m, e) {
+								process.reject(m, e);
+							});
+						});
+						auth.fail(function(error) {
+							process.reject("Moxtra authorization error: " + error);
+						});
+						auth.always(function() {
+							$t.removeData("moxtra-page-opening");
+						});
+					} catch(e) {
+						process.reject("Error opening Moxtra page " + e, e);
+					}
+				}
 			}
+			return process.promise();
+		};
+
+		this.moxtrajs = function(moxtraApi) {
+			if (moxtraApi) {
+				moxtrajs = new MoxtraJS(getAccessToken, moxtraApi);
+			}
+			return moxtrajs;
 		};
 
 		this.isAuthorized = function() {
@@ -734,20 +788,37 @@
 		 * Open new window for a page.
 		 */
 		this.openPage = function(binderId, pageId, spaceName, pageNodeUUID) {
+			var process = $.Deferred();
 			if (pageWindow) {
 				$(pageWindow).ready(function() {
-					initPageWindow(pageWindow, binderId, pageId, spaceName, pageNodeUUID);
+					var page = initPageWindow(pageWindow, binderId, pageId, spaceName, pageNodeUUID);
+					page.done(function() {
+						process.resolve();
+					});
+					page.fail(function(message, e) {
+						log("ERROR: " + message, e);
+						// TODO notify the error to an user
+						process.reject(message, e);
+					});
 				});
 			} else {
 				log("ERROR: page window not found");
+				process.reject("Page window not found");
 			}
+			return process.promise();
 		};
 
 		/**
 		 * Init binder space page in current page.
+		 * @Deprecated
 		 */
 		this.initPage = function(binderId, pageId, spaceName, pageNodeUUID) {
-			initPageWindow(window, binderId, pageId, spaceName, pageNodeUUID);
+			var page = initPageWindow(window, binderId, pageId, spaceName, pageNodeUUID);
+			page.fail(function(message, e) {
+				log("ERROR: " + message, e);
+				// TODO notify the error to an user
+			});
+			return page;
 		};
 
 		/**
@@ -763,7 +834,7 @@
 					}
 				}
 				$editInMoxtra.click(function() {
-					var url = serverUrl + "/portal/rest/moxtra/view/pages";
+					var url = serverUrl + "/portal/rest/moxtra/view/pages/";
 					pageWindow = window.open(url);
 					pageWindow.blur();
 					// open blank window before ajax request
@@ -821,12 +892,12 @@
 	/**
 	 * Moxtra JS wrapper for on-demand loading of the script. It is used in ExoMoxtra.
 	 */
-	function MoxtraJS(accessService) {
+	function MoxtraJS(accessService, moxtrajs) {
 
 		var loader = $.Deferred();
 		var initlzng = false;
 
-		var load = function(moxtrajs) {
+		var load = function() {
 			if (loader.state() === "pending") {
 				function init() {
 					if (!initlzng) {
@@ -886,9 +957,9 @@
 			return loader.promise();
 		};
 
-		this.showPage = function(binderId, pageId, elemId, callbacks, moxtrajs) {
+		this.showPage = function(binderId, pageId, elemId, callbacks) {
 			var process = $.Deferred();
-			var apiReady = load(moxtrajs);
+			var apiReady = load();
 			apiReady.done(function(api) {
 				function invoke(eventName, event) {
 					var action = callbacks[eventName];
@@ -979,4 +1050,4 @@
 	}
 
 	return client;
-})($, uiRightClickPopupMenu);
+})($);

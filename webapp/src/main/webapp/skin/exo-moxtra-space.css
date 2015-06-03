@@ -1,23 +1,8 @@
 /** 
  * CSS dedicated to MoxtraBinderSpace portlet.
  */
-body {
-	margin: 0;
-}
-
-html, body {
-	height: 100%;
-}
-
-#moxtra-page-container, #moxtra-page-editor {
-  width:100%;
-	height: 100%;
-}
-
-#moxtra-page-editor>div {
-	position: relative;
-	width:100%;
-	height: 100%;
-	margin: 0;
-	border: 0px;
+#moxtra-binder-settings-button, #moxtra-auth-button {
+	font-weight: normal;
+	font-style: normal;
+	font-variant: normal;
 }

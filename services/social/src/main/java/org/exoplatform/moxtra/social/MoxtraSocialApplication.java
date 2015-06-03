@@ -125,11 +125,12 @@ public class MoxtraSocialApplication implements MoxtraApplication {
             LOG.debug(">> Activating app for Meet Button: " + uiApp + ", user " + userName);
           }
 
-          String authLink = getAuthorizationLink();
+          boolean isAuthorized = isAuthorized();
+          String authLink = isAuthorized ? "" : getAuthorizationLink();
           // requireJS.require("SHARED/jquery", "$");
           // requireJS.addScripts("$('a.moxtraAuthLink').tooltip('show');");
           requireJS.require("SHARED/exoMoxtra", "moxtra");
-          requireJS.addScripts("moxtra.initUser('" + userName + "', " + isAuthorized() + ", '" + authLink
+          requireJS.addScripts("moxtra.initUser('" + userName + "', " + isAuthorized + ", '" + authLink
               + "');");
           requestContext.setAttribute(USER_INIT_SCRIPT, userName);
         } else {

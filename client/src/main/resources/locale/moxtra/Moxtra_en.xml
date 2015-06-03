@@ -1,4 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bundle>
-  
+  <Moxtra>
+    <loginMoxtra>Log in Moxtra</loginMoxtra>
+    <loginMoxtraHint>Authorization in Moxtra required</loginMoxtraHint>
+    <waitConversationPagePreparing>Your conversation is preparing. Please wait.</waitConversationPagePreparing>
+    <conversationPageNotOpen>Moxtra page cannot be open. Try again in few minutes.</conversationPageNotOpen>
+    <poweredBy>Powered by</poweredBy>
+    <error>
+      <errorOpeningInMoxtra>Error opening document in Moxtra conversation</errorOpeningInMoxtra>
+      <noMoxraBinder>Moxtra must be enabled</noMoxraBinder>
+      <editPreparingMoxtraEditor>Error preparing Moxtra conversation form</editPreparingMoxtraEditor>
+    </error>
+  </Moxtra>
 </bundle>

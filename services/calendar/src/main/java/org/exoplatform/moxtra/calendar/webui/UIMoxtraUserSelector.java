@@ -41,6 +41,7 @@ import org.exoplatform.webui.core.UIApplication;
 import org.exoplatform.webui.core.UIComponent;
 import org.exoplatform.webui.core.UIPageIterator;
 import org.exoplatform.webui.core.UIPopupComponent;
+import org.exoplatform.webui.core.UIPopupContainer;
 import org.exoplatform.webui.core.lifecycle.UIFormLifecycle;
 import org.exoplatform.webui.core.model.SelectItemOption;
 import org.exoplatform.webui.event.Event;
@@ -91,7 +92,9 @@ public class UIMoxtraUserSelector extends UIForm implements MoxtraUserSelector, 
     public void execute(Event<MoxtraUserSelector> event) throws Exception {
       MoxtraUserSelector selector = event.getSource();
       UIMoxtraUserSelector selectorForm = selector.getComponent();
-      selectorForm.getParent().broadcast(event, event.getExecutionPhase());
+      UIPopupContainer popupContainer = selectorForm.getParent().getParent();
+      popupContainer.cancelPopupAction();
+      // selectorForm.getParent().broadcast(event, event.getExecutionPhase());
     }
   }
 
@@ -239,7 +242,7 @@ public class UIMoxtraUserSelector extends UIForm implements MoxtraUserSelector, 
                                                     MoxtraException,
                                                     MoxtraConfigurationException {
     this.meet = moxtra.getMeet();
-    //List<MoxtraUser> availableUsers = moxtra.getUserContacts();
+    // List<MoxtraUser> availableUsers = moxtra.getUserContacts();
     // currently we show all available users
     // TODO filter users (as below), but if empty result then show an info to user that all his contacts
     // already invited

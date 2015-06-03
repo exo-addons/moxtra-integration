@@ -18,6 +18,7 @@
  */
 package org.exoplatform.moxtra.social.ecms;
 
+import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.ecm.webui.component.explorer.UIDocumentContainer;
 import org.exoplatform.ecm.webui.component.explorer.UIDocumentWorkspace;
 import org.exoplatform.ecm.webui.component.explorer.UIDrivesArea;
@@ -138,8 +139,10 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
               RequireJS requireJS = context.getJavascriptManager().getRequireJS();
               // TODO do we really need require and initUser() here?
               requireJS.require("SHARED/exoMoxtra", "moxtra");
-              requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', "
-                  + moxtra.isAuthorized() + ");");
+              boolean isAuthorized = moxtra.isAuthorized();
+              String authLink = isAuthorized ? "" : moxtra.getOAuth2Link();
+              requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', " + isAuthorized
+                  + ", '" + authLink + "');");
               if (isPageCreating) {
                 // set pageId=null and provide space name and node UUID for waiting for page creation
                 requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId()
@@ -217,14 +220,16 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
     return super.renderEventURL(ajax, name, beanId, newParams);
   }
 
-  protected void initContext(WebuiRequestContext context, boolean editInNewWindow) {
+  protected void initContext(WebuiRequestContext context, boolean editInNewWindow) throws OAuthSystemException {
     // add Moxtra JS to proceed auth if required
     MoxtraSocialService moxtra = context.getUIApplication()
                                         .getApplicationComponent(MoxtraSocialService.class);
     RequireJS requireJS = context.getJavascriptManager().getRequireJS();
     requireJS.require("SHARED/exoMoxtra", "moxtra");
-    requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", " + moxtra.isAuthorized()
-        + ");");
+    boolean isAuthorized = moxtra.isAuthorized();
+    String authLink = isAuthorized ? "" : moxtra.getOAuth2Link();
+    requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', " + isAuthorized
+        + ", '" + authLink + "');");
     requireJS.addScripts("moxtra.initDocuments(true);"); // openInNewWindow=true
   }
 

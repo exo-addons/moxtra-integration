@@ -191,7 +191,7 @@
         </object-param>
         <object-param>
           <name>spaceApplicationListConfig</name>
-          <description>space E-Conversation application</description>
+          <description>Moxtra space application</description>
           <object type="org.exoplatform.social.core.space.SpaceApplicationConfigPlugin">
             <field name="spaceApplicationList">
               <collection type="java.util.ArrayList">
@@ -204,7 +204,7 @@
                       <string>MoxtraBinderSpacePortlet</string>
                     </field>
                     <field name="appTitle">
-                      <string>E-Conversation</string>
+                      <string>Moxtra Binder space</string>
                     </field>
                     <field name="removable">
                       <boolean>true</boolean>
@@ -213,7 +213,7 @@
                       <int>1</int>
                     </field>
                     <field name="uri">
-                      <string>econversation</string>
+                      <string>moxtra</string>
                     </field>
                     <!--<field name="icon"><string>SpaceDashboardIcon</string></field>-->
                   </object>

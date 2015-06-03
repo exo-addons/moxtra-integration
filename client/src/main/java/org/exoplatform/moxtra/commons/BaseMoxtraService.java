@@ -22,6 +22,7 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
+import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.services.security.ConversationState;
 
@@ -65,25 +66,15 @@ public abstract class BaseMoxtraService {
 
   /**
    * Current user in Moxtra.<br>
-   * This user will be cached in the request thread once called. Cached user stored in current
-   * {@link ConversationState} attribute.
+   * This user will be cached in current {@link ConversationState} attribute.
    * 
    * @return {@link MoxtraUser}.
    * @throws MoxtraException
+   * 
+   * @see {@link MoxtraClient#getCurrentUser(boolean)}
    */
   public MoxtraUser getUser() throws MoxtraException {
-    ConversationState currentConvo = ConversationState.getCurrent();
-    if (currentConvo != null) {
-      Object obj = currentConvo.getAttribute(MOXTRA_CURRENT_USER);
-      if (obj != null) {
-        return (MoxtraUser) obj;
-      }
-      MoxtraUser user = moxtra.getClient().getCurrentUser();
-      currentConvo.setAttribute(MOXTRA_CURRENT_USER, user);
-      return user;
-    } else {
-      return moxtra.getClient().getCurrentUser();
-    }
+    return moxtra.getClient().getCurrentUser();
   }
 
   /**

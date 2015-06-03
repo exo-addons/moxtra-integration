@@ -1,0 +1,44 @@
+#{param name=isNew/}
+<%
+  def disabled = isNew ? 'disabled' : ''
+%>
+<!-- Settings Popup -->
+<div class="modal hide fade" tabindex="-1" role="dialog"
+	aria-labelledby="&{MoxtraBinderSpaceController.settingsSitle}" aria-hidden="true">
+	<div class="modal-header">
+		<button type="button" class="close" data-dismiss="modal" aria-hidden="true">×</button>
+		<h3>&{MoxtraBinderSpaceController.settingsTitle}</h3>
+	</div>
+	<div class="modal-body">
+		<div class="binderMessage">
+			<div class="alert" style="display: none;"></div>
+		</div>
+		<form action="@{save()}" action-cancel="@{cancel()}" method="post" role="form">
+			<div class="form-horizontal">
+				<fieldset>
+					<div class="control-group">
+						<label class="control-label" for="enableBinder">&{MoxtraBinderSpaceController.enableBinder}</label>
+						<div class="controls">
+							<input type="checkbox" name="enableBinder" ${isNew ? '' : 'checked'} placeholder="&{MoxtraBinderSpaceController.enableBinderHint}"
+								class="form-control">
+						</div>
+					</div>
+					<div class="control-group binderConfig ${disabled}"></div>
+					<div class="control-group text-centered form-buttons">
+						<div class="controls">
+							<button type=submit class="btn btn-primary">&{MoxtraBinderSpaceController.save}</button>
+							<button type="button" class="btn binderCancel" onclick="">&{MoxtraBinderSpaceController.cancel}</button>
+						</div>
+					</div>
+				</fieldset>
+			</div>
+		</form>
+	</div>
+	<div class="modal-footer">
+		<button class="btn" data-dismiss="modal" aria-hidden="true">Close</button>
+		<button class="btn btn-primary">Save changes</button>
+	</div>
+</div>
+
+
+

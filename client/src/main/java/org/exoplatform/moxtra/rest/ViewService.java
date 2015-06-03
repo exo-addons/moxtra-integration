@@ -18,29 +18,36 @@
  */
 package org.exoplatform.moxtra.rest;
 
+import net.oauth.OAuthProblemException;
+
 import org.apache.commons.io.IOUtils;
+import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.moxtra.MoxtraService;
+import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.resources.ResourceBundleService;
 import org.exoplatform.services.rest.resource.ResourceContainer;
-import org.exoplatform.web.application.RequestContext;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.util.Locale;
 import java.util.MissingResourceException;
 import java.util.ResourceBundle;
 
-import javax.annotation.security.RolesAllowed;
 import javax.servlet.http.HttpServletRequest;
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
+import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
 import javax.ws.rs.core.Context;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
+import javax.ws.rs.core.SecurityContext;
+import javax.ws.rs.core.UriInfo;
 
 /**
  * Moxtra Javascript View Components services handled by eXo server-side client.<br>
@@ -51,7 +58,7 @@ import javax.ws.rs.core.Response.Status;
  * @version $Id: ViewService.java 00000 May 25, 2015 pnedonosko $
  * 
  */
-@Path("/moxtra/view")
+@Path("/moxtra")
 @Produces(MediaType.TEXT_HTML)
 public class ViewService implements ResourceContainer {
 
@@ -72,46 +79,90 @@ public class ViewService implements ResourceContainer {
   }
 
   @GET
-  @RolesAllowed("users")
-  @Path("/pages")
-  public Response pageView(@Context HttpServletRequest request) {
-    if (pageViewTemplate == null) {
-      InputStream pageContent = ViewService.class.getResourceAsStream("/views/moxtra-page-view.html");
-      if (pageContent != null) {
-        try {
-          pageViewTemplate = IOUtils.toString(pageContent, "UTF-8");
-        } catch (IOException e) {
-          LOG.error("Error reading page view: " + e.getMessage(), e);
-          return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error reading page view").build();
-        } finally {
+  @Path("/page/{pagePath:.*}/")
+  public Response pageView(@Context HttpServletRequest request,
+                           @Context UriInfo uriInfo,
+                           @Context SecurityContext security,
+                           @PathParam("pagePath") String pagePath) {
+    // ensure authorized user in eXo
+    if (security.isUserInRole("users")) {
+      if (pageViewTemplate == null) {
+        // read template and store in runtime for next requests
+        InputStream pageContent = ViewService.class.getResourceAsStream("/views/moxtra-page.html");
+        if (pageContent != null) {
           try {
-            pageContent.close();
+            pageViewTemplate = IOUtils.toString(pageContent, "UTF-8");
           } catch (IOException e) {
-            LOG.error("Error closing page view content stream: " + e.getMessage(), e);
+            LOG.error("Error reading page view: " + e.getMessage(), e);
+            return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error reading page view").build();
+          } finally {
+            try {
+              pageContent.close();
+            } catch (IOException e) {
+              LOG.error("Error closing page view content stream: " + e.getMessage(), e);
+            }
           }
+        } else {
+          LOG.error("Page view not found: pageView()");
+          return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Page view not found").build();
         }
-      } else {
-        LOG.error("Page view not found: pageView()");
-        return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Page view not found").build();
+      }
+
+      // TODO use Groovy template?
+      // replace i18n parts
+      String pageText = pageViewTemplate.replace("&{Moxtra.waitConversationPagePreparing}",
+                                                 getString("Moxtra.waitConversationPagePreparing",
+                                                           request.getLocale()));
+      pageText = pageText.replace("&{Moxtra.conversationPageNotOpen}",
+                                  getString("Moxtra.conversationPageNotOpen", request.getLocale()));
+      pageText = pageText.replace("&{Moxtra.loginMoxtraHint}",
+                                  getString("Moxtra.loginMoxtraHint", request.getLocale()));
+      pageText = pageText.replace("&{Moxtra.loginMoxtra}",
+                                  getString("Moxtra.loginMoxtra", request.getLocale()));
+
+//      MoxtraClient client = moxtra.getClient();
+//      if (!client.isAuthorized()) {
+//        // Moxtra auth URL
+//        try {
+//          pageText = pageText.replace("${authLink}", client.authorizer().authorizationLink());
+//        } catch (OAuthSystemException e) {
+//          LOG.error("Error preparing page view: " + e.getMessage(), e);
+//          return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error preparing page view").build();
+//        }
+//      }
+
+      return Response.ok().entity(pageText).build();
+    } else {
+      // redirect not authorized user to portal login
+      URI requestUri = uriInfo.getAbsolutePath();
+      // https://peter.exoplatform.com.ua:8443/portal/login?initialURI=%2Fportal%2Fintranet%2F
+      // String scheme,
+      // String userInfo, String host, int port,
+      // String path, String query, String fragment
+      try {
+        URI loginUrl = new URI(requestUri.getScheme(), null, // userInfo
+                               requestUri.getHost(),
+                               requestUri.getPort(),
+                               "/portal/login",
+                               "initialURI=" + uriInfo.getRequestUri().toString(),
+                               null);
+        return Response.temporaryRedirect(loginUrl).build();
+      } catch (URISyntaxException e) {
+        LOG.error("Error preparing login page redirect URI: pageView()", e);
+        return Response.status(Status.INTERNAL_SERVER_ERROR)
+                       .entity("Error preparing login page link")
+                       .build();
       }
     }
-
-    // replace i18n parts
-    String pageText = pageViewTemplate.replace("&{Moxtra.waitConversationPagePreparing}",
-                                               getString("Moxtra.waitConversationPagePreparing",
-                                                         request.getLocale()));
-    pageText = pageText.replace("&{Moxtra.conversationPageNotOpen}",
-                                getString("Moxtra.conversationPageNotOpen", request.getLocale()));
-    return Response.ok().entity(pageText).build();
   }
 
   protected String getString(String key, Locale locale) {
     ResourceBundle res;
     try {
-      res = resources.getResourceBundle("locale.moxtra.social.Moxtra", locale);
+      res = resources.getResourceBundle("locale.moxtra.Moxtra", locale);
     } catch (MissingResourceException e) {
       try {
-        res = resources.getResourceBundle("locale.moxtra.social.Moxtra", Locale.getDefault());
+        res = resources.getResourceBundle("locale.moxtra.Moxtra", Locale.getDefault());
       } catch (MissingResourceException ed) {
         LOG.warn("Error loading resource bundle for Moxtra: " + e.getMessage());
       }

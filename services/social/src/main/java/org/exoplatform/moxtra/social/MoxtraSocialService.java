@@ -47,7 +47,6 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
-import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 
@@ -89,17 +88,12 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       this.binder = binder.editor();
       this.binder.editName(space.getDisplayName());
       // add also space users
-      String currentUser = ConversationState.getCurrent().getIdentity().getUserId();
       Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
       for (String userId : space.getManagers()) {
-        if (!currentUser.equals(userId)) {
-          users.add(findUser(userId));
-        }
+        users.add(findUser(userId));
       }
       for (String userId : space.getMembers()) {
-        if (!currentUser.equals(userId)) {
-          users.add(findUser(userId));
-        }
+        users.add(findUser(userId));
       }
       for (MoxtraUser user : users) {
         this.binder.addUser(user);
@@ -124,9 +118,22 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     public boolean isNew() {
       return isNew || binder.isNew();
     }
-    
+
     public void resetNew() {
       this.isNew = false;
+    }
+
+    public boolean isCurrentUserManager() {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+        for (String mid : space.getManagers()) {
+          if (userId.equals(mid)) {
+            return true;
+          }
+        }
+      }
+      return false;
     }
 
     /**
@@ -181,6 +188,96 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
 
     /**
+     * Ensure current eXo user is a member of this binder and its space. If user isn't a member of the space,
+     * then it will be added via pending request (if space is open then it will be added immediately,
+     * otherwise it will require a validation by the space manager). If user has an access to the space, then
+     * check if a member of the binder in Moxtra and if not, invite the user to it.
+     * 
+     * @return <code>true</code> if current user is a member of the binder and its space, <code>false</code>
+     *         otherwise (user was be added to pending list and space membership requires validation)
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public boolean ensureMember() throws MoxtraClientException, MoxtraException, RepositoryException {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+
+        // 1. check space membership
+        Space space = getSpace();
+        Set<String> spaceUsers = new HashSet<String>();
+        for (String mid : space.getManagers()) {
+          spaceUsers.add(mid);
+        }
+        for (String mid : space.getMembers()) {
+          spaceUsers.add(mid);
+        }
+        boolean joinSpace = true;
+        for (String uid : spaceUsers) {
+          if (userId.equals(uid)) {
+            joinSpace = false;
+            break;
+          }
+        }
+        SpaceService spaceService = spaceService();
+        if (joinSpace) {
+          if (!spaceService.isPendingUser(space, userId)) {
+            // here we request user access to the space:
+            // if space private it will require an acceptance by the managers
+            // if open space an user will become a member immediately
+            spaceService.addPendingUser(space, userId);
+          }
+        }
+        if (spaceService.hasAccessPermission(space, userId)) {
+          // 2. if user has an access to the space, check binder membership
+          String userEmail;
+          try {
+            User orgUser = orgService.getUserHandler().findUserByName(userId);
+            userEmail = orgUser.getEmail();
+          } catch (Exception e) {
+            LOG.error("Error reading organization user " + userId, e);
+            userEmail = null;
+          }
+          if (userEmail != null) {
+            MoxtraBinder binder = getBinder();
+            MoxtraUser moxtraUser = null;
+            for (MoxtraUser user : binder.getUsers()) {
+              if (userEmail.equals(user.getEmail())) {
+                moxtraUser = user;
+              }
+            }
+            if (moxtraUser == null) {
+              // add user to the binder editor
+              moxtraUser = new MoxtraUser(userEmail);
+              binder = binder.editor();
+              binder.addUser(moxtraUser);
+              try {
+                MoxtraClient client = moxtra.getClient();
+                client.inviteUsers(binder);
+                client.refreshBinder(this.binder);
+                Node spaceNode = spaceNode();
+                Node binderNode = JCR.getBinder(spaceNode);
+                writeBinder(binderNode, this.binder);
+                binderNode.save();
+                return true;
+              } catch (OAuthProblemException e) {
+                throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
+                    + " (" + userEmail + "). " + e.getMessage(), e);
+              } catch (OAuthSystemException e) {
+                throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
+                    + " (" + userEmail + "). " + e.getMessage(), e);
+              }
+            }
+          }
+        }
+      } else {
+        LOG.warn("Current conversation state not found for binder space " + binder.getName());
+      }
+      return false;
+    }
+
+    /**
      * Check if given document (by its UUID) has a page for conversation. This method return
      * <code>false</code> for page currently creating.
      * 
@@ -203,7 +300,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
     /**
      * Check if given document has a page for conversation. This method return <code>false</code> for page
-     * currently creating.
+     * currently creating.<br>
+     * This method also will check if current eXo user is a member of the binder and invite it if it is not.
      * 
      * @param document
      * @throws RepositoryException
@@ -211,6 +309,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
      * @throws MoxtraClientException
      */
     public boolean hasPage(Node document) throws RepositoryException, MoxtraClientException, MoxtraException {
+      ensureMember();
       return isPageNode(document, true);
     }
 
@@ -370,23 +469,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         } catch (PathNotFoundException e) {
           return JCR.hasPageRef(document);
         }
-
-        // TODO
-        // Node pageNode = JCR.getPageRef(document).getNode();
-        // Property pageIdProp = JCR.getId(pageNode);
-        // if (PropertyType.LONG != pageIdProp.getType()) {
-        // // it's "creating" page
-        // if (refresh) {
-        // MoxtraPage page = findPage(JCR.getName(pageNode).getString());
-        // if (page != null) {
-        // // page already created in Moxtra, update local node
-        // writePage(pageNode, page);
-        // return true;
-        // }
-        // }
-        // } else {
-        // return true;
-        // }
       }
       return false;
     }

@@ -1,6 +1,6 @@
 #{param name=message/}
 <div class="container-fluid">
-	<div id="cmis-error-body" class="row-fluid">
+	<div class="row-fluid">
 		<h1>Error</h1>
 		${message}
 		<p>

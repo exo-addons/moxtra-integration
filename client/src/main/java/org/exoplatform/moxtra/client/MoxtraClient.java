@@ -78,6 +78,7 @@ import org.exoplatform.moxtra.oauth2.AccessToken;
 import org.exoplatform.moxtra.rest.OAuthCodeAuthenticator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.services.security.ConversationState;
 import org.exoplatform.ws.frameworks.json.JsonParser;
 import org.exoplatform.ws.frameworks.json.impl.JsonDefaultHandler;
 import org.exoplatform.ws.frameworks.json.impl.JsonException;
@@ -126,61 +127,68 @@ import javax.ws.rs.core.MediaType;
  */
 public class MoxtraClient {
 
-  public static final String     MOXTRA_USER_ME              = "me";
+  public static final String     MOXTRA_USER_ME                     = "me";
 
-  public static final String     MOXTRA_URL                  = "https://www.moxtra.com/";
+  public static final String     MOXTRA_URL                         = "https://www.moxtra.com/";
 
-  public static final String     API_V1                      = "https://api.moxtra.com/";
+  public static final String     API_V1                             = "https://api.moxtra.com/";
 
-  public static final String     API_OAUTH_AUTHORIZE         = API_V1 + "oauth/authorize";
+  public static final String     API_OAUTH_AUTHORIZE                = API_V1 + "oauth/authorize";
 
-  public static final String     API_USER                    = API_V1 + "{user_id}";
+  public static final String     API_USER                           = API_V1 + "{user_id}";
 
-  public static final String     API_USER_CONTACTS           = API_USER + "/contacts";
+  public static final String     MOXTRA_CURRENT_USER                = API_V1 + MOXTRA_USER_ME;
 
-  public static final String     API_USER_MEETS              = API_USER + "/meets";
+  public static final String     MOXTRA_CURRENT_USER_EXPIRE         = MOXTRA_CURRENT_USER + "#expire";
 
-  public static final String     API_MEETS_SCHEDULE          = API_V1 + "meets/schedule";
+  public static final long       MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT = 1000 * 60 * 10;                         // 10min
 
-  public static final String     API_MEETS_SESSION           = API_V1 + "meets/{session_key}";
+  public static final String     API_USER_CONTACTS                  = API_USER + "/contacts";
 
-  public static final String     API_MEETS_INVITEUSER        = API_V1 + "meets/inviteuser";
+  public static final String     API_USER_MEETS                     = API_USER + "/meets";
 
-  public static final String     API_MEETS_RECORDINGS        = API_V1 + "meets/recordings/{session_key}";
+  public static final String     API_MEETS_SCHEDULE                 = API_V1 + "meets/schedule";
 
-  public static final String     API_MEETS_STATUS            = API_V1 + "meets/status/{session_key}";
+  public static final String     API_MEETS_SESSION                  = API_V1 + "meets/{session_key}";
 
-  public static final String     API_BINDER                  = API_V1 + "{binder_id}";
+  public static final String     API_MEETS_INVITEUSER               = API_V1 + "meets/inviteuser";
 
-  public static final String     API_BINDER_INVITEUSER       = API_BINDER + "/inviteuser";
+  public static final String     API_MEETS_RECORDINGS               = API_V1
+                                                                        + "meets/recordings/{session_key}";
 
-  public static final String     API_BINDER_REMOVEUSER       = API_BINDER + "/removeuser";
+  public static final String     API_MEETS_STATUS                   = API_V1 + "meets/status/{session_key}";
 
-  public static final String     API_BINDER_PAGEUPLOAD       = API_BINDER + "/pageupload";
+  public static final String     API_BINDER                         = API_V1 + "{binder_id}";
 
-  public static final String     API_BINDERS                 = API_V1 + "{user_id}/binders";
+  public static final String     API_BINDER_INVITEUSER              = API_BINDER + "/inviteuser";
 
-  public static final String     RESPONSE_SUCCESS            = "RESPONSE_SUCCESS";
+  public static final String     API_BINDER_REMOVEUSER              = API_BINDER + "/removeuser";
 
-  public static final String     REQUEST_CONTENT_TYPE_JSON   = "application/json".intern();
+  public static final String     API_BINDER_PAGEUPLOAD              = API_BINDER + "/pageupload";
 
-  public static final String     REQUEST_CONTENT_TYPE_BINARY = "application/octet-stream".intern();
+  public static final String     API_BINDERS                        = API_V1 + "{user_id}/binders";
 
-  public static final String     REQUEST_ACCEPT              = "Accept".intern();
+  public static final String     RESPONSE_SUCCESS                   = "RESPONSE_SUCCESS";
 
-  public static final String     RESPONSE_ALLOW              = "Allow".intern();
+  public static final String     REQUEST_CONTENT_TYPE_JSON          = "application/json".intern();
 
-  public static final int        GET_MEETS_LIST_MAX_DAYS     = 30;
+  public static final String     REQUEST_CONTENT_TYPE_BINARY        = "application/octet-stream".intern();
 
-  public static final int        DAY_MILLISECONDS            = 86400000;
+  public static final String     REQUEST_ACCEPT                     = "Accept".intern();
 
-  public static final String     RESPONSE_ERROR_NOT_FOUND    = "RESPONSE_ERROR_NOT_FOUND".intern();
+  public static final String     RESPONSE_ALLOW                     = "Allow".intern();
 
-  protected static final Pattern HTML_ERROR_EXTRACT          = Pattern.compile("<u>(.+?)</u>");
+  public static final int        GET_MEETS_LIST_MAX_DAYS            = 30;
 
-  protected static final String  EMPTY                       = "".intern();
+  public static final int        DAY_MILLISECONDS                   = 86400000;
 
-  protected static final Log     LOG                         = ExoLogger.getLogger(MoxtraClient.class);
+  public static final String     RESPONSE_ERROR_NOT_FOUND           = "RESPONSE_ERROR_NOT_FOUND".intern();
+
+  protected static final Pattern HTML_ERROR_EXTRACT                 = Pattern.compile("<u>(.+?)</u>");
+
+  protected static final String  EMPTY                              = "".intern();
+
+  protected static final Log     LOG                                = ExoLogger.getLogger(MoxtraClient.class);
 
   protected class RESTError {
     final String code;
@@ -911,8 +919,52 @@ public class MoxtraClient {
     return oAuthToken.isInitialized();
   }
 
+  /**
+   * Currently authorized user. This user stored in current conversation state for caching purpose and will
+   * expire in {@value #MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT} milliseconds since last reading from Moxtra.
+   * 
+   * @return {@link MoxtraUser}
+   * @throws MoxtraAuthenticationException
+   * @throws MoxtraException
+   */
   public MoxtraUser getCurrentUser() throws MoxtraAuthenticationException, MoxtraException {
-    return getUser(MOXTRA_USER_ME);
+    return getCurrentUser(true);
+  }
+
+  /**
+   * Return currently authorized user using cache or reading directly from Moxtra. When use of cache chosen
+   * an attribute of current conversation state will be checked first for a cached user and if not expired
+   * in {@value #MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT} milliseconds since last reading from Moxtra, the user
+   * will be returned. Otherwise an user will be read from Moxtra API and then cached in the conversation
+   * state.
+   * 
+   * @param useCached boolean, if <code>true</code> then first check for cached user in current
+   *          {@link ConversationState}, <code>false</code> read user directly from Moxtra and cache the
+   *          actual state
+   * @return {@link MoxtraUser}
+   * @throws MoxtraAuthenticationException
+   * @throws MoxtraException
+   */
+  public MoxtraUser getCurrentUser(boolean useCached) throws MoxtraAuthenticationException, MoxtraException {
+    ConversationState currentConvo = ConversationState.getCurrent();
+    if (currentConvo != null) {
+      if (useCached) {
+        Object uobj = currentConvo.getAttribute(MOXTRA_CURRENT_USER);
+        if (uobj != null) {
+          Object tobj = currentConvo.getAttribute(MOXTRA_CURRENT_USER_EXPIRE);
+          if (tobj != null && ((Long) tobj) < System.currentTimeMillis()) {
+            return (MoxtraUser) uobj;
+          }
+        }
+      }
+      MoxtraUser user = getUser(MOXTRA_USER_ME);
+      currentConvo.setAttribute(MOXTRA_CURRENT_USER, user);
+      currentConvo.setAttribute(MOXTRA_CURRENT_USER_EXPIRE, System.currentTimeMillis()
+          + MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT);
+      return user;
+    } else {
+      return getUser(MOXTRA_USER_ME);
+    }
   }
 
   public MoxtraUser getUser(String userId) throws MoxtraAuthenticationException, MoxtraException {
@@ -1993,6 +2045,9 @@ public class MoxtraClient {
         if (meet.hasAutoRecordingChanged()) {
           params.put("auto_recording", meet.isAutoRecording());
           haveUpdates = true;
+        } else if (haveUpdates) {
+          // XXX need point auto-rec always to Moxtra meet upd
+          params.put("auto_recording", meet.isAutoRecording());
         }
         // TODO join_before_minutes
         if (haveUpdates) {
@@ -2008,43 +2063,70 @@ public class MoxtraClient {
             if (!isNull(vcode) && vcode.getStringValue().equals(RESPONSE_SUCCESS)) {
               JsonValue vdata = json.getElement("data");
               if (!isNull(vdata)) {
+                // read available data and update meet object
                 JsonValue vkey = vdata.getElement("session_key");
-                if (isNull(vkey)) {
-                  throw new MoxtraException("Meet update request doesn't return session_key");
+                if (isNotNull(vkey)) {
+                  meet.setSessionKey(vkey.getStringValue());
+                } else {
+                  //throw new MoxtraException("Meet update request doesn't return session_key");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return session_key. Meet: " + meet);
+                  }
                 }
                 JsonValue vbid = vdata.getElement("schedule_binder_id");
-                if (isNull(vbid)) {
-                  throw new MoxtraException("Meet update request doesn't return schedule_binder_id");
+                if (isNotNull(vbid)) {
+                  meet.setBinderId(vbid.getStringValue());
+                } else {
+                  //throw new MoxtraException("Meet update request doesn't return schedule_binder_id");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return schedule_binder_id. Meet: " + meet);
+                  }
                 }
                 JsonValue vbname = vdata.getElement("binder_name");
-                if (isNull(vbname)) {
-                  throw new MoxtraException("Meet update request doesn't return binder_name");
+                if (isNotNull(vbname)) {
+                  meet.setName(vbname.getStringValue());
+                } else {
+                  // throw new MoxtraException("Meet update request doesn't return binder_name");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return binder_name. Meet: " + meet);
+                  }
                 }
                 JsonValue vrevision = vdata.getElement("revision");
-                if (isNull(vrevision)) {
-                  throw new MoxtraException("Meet update request doesn't return revision");
+                if (isNotNull(vrevision)) {
+                  meet.setRevision(vrevision.getLongValue());
+                } else {
+                  //throw new MoxtraException("Meet update request doesn't return revision");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return revision. Meet: " + meet);
+                  }
                 }
                 JsonValue vurl = vdata.getElement("startmeet_url");
-                if (isNull(vurl)) {
-                  throw new MoxtraException("Meet update request doesn't return startmeet_url");
+                if (isNotNull(vurl)) {
+                  meet.setStartMeetUrl(vurl.getStringValue());
+                } else {
+                  // throw new MoxtraException("Meet update request doesn't return startmeet_url");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return startmeet_url. Meet: " + meet);
+                  }
                 }
                 JsonValue vcreated = vdata.getElement("created_time");
-                if (isNull(vcreated)) {
-                  throw new MoxtraException("Meet update request doesn't return created_time");
+                if (isNotNull(vcreated)) {
+                  meet.setCreatedTime(getDate(vcreated.getLongValue()));
+                } else {
+                  // throw new MoxtraException("Meet update request doesn't return created_time");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return created_time. Meet: " + meet);
+                  }
                 }
                 JsonValue vupdated = vdata.getElement("updated_time");
-                if (isNull(vupdated)) {
-                  throw new MoxtraException("Meet update request doesn't return updated_time");
+                if (isNotNull(vupdated)) {
+                  meet.setUpdatedTime(getDate(vupdated.getLongValue()));  
+                } else {
+                  // throw new MoxtraException("Meet update request doesn't return updated_time");
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Meet update request doesn't return updated_time. Meet: " + meet);
+                  }
                 }
-
-                // update meet object with returned data
-                meet.setSessionKey(vkey.getStringValue());
-                meet.setBinderId(vbid.getStringValue());
-                meet.setName(vbname.getStringValue());
-                meet.setRevision(vrevision.getLongValue());
-                meet.setStartMeetUrl(vurl.getStringValue());
-                meet.setCreatedTime(getDate(vcreated.getLongValue()));
-                meet.setUpdatedTime(getDate(vupdated.getLongValue()));
               } else {
                 throw new MoxtraException("Meet update request doesn't return an expected body (data)");
               }
@@ -2183,22 +2265,28 @@ public class MoxtraClient {
         Map<String, Object> params = new LinkedHashMap<String, Object>();
         params.put("session_key", meet.getSessionKey());
         List<Object> usersList = new ArrayList<Object>();
+        MoxtraUser currentUser = getCurrentUser();
         for (MoxtraUser user : users) {
-          Map<String, Object> emailMap = new HashMap<String, Object>();
-          emailMap.put("email", user.getEmail());
-          Map<String, Object> userMap = new HashMap<String, Object>();
-          userMap.put("user", emailMap);
-          usersList.add(userMap);
+          // skip current user (already invited by Moxtra)
+          if (!currentUser.getEmail().equals(user.getEmail())) {
+            Map<String, Object> emailMap = new HashMap<String, Object>();
+            emailMap.put("email", user.getEmail());
+            Map<String, Object> userMap = new HashMap<String, Object>();
+            userMap.put("user", emailMap);
+            usersList.add(userMap);
+          }
         }
-        params.put("users", usersList);
-        params.put("message", "Please join the " + meet.getName()); // TODO message from user
-        try {
-          restRequest(API_MEETS_INVITEUSER, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params)
-                                                                          .toString());
-          return true;
-        } catch (JsonException e) {
-          throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
-        }
+        if (usersList.size() > 0) {
+          params.put("users", usersList);
+          params.put("message", "Please join the " + meet.getName()); // TODO message from user
+          try {
+            restRequest(API_MEETS_INVITEUSER, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params)
+                                                                            .toString());
+          } catch (JsonException e) {
+            throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
+          }
+        } // else meet host user already a member (all invitees are already members)
+        return true;
       } else {
         throw new MoxtraException("Authorization required");
       }
@@ -2238,22 +2326,28 @@ public class MoxtraClient {
         JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
         Map<String, Object> params = new HashMap<String, Object>();
         List<Object> usersList = new ArrayList<Object>();
+        MoxtraUser currentUser = getCurrentUser();
         for (MoxtraUser user : users) {
-          Map<String, Object> emailMap = new HashMap<String, Object>();
-          emailMap.put("email", user.getEmail());
-          Map<String, Object> userMap = new HashMap<String, Object>();
-          userMap.put("user", emailMap);
-          usersList.add(userMap);
+          // skip current user (already invited by Moxtra)
+          if (!currentUser.getEmail().equals(user.getEmail())) {
+            Map<String, Object> emailMap = new HashMap<String, Object>();
+            emailMap.put("email", user.getEmail());
+            Map<String, Object> userMap = new HashMap<String, Object>();
+            userMap.put("user", emailMap);
+            usersList.add(userMap);
+          }
         }
-        params.put("users", usersList);
-        params.put("message", "Please join the " + binder.getName()); // TODO message from user
-        try {
-          String url = API_BINDER_INVITEUSER.replace("{binder_id}", binder.getBinderId());
-          restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
-          return true;
-        } catch (JsonException e) {
-          throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
-        }
+        if (usersList.size() > 0) {
+          params.put("users", usersList);
+          params.put("message", "Please join the " + binder.getName()); // TODO message from user
+          try {
+            String url = API_BINDER_INVITEUSER.replace("{binder_id}", binder.getBinderId());
+            restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
+          } catch (JsonException e) {
+            throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
+          }
+        } // else meet host user already a member (all invitees are already members)
+        return true;
       } else {
         throw new MoxtraException("Authorization required");
       }
@@ -2432,7 +2526,8 @@ public class MoxtraClient {
   protected void initOAuthToken(AccessToken newToken) {
     accessLock.writeLock().lock();
     try {
-      this.oAuthToken.merge(newToken);
+      oAuthToken.merge(newToken);
+      resetCurrentUser();
     } finally {
       accessLock.writeLock().unlock();
     }
@@ -2605,6 +2700,10 @@ public class MoxtraClient {
 
   protected boolean isNull(JsonValue json) {
     return json == null || json.isNull();
+  }
+  
+  protected boolean isNotNull(JsonValue json) {
+    return json != null && !json.isNull();
   }
 
   protected MoxtraMeet readMeet(JsonValue vmeet) throws MoxtraException,
@@ -2961,5 +3060,17 @@ public class MoxtraClient {
     binder.setUsers(users);
     binder.setPages(pages);
     return binder;
+  }
+
+  /**
+   * Reset currently authorized user cache in conversation state.
+   * 
+   */
+  protected void resetCurrentUser() {
+    ConversationState currentConvo = ConversationState.getCurrent();
+    if (currentConvo != null) {
+      currentConvo.removeAttribute(MOXTRA_CURRENT_USER);
+      currentConvo.removeAttribute(MOXTRA_CURRENT_USER_EXPIRE);
+    }
   }
 }

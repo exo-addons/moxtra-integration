@@ -24,9 +24,9 @@ import juzu.Resource;
 import juzu.Response;
 import juzu.SessionScoped;
 import juzu.View;
+import juzu.request.RequestContext;
 
 import org.exoplatform.commons.juzu.ajax.Ajax;
-import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
 import org.exoplatform.services.log.ExoLogger;
@@ -68,12 +68,20 @@ public class MoxtraBinderSpaceController {
   org.exoplatform.moxtra.social.portlet.templates.currentBinder currentBinder;
 
   @Inject
-  @Path("editBinder.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.editBinder    editBinder;
+  @Path("binderConfig.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.binderConfig  binderConfig;
 
   @Inject
   @Path("selectBinder.gtmpl")
   org.exoplatform.moxtra.social.portlet.templates.selectBinder  selectBinder;
+
+  @Inject
+  @Path("binderData.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.binderData    binderData;
+
+  @Inject
+  @Path("settingsPopup.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.settingsPopup settingsPopup;
 
   @Inject
   @Path("error.gtmpl")
@@ -88,7 +96,7 @@ public class MoxtraBinderSpaceController {
   org.exoplatform.moxtra.social.portlet.templates.warnMessage   warnMessage;
 
   @View
-  public Response index() {
+  public Response index(RequestContext resourceContext) {
     if (moxtra.hasContextSpace()) {
       try {
         MoxtraBinderSpace binderSpace = context.get();
@@ -99,12 +107,36 @@ public class MoxtraBinderSpaceController {
           }
         }
 
-        boolean isNew = binderSpace == null || binderSpace.isNew();
-
-        if (moxtra.isAuthorized()) {
-          return index.with().isNew(isNew).moxtraUser(moxtra.getUser().getName()).authLink("").ok();
+        String exoUser = resourceContext.getSecurityContext().getRemoteUser();
+        boolean isNew;
+        boolean isManager;
+        String binderId;
+        if (binderSpace != null) {
+          isNew = binderSpace.isNew();
+          isManager = binderSpace.isCurrentUserManager();
+          binderId = binderSpace.getBinder().getBinderId();
         } else {
-          return index.with().isNew(isNew).moxtraUser("").authLink(moxtra.getOAuth2Link()).ok();
+          isNew = isManager = true; // if no binder space then it's creator user
+          binderId = "";
+        }
+        if (moxtra.isAuthorized()) {
+          return index.with()
+                      .isNew(isNew)
+                      .exoUser(exoUser)
+                      .isManager(isManager)
+                      .isAuthorized(true)
+                      .authLink("")
+                      .binderId(binderId)
+                      .ok();
+        } else {
+          return index.with()
+                      .isNew(isNew)
+                      .exoUser(exoUser)
+                      .isManager(isManager)
+                      .isAuthorized(false)
+                      .authLink(moxtra.getOAuth2Link())
+                      .binderId(binderId)
+                      .ok();
         }
       } catch (Exception e) {
         LOG.error("Portlet error: " + e.getMessage(), e);
@@ -118,11 +150,31 @@ public class MoxtraBinderSpaceController {
 
   @Ajax
   @Resource
+  public Response binderData() {
+    return binderData.ok();
+  }
+
+  @Ajax
+  @Resource
+  @Deprecated
+  public Response settingsPopup() {
+    try {
+      MoxtraBinderSpace binderSpace = context.get();
+      boolean isNew = binderSpace == null || binderSpace.isNew();
+      return settingsPopup.with().isNew(isNew).ok();
+    } catch (Exception e) {
+      LOG.error("Error getting Moxtra Binder space settings", e);
+      return errorMessage("Error getting Moxtra Binder space settings" + e.getMessage());
+    }
+  }
+
+  @Ajax
+  @Resource
   public Response binder() {
     try {
       MoxtraBinderSpace binderSpace = context.get();
       if (binderSpace == null) {
-        return editBinder.ok();
+        return binderConfig.ok();
       } else {
         return currentBinder.with().binderName(binderSpace.getBinder().getName()).ok();
       }
@@ -145,10 +197,10 @@ public class MoxtraBinderSpaceController {
 
   @Action
   public Response.View save(String enableBinder,
-                       String selectBinder,
-                       String binderId,
-                       Boolean autocreateUsers,
-                       Boolean syncComments) {
+                            String selectBinder,
+                            String binderId,
+                            Boolean autocreateUsers,
+                            Boolean syncComments) {
     try {
       if ("on".equals(enableBinder)) {
         // TODO deal with autocreateUsers and syncComments

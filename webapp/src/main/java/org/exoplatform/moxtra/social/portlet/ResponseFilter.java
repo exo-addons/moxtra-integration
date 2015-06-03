@@ -17,6 +17,8 @@ import javax.portlet.filter.FilterConfig;
 import javax.portlet.filter.RenderFilter;
 import javax.portlet.filter.ResourceFilter;
 
+// TODO not used
+@Deprecated
 public class ResponseFilter implements RenderFilter, ResourceFilter {
 
   public void init(FilterConfig filterConfig) throws PortletException {

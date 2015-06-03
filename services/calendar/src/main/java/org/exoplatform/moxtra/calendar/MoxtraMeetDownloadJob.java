@@ -26,8 +26,8 @@ import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.services.scheduler.JobSchedulerService;
 import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
-import org.exoplatform.services.security.ConversationState;
 import org.quartz.InterruptableJob;
 import org.quartz.Job;
 import org.quartz.JobDataMap;
@@ -107,7 +107,7 @@ public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
             && (status.equals(MoxtraMeet.SESSION_SCHEDULED) || status.equals(MoxtraMeet.SESSION_STARTED))) {
           // TODO if no recordings available (or error requesting it) - wait for several minutes and
           // try again for 30-40mins more, then fail with error.
-          JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerServiceImpl.class);
+          JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerService.class);
 
           String jobName = job.getKey().getName();
           String jobGroup = job.getKey().getGroup();
@@ -147,8 +147,8 @@ public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
         moxtra.cleanupJobEnvironment(job);
       }
     } catch (MoxtraException e) {
-      throw new JobExecutionException("Error processing Moxtra meet video download", e);
-    } catch (Exception e) {
+      throw new JobExecutionException("Moxtra error while processing meet video download", e);
+    } catch (Throwable e) {
       throw new JobExecutionException("Error processing Moxtra meet video download", e);
     }
   }

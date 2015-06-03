@@ -20,7 +20,7 @@ package org.exoplatform.moxtra.calendar.webui;
 
 import org.exoplatform.moxtra.calendar.webui.UIInvitationForm.AddMoxtraParticipantActionListener;
 import org.exoplatform.moxtra.calendar.webui.UIInvitationForm.AddMoxtraUsersActionListener;
-import org.exoplatform.moxtra.calendar.webui.UIInvitationForm.CloseActionListener;
+import org.exoplatform.moxtra.calendar.webui.UIInvitationForm.CloseMoxtraUsersActionListener;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.webui.config.annotation.ComponentConfig;
 import org.exoplatform.webui.config.annotation.ComponentConfigs;
@@ -58,8 +58,8 @@ import java.util.Set;
                      events = {
                          @EventConfig(listeners = UIPopupWindow.CloseActionListener.class,
                                       name = "ClosePopup"),
-                         @EventConfig(listeners = AddMoxtraUsersActionListener.class),
-                         @EventConfig(listeners = CloseActionListener.class) }) })
+                         @EventConfig(listeners = AddMoxtraUsersActionListener.class)/*,
+                         @EventConfig(listeners = CloseMoxtraUsersActionListener.class)*/ }) })
 public class UIInvitationForm extends UIForm {
 
   public static final String CONTAINER_MOXTRA_USER_SELECTOR = "UIMoxtraUserSelectorPopupContainer";
@@ -123,16 +123,17 @@ public class UIInvitationForm extends UIForm {
   /**
    * Hide {@link UIMoxtraUserSelector} form.
    */
-  public static class CloseActionListener extends EventListener<UIMoxtraUserSelector> {
+  public static class CloseMoxtraUsersActionListener extends EventListener<UIMoxtraUserSelector> {
     /**
      * {@inheritDoc}
      */
     @Override
     public void execute(Event<UIMoxtraUserSelector> event) throws Exception {
-      UIForm uiMoxtraSelector = event.getSource();
+      UIMoxtraUserSelector uiMoxtraSelector = event.getSource();
       UIPopupContainer popupContainer = uiMoxtraSelector.getParent();
-      popupContainer.deActivate();
-      event.getRequestContext().addUIComponentToUpdateByAjax(popupContainer);
+      popupContainer.cancelPopupAction();
+      //popupContainer.deActivate();
+      //event.getRequestContext().addUIComponentToUpdateByAjax(popupContainer);
     }
   }
 

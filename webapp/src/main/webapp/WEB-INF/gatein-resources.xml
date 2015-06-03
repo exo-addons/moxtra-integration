@@ -29,7 +29,7 @@
     <skin-module>moxtra</skin-module>
     <css-path>/skin/exo-moxtra-common.css</css-path>
   </portal-skin>
-  
+
   <portlet-skin>
     <application-name>moxtra</application-name>
     <portlet-name>MoxtraBinderSpacePortlet</portlet-name>
@@ -109,11 +109,23 @@
       <depends>
         <module>exoMoxtra</module>
       </depends>
-      <depends>
+      <!-- depends>
         <module>jqueryUI</module>
-      </depends>
+      </depends -->
       <depends>
         <module>juzu-ajax</module>
+      </depends>
+      <depends>
+        <module>bts_alert</module>
+      </depends>
+      <depends>
+        <module>bts_button</module>
+      </depends>
+      <depends>
+        <module>bts_modal</module>
+      </depends>
+      <depends>
+        <module>bts_tooltip</module>
       </depends>
     </module>
   </portlet>

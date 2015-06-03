@@ -1,0 +1,18 @@
+<!-- Binder data -->
+<div class="offset9 span2">
+	<div class="dropdown pull-right">
+		<a class="btn dropdown-toggle moxtraIcon" data-toggle="dropdown" href="#" style="margin-left: 5px;"> <i
+			class="uiIconMoxtra"></i>&{MoxtraBinderSpaceController.meetButton}
+		</a>
+		<ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
+			<li role="presentation"><a type="button" role="menuitem" tabindex="-1" href="#" class="meetStartAction"> &{MoxtraBinderSpaceController.startMeet} </a></li>
+			<li role="presentation"><a id="" type="button" role="menuitem" tabindex="-1" href="#" class="meetScheduleAction"> &{MoxtraBinderSpaceController.scheduleMeet} </a></li>
+			<li role="presentation"><a id="" type="button" role="menuitem" tabindex="-1" href="#" class="meetScheduledAction"> &{MoxtraBinderSpaceController.selectScheduledMeet} </a></li>
+		</ul>
+	</div>
+</div>
+<div class="offset9 span2 moxtraPages"></div>
+<!-- div class="poweredByMoxtra">
+	<span>&{Moxtra.poweredBy}&nbsp</span><a href="http://www.moxtra.com"> <img src="/moxtra/images/moxtra-logo.png" width="108" height="24"
+		alt="Moxtra" align="right"></a>
+</div -->

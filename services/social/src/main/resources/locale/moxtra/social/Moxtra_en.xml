@@ -6,7 +6,14 @@
     </label>
   </MoxtraBinderSpacePortlet>
   <MoxtraBinderSpaceController>
-    <title>Moxtra settings</title>
+    <title>Moxtra conversation</title>
+    <meetButton>Meet</meetButton>
+    <startMeet>Start meet</startMeet>
+    <scheduleMeet>Schedule meet</scheduleMeet>
+    <selectScheduledMeet>Scheduled meets</selectScheduledMeet>
+    <settings>Settings</settings>
+    <settingsHint>Configure Moxtra Binder in settings</settingsHint>
+    <settingsTitle>Moxtra settings</settingsTitle>
     <enableBinder>Enable Moxtra</enableBinder>
     <enableBinderHint>Enable Moxtra conversations for this space</enableBinderHint>
     <selectBinder>Moxtra Binder for conversations</selectBinder>
@@ -24,16 +31,4 @@
       <EditInMoxtra>Open in Moxtra</EditInMoxtra>
     </event>
   </ECMContextMenu>
-  <Moxtra>
-    <loginMoxtra>Log in Moxtra</loginMoxtra>
-    <loginMoxtraHint>Authorization in Moxtra required</loginMoxtraHint>
-    <waitConversationPagePreparing>Your conversation is preparing. Please wait.</waitConversationPagePreparing>
-    <conversationPageNotOpen>Moxtra page cannot be open. Try again in few minutes.</conversationPageNotOpen>
-    <poweredBy>Powered by</poweredBy>
-    <error>
-      <errorOpeningInMoxtra>Error opening document in Moxtra conversation</errorOpeningInMoxtra>
-      <noMoxraBinder>Moxtra must be enabled</noMoxraBinder>
-      <editPreparingMoxtraEditor>Error preparing Moxtra conversation form</editPreparingMoxtraEditor>
-    </error>
-  </Moxtra>
 </bundle>

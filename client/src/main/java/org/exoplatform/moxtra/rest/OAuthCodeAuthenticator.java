@@ -155,7 +155,7 @@ public class OAuthCodeAuthenticator implements ResourceContainer {
   @Path("/accesstoken")
   @Produces(MediaType.APPLICATION_JSON)
   public Response currentAccess(@Context UriInfo uriInfo, @QueryParam("code") String code) {
-
+    // TODO cleanup of method params not used
     return Response.ok()
                    .entity("{\"clientId\":\"" + moxtra.getOAuthConfig().getClientId()
                        + "\",\"accessToken\":\"" + moxtra.getClient().getOAuthAccessToken() + "\"}")

@@ -11,7 +11,7 @@
 		</ul>
 	</div>
 </div>
-<div class="offset9 span2 moxtraPages"></div>
+<div id="moxtra-binder-pages" class="span11 moxtraPages"></div>
 <!-- div class="poweredByMoxtra">
 	<span>&{Moxtra.poweredBy}&nbsp</span><a href="http://www.moxtra.com"> <img src="/moxtra/images/moxtra-logo.png" width="108" height="24"
 		alt="Moxtra" align="right"></a>

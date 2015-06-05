@@ -15,6 +15,29 @@
 				height: 100%;
 			}
 
+			#moxtra-page-progress {
+				position: relative;
+				top: 20%;
+				cursor: wait;
+				width: 800px;
+				height: 500px;
+				vertical-align: middle;
+				margin-right: auto;
+				margin-left: auto;
+				text-align: center;
+			}
+
+			.waitThrobber {
+				display: inline-block;
+				width: 35px;
+				height: 35px;
+				margin-right: auto;
+        margin-left: auto;
+				pointer-events: none;
+				background: url('/moxtra/skin/icons/oxygen/32/animations/throbber.gif') no-repeat left center !important; /* orientation=lt */
+				background: url('/moxtra/skin/icons/oxygen/32/animations/throbber.gif') no-repeat right center !important; /* orientation=rt */
+			}
+
 			#moxtra-page-container, #moxtra-page-editor {
 				width: 100%;
 				height: 100%;
@@ -34,7 +57,10 @@
     <div id="moxtra-page-container">
       <div id="moxtra-page-editor" style="display: none;"></div>
       <div id="moxtra-page-progress">
-        <span>&{Moxtra.waitConversationPagePreparing}</span><span class='syncingListView'>&nbsp</span>
+        <div id="moxtra-page-progress">
+          <div>&{Moxtra.waitConversationPagePreparing}</div>
+          <div class="waitThrobber"> </div>
+        </div>
       </div>
       <div id="moxtra-auth" style="display: none;">
         <span>&{Moxtra.loginMoxtraHint} </span>

@@ -46,6 +46,7 @@ import org.apache.http.conn.scheme.PlainSocketFactory;
 import org.apache.http.conn.scheme.Scheme;
 import org.apache.http.conn.scheme.SchemeRegistry;
 import org.apache.http.conn.ssl.SSLSocketFactory;
+import org.apache.http.entity.InputStreamEntity;
 import org.apache.http.entity.StringEntity;
 import org.apache.http.entity.mime.HttpMultipartMode;
 import org.apache.http.entity.mime.MultipartEntity;
@@ -2068,7 +2069,7 @@ public class MoxtraClient {
                 if (isNotNull(vkey)) {
                   meet.setSessionKey(vkey.getStringValue());
                 } else {
-                  //throw new MoxtraException("Meet update request doesn't return session_key");
+                  // throw new MoxtraException("Meet update request doesn't return session_key");
                   if (LOG.isDebugEnabled()) {
                     LOG.debug("Meet update request doesn't return session_key. Meet: " + meet);
                   }
@@ -2077,7 +2078,7 @@ public class MoxtraClient {
                 if (isNotNull(vbid)) {
                   meet.setBinderId(vbid.getStringValue());
                 } else {
-                  //throw new MoxtraException("Meet update request doesn't return schedule_binder_id");
+                  // throw new MoxtraException("Meet update request doesn't return schedule_binder_id");
                   if (LOG.isDebugEnabled()) {
                     LOG.debug("Meet update request doesn't return schedule_binder_id. Meet: " + meet);
                   }
@@ -2095,7 +2096,7 @@ public class MoxtraClient {
                 if (isNotNull(vrevision)) {
                   meet.setRevision(vrevision.getLongValue());
                 } else {
-                  //throw new MoxtraException("Meet update request doesn't return revision");
+                  // throw new MoxtraException("Meet update request doesn't return revision");
                   if (LOG.isDebugEnabled()) {
                     LOG.debug("Meet update request doesn't return revision. Meet: " + meet);
                   }
@@ -2120,7 +2121,7 @@ public class MoxtraClient {
                 }
                 JsonValue vupdated = vdata.getElement("updated_time");
                 if (isNotNull(vupdated)) {
-                  meet.setUpdatedTime(getDate(vupdated.getLongValue()));  
+                  meet.setUpdatedTime(getDate(vupdated.getLongValue()));
                 } else {
                   // throw new MoxtraException("Meet update request doesn't return updated_time");
                   if (LOG.isDebugEnabled()) {
@@ -2447,6 +2448,59 @@ public class MoxtraClient {
   }
 
   /**
+   * Upload file to a session currently running in Moxtra.
+   * 
+   * @param binder
+   * @param contentType
+   * @param content
+   * @param contentFileName
+   * @throws OAuthSystemException
+   * @throws OAuthProblemException
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  public void boardUpload(String sessionKey, String sessionId, InputStream content, long contentLength, String contentFileName) throws OAuthSystemException,
+                                                                                                           OAuthProblemException,
+                                                                                                           MoxtraException,
+                                                                                                           MoxtraClientException {
+    if (isAuthorized()) {
+      StringBuilder url = new StringBuilder();
+      url.append(MOXTRA_URL);
+      url.append("board/upload");
+      url.append("?type=original");
+      url.append("&sessionid=");
+      url.append(sessionId);
+      url.append("&key=");
+      url.append(sessionKey);
+      url.append("&name=");
+      try {
+        url.append(URLEncoder.encode(contentFileName, "UTF-8"));
+      } catch (UnsupportedEncodingException e) {
+        throw new MoxtraException("Error encoding file name '" + contentFileName + "'", e);
+      }
+
+      RESTResponse resp = restRequest(url.toString(),
+                                      OAuth.HttpMethod.POST,
+                                      content,
+                                      contentLength,
+                                      REQUEST_CONTENT_TYPE_BINARY);
+
+      JsonValue json = resp.getValue();
+      JsonValue vcode = json.getElement("code");
+      if (!isNull(vcode)) {
+        String code = vcode.getStringValue();
+        if (!code.equals(RESPONSE_SUCCESS)) {
+          throw new MoxtraException("Board upload request ended with not success: " + code);
+        }
+      } else {
+        throw new MoxtraException("Board upload request doesn't return an expected body (code)");
+      }
+    } else {
+      throw new MoxtraException("Authorization required");
+    }
+  }
+
+  /**
    * Current OAuth2 access token.
    * 
    * @return String
@@ -2631,6 +2685,20 @@ public class MoxtraClient {
     return restRequest(url, method, null, mpentity);
   }
 
+  protected RESTResponse restRequest(String url,
+                                     String method,
+                                     InputStream content,
+                                     long contentLength,
+                                     String contentType) throws OAuthSystemException,
+                                                        OAuthProblemException,
+                                                        MoxtraException,
+                                                        MoxtraClientException {
+
+    InputStreamEntity isentity = new InputStreamEntity(content, contentLength);
+    isentity.setContentType(contentType);
+    return restRequest(url, method, contentType, isentity);
+  }
+
   protected RESTResponse restRequest(String url, String method, String contentType, HttpEntity bodyEntity) throws OAuthSystemException,
                                                                                                           OAuthProblemException,
                                                                                                           MoxtraException,
@@ -2701,7 +2769,7 @@ public class MoxtraClient {
   protected boolean isNull(JsonValue json) {
     return json == null || json.isNull();
   }
-  
+
   protected boolean isNotNull(JsonValue json) {
     return json != null && !json.isNull();
   }

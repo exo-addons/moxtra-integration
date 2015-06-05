@@ -55,7 +55,13 @@
     </dependency>
     <dependency>
       <groupId>org.exoplatform.platform-ui</groupId>
-      <artifactId>platform-ui-webui-core</artifactId>      
+      <artifactId>platform-ui-webui-core</artifactId>
+      <scope>provided</scope>
+      <type>jar</type>
+    </dependency>
+    <dependency>
+      <groupId>org.exoplatform.social</groupId>
+      <artifactId>social-component-webui</artifactId>
       <scope>provided</scope>
       <type>jar</type>
     </dependency>
@@ -81,6 +87,7 @@
         <directory>src/main/resources</directory>
         <includes>
           <include>**/*.xml</include>
+          <include>**/*.gtmpl</include>
           <include>**/*.properties</include>
         </includes>
       </resource>

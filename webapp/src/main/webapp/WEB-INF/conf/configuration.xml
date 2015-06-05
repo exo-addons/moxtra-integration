@@ -246,11 +246,23 @@
       <name>addMeetButtonApplication</name>
       <set-method>addApplicationPlugin</set-method>
       <type>org.exoplatform.moxtra.webui.MoxtraApplicationActivator</type>
-      <description>add Motra Meet application plugin</description>
+      <description>add Moxtra Meet application plugin</description>
       <init-params>
         <properties-param>
           <name>app-configuration</name>
           <property name="app-type" value="org.exoplatform.moxtra.meetbutton.MoxtraMeetButtonApplication" />
+        </properties-param>
+      </init-params>
+    </component-plugin>
+    <component-plugin>
+      <name>addSocialApplication</name>
+      <set-method>addApplicationPlugin</set-method>
+      <type>org.exoplatform.moxtra.webui.MoxtraApplicationActivator</type>
+      <description>add Moxtra Binder space application plugin</description>
+      <init-params>
+        <properties-param>
+          <name>app-configuration</name>
+          <property name="app-type" value="org.exoplatform.moxtra.social.MoxtraSocialApplication" />
         </properties-param>
       </init-params>
     </component-plugin>

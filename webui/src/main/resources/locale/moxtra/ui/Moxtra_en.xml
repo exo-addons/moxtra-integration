@@ -1,4 +1,17 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <bundle>
-  
+  <UIAddDocumentSelector>
+    <msg>
+      <moxtraSessionNotDefined>Moxtra session not defined</moxtraSessionNotDefined>
+      <exoFileRequired>File required</exoFileRequired>
+      <fileNotNode>File not a node</fileNotNode>
+      <uploadError>Error uploading file. {0}</uploadError>
+      <binderNotFound>Moxtra Binder cannot be found</binderNotFound>
+    </msg>
+  </UIAddDocumentSelector>
+  <UIAddDocumentSelectorPopup>
+    <title>
+      <UIAddDocumentSelector>Select document</UIAddDocumentSelector>
+    </title>
+  </UIAddDocumentSelectorPopup>
 </bundle>

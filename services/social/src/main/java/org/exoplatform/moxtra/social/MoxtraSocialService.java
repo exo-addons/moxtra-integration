@@ -31,6 +31,7 @@ import org.exoplatform.social.core.space.spi.SpaceService;
 import org.exoplatform.social.webui.Utils;
 import org.picocontainer.Startable;
 
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
@@ -49,6 +50,7 @@ import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.ValueFormatException;
 
 /**
  * Created by The eXo Platform SAS
@@ -124,16 +126,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
 
     public boolean isCurrentUserManager() {
-      ConversationState currentConvo = ConversationState.getCurrent();
-      if (currentConvo != null) {
-        String userId = currentConvo.getIdentity().getUserId();
-        for (String mid : space.getManagers()) {
-          if (userId.equals(mid)) {
-            return true;
-          }
-        }
-      }
-      return false;
+      return isSpaceManager(space);
     }
 
     /**
@@ -361,7 +354,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
           JCR.setName(document, docName);
           document.save();
         } else {
-          throw new MoxtraSocialException("Cannot determine MIME type of file " + document.getName()
+          throw new MoxtraSocialException("Document has not content resource " + document.getName()
               + ", content node type " + data.getPrimaryNodeType().getName());
         }
       } else {
@@ -791,10 +784,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
-  public boolean hasContextSpace() {
-    return contextSpace() != null;
-  }
-
   public MoxtraBinderSpace newBinderSpace() throws MoxtraSocialException {
     Space space = contextSpace();
     if (space != null) {
@@ -826,7 +815,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   }
 
   /**
-   * Return Moxtra binder if it is enabled for the current space (in the request) or <code>null</code> if not
+   * Return Moxtra binder space if it is enabled for the current space (in the request) or <code>null</code>
+   * if not
    * enabled.
    * 
    * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
@@ -842,9 +832,11 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   }
 
   /**
-   * Return Moxtra binder if it is enabled for the given space (by pretty name) or <code>null</code> if not
+   * Return Moxtra binder space if it is enabled for the given space (by pretty name) or <code>null</code> if
+   * not
    * enabled.
    * 
+   * @param String a space pretty name
    * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
    * @throws MoxtraSocialException
    */
@@ -857,19 +849,181 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
+  /**
+   * Return Moxtra binder space if it is enabled for the given Moxtra Binder or <code>null</code> if not
+   * enabled.
+   * 
+   * @param binder {@link MoxtraBinder}
+   * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
+   * @throws MoxtraSocialException
+   */
+  public MoxtraBinderSpace getBinderSpace(MoxtraBinder binder) throws MoxtraSocialException {
+    return binderSpace(binder);
+  }
+
+  /**
+   * Return <code>true</code> if Social space available in the context (in portal requests to space portlets).
+   * 
+   * @return <code>true</code> if Social space available
+   */
+  public boolean hasContextSpace() {
+    return contextSpace() != null;
+  }
+
+  /**
+   * Social space existing in the context (will work only for portal requests to space portlets).
+   * 
+   * @return {@link Space}
+   * @see {@link Utils#getSpaceByContext()}
+   */
+  public Space getContextSpace() {
+    return contextSpace();
+  }
+
+  /**
+   * Return <code>true</code> if current user is a manager of context space.
+   * 
+   * @return <code>true</code> if current user is a manager of context space, <code>false</code> otherwise
+   */
+  public boolean isContextSpaceManager() {
+    return isSpaceManager(contextSpace());
+  }
+
+  /**
+   * Return <code>true</code> if current user is a member of context space.
+   * 
+   * @return <code>true</code> if current user is a member of context space, <code>false</code> otherwise
+   */
+  public boolean isContextSpaceMember() {
+    return isSpaceMember(contextSpace());
+  }
+
+  public void uploadMeetDocument(Node document, String sessionKey, String sessionId) throws MoxtraClientException,
+                                                                                    MoxtraSocialException,
+                                                                                    RepositoryException,
+                                                                                    MoxtraException {
+    if (document.isNodeType("nt:file")) {
+      // detect the doc type and choose Note or Draw (Whiteboard)
+      Node data = document.getNode("jcr:content");
+      if (data.isNodeType("nt:resource")) {
+        MoxtraClient client = moxtra.getClient();
+        String docName = documentName(document);
+
+        Property content = data.getProperty("jcr:data");
+        InputStream contentStream;
+
+        // we need content length for Moxtra
+        long contentLength;
+        try {
+          contentLength = content.getLength();
+          contentStream = content.getStream();
+        } catch (ValueFormatException e) {
+          // multivalued property?
+          LOG.warn("Uploading multivalued document to Moxtra meet, using first value with undefined length: "
+              + document.getPath());
+          contentLength = -1; // XXX this will not work for Moxtra as on Jun 5 2015
+          contentStream = content.getValues()[0].getStream();
+        }
+
+        if (contentLength < 0) {
+          // TODO need spool the stream to temp file and then use its size and content
+          LOG.warn("Content length not defined for meet upload of " + document.getPath());
+        }
+
+        try {
+          client.boardUpload(sessionKey, sessionId, contentStream, contentLength, docName);
+        } catch (OAuthProblemException e) {
+          throw new MoxtraSocialException("Error creating meet document " + docName + ". " + e.getMessage(),
+                                          e);
+        } catch (OAuthSystemException e) {
+          throw new MoxtraSocialException("Error creating meet document " + docName + ". " + e.getMessage(),
+                                          e);
+        }
+      } else {
+        throw new MoxtraSocialException("Meet document has not content resource " + document.getName()
+            + ", content node type " + data.getPrimaryNodeType().getName());
+      }
+    } else {
+      throw new MoxtraSocialException("Meet document not a file " + document.getName() + " "
+          + document.getPrimaryNodeType().getName());
+    }
+  }
+
   // ********* internals *********
 
   /**
-   * Current space in the request (wil work only for portal requests to space portlets).
+   * Current space in the request (will work only for portal requests to space portlets).
    * 
    * @return
    */
   protected Space contextSpace() {
-    return Utils.getSpaceByContext();
+    try {
+      return Utils.getSpaceByContext();
+    } catch (NullPointerException e) {
+      // XXX NPE has a place when running not in portal request, assume it as normal
+    } catch (Throwable e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Error when getting context space: " + e.getMessage(), e);
+      }
+    }
+    return null;
   }
 
   /**
-   * Return Moxtra binder if it is enabled for given space or <code>null</code> if not
+   * Find space by its name (display name or pretty name).
+   * 
+   * @return
+   */
+  protected Space spaceByName(String name) {
+    try {
+      SpaceService service = spaceService();
+      Space space = service.getSpaceByDisplayName(name);
+      if (space == null) {
+        space = service.getSpaceByPrettyName(name);
+      }
+      return space;
+    } catch (NullPointerException e) {
+      // XXX NPE has a place when running not in portal request, assume it as normal
+    } catch (Throwable e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Error when getting space by name: " + name + ". " + e.getMessage(), e);
+      }
+    }
+    return null;
+  }
+
+  protected boolean isSpaceManager(Space space) {
+    if (space != null) {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+        for (String mid : space.getManagers()) {
+          if (userId.equals(mid)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  protected boolean isSpaceMember(Space space) {
+    if (space != null) {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+        for (String mid : space.getMembers()) {
+          if (userId.equals(mid)) {
+            return true;
+          }
+        }
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Return Moxtra binder space if it is enabled for given Social space or <code>null</code> if not
    * enabled.
    * 
    * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
@@ -901,6 +1055,51 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       }
     } catch (Exception e) {
       throw new MoxtraSocialException("Error reading binder space " + space.getDisplayName() + ". "
+          + e.getMessage(), e);
+    }
+  }
+
+  /**
+   * Return Moxtra binder space if it is enabled for given Moxtra binder or <code>null</code> if not
+   * enabled.
+   * 
+   * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
+   * @throws MoxtraSocialException
+   */
+  protected MoxtraBinderSpace binderSpace(MoxtraBinder binder) throws MoxtraSocialException {
+    try {
+      Node spaceNode = spaceNode(binder);
+      if (JCR.isServices(spaceNode)) {
+        try {
+          Space space = spaceByName(spaceNode.getName());
+          if (space == null) {
+            space = spaceByName(binder.getName());
+          }
+          if (space != null) {
+            Node binderNode = JCR.getBinder(spaceNode);
+            return new MoxtraBinderSpace(space, readBinder(binderNode), false);
+          } else {
+            throw new MoxtraSocialException("Cannot find binder space " + binder.getName());
+          }
+        } catch (PathNotFoundException e) {
+          try {
+            JCR.removeServices(spaceNode);
+            spaceNode.save();
+          } catch (RepositoryException re) {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Error cleaning services in " + spaceNode, re);
+            }
+          }
+          // TODO do we need a strict exception here?
+          // throw new MoxtraSocialException("Cannot find Moxtra binder enabled for " +
+          // space.getDisplayName(), e);
+          return null;
+        }
+      } else {
+        return null;
+      }
+    } catch (Exception e) {
+      throw new MoxtraSocialException("Error reading binder space " + binder.getName() + ". "
           + e.getMessage(), e);
     }
   }
@@ -977,6 +1176,28 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionsProvider.getSystemSessionProvider(null))
                                          .getSession();
     Node spaceNode = (Node) sysSession.getItem(spaceFolder);
+    return spaceNode;
+  }
+
+  protected Node spaceNode(MoxtraBinder binder) throws Exception {
+    String groupsPath = hierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
+    String spacesFolder = groupsPath + "/spaces/";
+    Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionsProvider.getSystemSessionProvider(null))
+                                         .getSession();
+    // first try by binder name
+    Node spaceNode;
+    try {
+      spaceNode = (Node) sysSession.getItem(spacesFolder + binder.getName());
+    } catch (PathNotFoundException e) {
+      Space space = spaceByName(binder.getName());
+      if (space != null) {
+        spaceNode = spaceNode(space);
+      } else {
+        // TODO need search using JCR query and binder NT and id
+        spaceNode = null;
+      }
+    }
+
     return spaceNode;
   }
 

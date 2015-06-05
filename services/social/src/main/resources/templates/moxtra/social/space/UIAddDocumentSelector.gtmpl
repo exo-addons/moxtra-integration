@@ -1,0 +1,15 @@
+<%
+  def rcontext = _ctx.getRequestContext();
+  def jsManager = rcontext.getJavascriptManager();
+  //jsManager.loadScriptResource("base"); //portal's problem, workaround for uicomponent.event()
+
+  String cancel = uicomponent.event(uicomponent.CANCEL);
+  String select = uicomponent.event(uicomponent.SELECTEDFILE);
+%>
+<div class="uiAddDocumentSelector" id="$uicomponent.id">
+  <% uicomponent.renderChild(uicomponent.UIDOCUMENTSELECTOR); %>
+    <div class="uiAction uiActionBorder">
+      <button class="btn" type="button" onclick="$select"><%=_ctx.appRes('UIDocActivitySelector.label.selectedfile')%></button>
+	  	<button class="btn" type="button" onclick="$cancel"><%=_ctx.appRes('UIDocActivitySelector.label.cancel')%></button>
+    </div>
+</div>

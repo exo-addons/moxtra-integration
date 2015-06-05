@@ -184,7 +184,15 @@
 						});
 
 						// TODO invoke Moxtra JS showPage()
-						var $pages = $data.find(".moxtraPages");
+						//var $pages = $data.find("#moxtra-binder-pages");
+						var pages = moxtra.moxtrajs().showPages(binderId, null, "moxtra-binder-pages");
+						pages.done(function() {
+							var $pages = $data.find("#moxtra-binder-pages div");
+							$pages.css("width", "100%");
+						});
+						pages.fail(function(e) {
+							log("ERROR: cannot show pages. " + e);
+						});
 					}
 				});
 			}

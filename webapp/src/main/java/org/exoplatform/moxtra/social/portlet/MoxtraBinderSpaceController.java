@@ -116,7 +116,8 @@ public class MoxtraBinderSpaceController {
           isManager = binderSpace.isCurrentUserManager();
           binderId = binderSpace.getBinder().getBinderId();
         } else {
-          isNew = isManager = true; // if no binder space then it's creator user
+          isManager = moxtra.isContextSpaceManager();
+          isNew = true; // if no binder space then it's new space
           binderId = "";
         }
         if (moxtra.isAuthorized()) {
@@ -138,7 +139,7 @@ public class MoxtraBinderSpaceController {
                       .binderId(binderId)
                       .ok();
         }
-      } catch (Exception e) {
+      } catch (Throwable e) {
         LOG.error("Portlet error: " + e.getMessage(), e);
         return MoxtraBinderSpaceController_.error("Moxtra error " + e.getMessage());
       }
@@ -223,7 +224,7 @@ public class MoxtraBinderSpaceController {
         context.reset();
       }
       return MoxtraBinderSpaceController_.index();
-    } catch (Exception e) {
+    } catch (Throwable e) {
       LOG.error("Error saving Moxtra Binder in the space", e);
       return MoxtraBinderSpaceController_.error(e.getMessage());
     }

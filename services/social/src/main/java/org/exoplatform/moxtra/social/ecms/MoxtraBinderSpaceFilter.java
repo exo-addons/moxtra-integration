@@ -73,7 +73,7 @@ public class MoxtraBinderSpaceFilter implements UIExtensionFilter {
       String nodePath = currentNode.getPath();
       if (nodePath.startsWith(driveRootPath)) {
         MoxtraSocialService moxtra = uiExplorer.getApplicationComponent(MoxtraSocialService.class);
-        return moxtra.getBinderSpace() != null;
+        return moxtra.hasContextSpace() && moxtra.getBinderSpace() != null;
       }
     }
     return false;

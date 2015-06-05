@@ -1,0 +1,6 @@
+<div id="${uicomponent.id}">
+	<a class="selectDocument" href="<%=uicomponent.event("AddDocument")%>"></a>
+	<div id="${uicomponent.id}_children">
+		<% uicomponent.renderChildren() %>
+	</div>
+</div>

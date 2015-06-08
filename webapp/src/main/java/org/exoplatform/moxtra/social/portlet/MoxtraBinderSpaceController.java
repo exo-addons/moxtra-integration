@@ -48,52 +48,56 @@ import javax.portlet.PortletPreferences;
 @SessionScoped
 public class MoxtraBinderSpaceController {
 
-  private static final Log                                      LOG = ExoLogger.getLogger(MoxtraBinderSpaceController.class);
+  private static final Log                                         LOG = ExoLogger.getLogger(MoxtraBinderSpaceController.class);
 
   @Inject
-  Provider<PortletPreferences>                                  preferences;
+  Provider<PortletPreferences>                                     preferences;
 
   @Inject
-  MoxtraSocialService                                           moxtra;
+  MoxtraSocialService                                              moxtra;
 
   @Inject
-  MoxtraBinderSpaceContext                                      context;
+  MoxtraBinderSpaceContext                                         context;
 
   @Inject
   @Path("index.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.index         index;
+  org.exoplatform.moxtra.social.portlet.templates.index            index;
 
   @Inject
   @Path("currentBinder.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.currentBinder currentBinder;
+  org.exoplatform.moxtra.social.portlet.templates.currentBinder    currentBinder;
 
   @Inject
   @Path("binderConfig.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.binderConfig  binderConfig;
+  org.exoplatform.moxtra.social.portlet.templates.binderConfig     binderConfig;
 
   @Inject
   @Path("selectBinder.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.selectBinder  selectBinder;
+  org.exoplatform.moxtra.social.portlet.templates.selectBinder     selectBinder;
 
   @Inject
   @Path("binderData.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.binderData    binderData;
+  org.exoplatform.moxtra.social.portlet.templates.binderData       binderData;
 
   @Inject
   @Path("settingsPopup.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.settingsPopup settingsPopup;
+  org.exoplatform.moxtra.social.portlet.templates.settingsPopup    settingsPopup;
+
+  @Inject
+  @Path("meetParticipants.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.meetParticipants meetParticipants;
 
   @Inject
   @Path("error.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.error         error;
+  org.exoplatform.moxtra.social.portlet.templates.error            error;
 
   @Inject
   @Path("errorMessage.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.errorMessage  errorMessage;
+  org.exoplatform.moxtra.social.portlet.templates.errorMessage     errorMessage;
 
   @Inject
   @Path("warnMessage.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.warnMessage   warnMessage;
+  org.exoplatform.moxtra.social.portlet.templates.warnMessage      warnMessage;
 
   @View
   public Response index(RequestContext resourceContext) {
@@ -193,6 +197,28 @@ public class MoxtraBinderSpaceController {
     } catch (Exception e) {
       LOG.error("Error reading Moxtra binders for current user", e);
       return errorMessage("Error reading Moxtra binders " + e.getMessage());
+    }
+  }
+
+  @Ajax
+  @Resource
+  public Response contactsList() {
+    try {
+      return meetParticipants.with().isMoxtra(true).users(moxtra.getContacts()).ok();
+    } catch (Exception e) {
+      LOG.error("Error reading Moxtra contacts for current user", e);
+      return errorMessage("Error reading Moxtra contacts " + e.getMessage());
+    }
+  }
+  
+  @Ajax
+  @Resource
+  public Response spaceMembersList() {
+    try {
+      return meetParticipants.with().isMoxtra(false).users(moxtra.getBinderSpace().getSpaceUsers()).ok();
+    } catch (Exception e) {
+      LOG.error("Error reading Moxtra contacts for current user", e);
+      return errorMessage("Error reading Moxtra contacts " + e.getMessage());
     }
   }
 

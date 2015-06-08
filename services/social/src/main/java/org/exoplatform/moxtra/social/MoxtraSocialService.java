@@ -25,8 +25,8 @@ import org.exoplatform.services.organization.User;
 import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
 import org.exoplatform.services.security.ConversationState;
 import org.exoplatform.social.core.space.SpaceApplicationConfigPlugin;
-import org.exoplatform.social.core.space.SpaceUtils;
 import org.exoplatform.social.core.space.SpaceApplicationConfigPlugin.SpaceApplication;
+import org.exoplatform.social.core.space.SpaceUtils;
 import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 import org.exoplatform.social.webui.Utils;
@@ -35,6 +35,7 @@ import org.picocontainer.Startable;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -52,9 +53,6 @@ import javax.jcr.Property;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.ValueFormatException;
-import javax.jcr.query.Query;
-import javax.jcr.query.QueryManager;
-import javax.jcr.query.QueryResult;
 
 /**
  * Created by The eXo Platform SAS
@@ -411,6 +409,17 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       }
       return null;
     }
+    
+    public Collection<MoxtraUser> getSpaceUsers() throws Exception {
+      Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
+      for (String userId : space.getManagers()) {
+        users.add(findUser(userId));
+      }
+      for (String userId : space.getMembers()) {
+        users.add(findUser(userId));
+      }
+      return users;
+    }
 
     // ******* internals ******
 
@@ -424,7 +433,11 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
     protected MoxtraUser findUser(String userId) throws Exception {
       User orgUser = orgService.getUserHandler().findUserByName(userId);
-      return new MoxtraUser(orgUser.getEmail());
+      String name = orgUser.getDisplayName();
+      if (name == null || name.length() == 0) {
+        name = orgUser.getFirstName() + " " + orgUser.getLastName();
+      }
+      return new MoxtraUser(name, orgUser.getEmail());
     }
 
     @Deprecated

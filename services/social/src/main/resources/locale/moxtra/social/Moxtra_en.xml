@@ -24,11 +24,41 @@
     <syncComments>Synchronize comments with Binder</syncComments>
     <syncCommentsHints>Automatically synchronize comments with Moxtra Binder</syncCommentsHints>
     <save>Save</save>
+    <meetSettings>Meet settings</meetSettings>
+    <meetTopic>Topic</meetTopic>
+    <meetTopicHint>Define a topic of your meet</meetTopicHint>
+    <meetAgenda>Agenda</meetAgenda>
+    <meetAgendaHint>Describe your meet agenda</meetAgendaHint>
+    <meetStartTime>Start time</meetStartTime>
+    <meetStartTimeHint>Choose start-time of your meet</meetStartTimeHint>
+    <meetEndTime>End time</meetEndTime>
+    <meetEndTimeHint>Choose end-time of your meet</meetEndTimeHint>
+    <meetMoxtraContacts>Moxtra contacts</meetMoxtraContacts>
+    <meetSpaceMembers>Space members</meetSpaceMembers>
+    <meetAutorec>Record automatically</meetAutorec>
     <cancel>Cancel</cancel>
+    <start>Start</start>
+    <schedule>Schedule</schedule>
   </MoxtraBinderSpaceController>
   <ECMContextMenu>
     <event>
       <EditInMoxtra>Open in Moxtra</EditInMoxtra>
     </event>
   </ECMContextMenu>
+  <UIAddDocumentSelector>
+    <msg>
+      <moxtraSessionNotDefined>Moxtra session not defined</moxtraSessionNotDefined>
+      <exoFileRequired>File required</exoFileRequired>
+      <fileNotNode>File not a node</fileNotNode>
+      <uploadError>Error uploading file. {0}</uploadError>
+      <binderNotFound>Moxtra Binder cannot be found</binderNotFound>
+      <binderSpaceNotFound>Cannot find a space associated with Moxtra Binder</binderSpaceNotFound>
+      <alreadyPage>It is already a Moxtra page</alreadyPage>
+    </msg>
+  </UIAddDocumentSelector>
+  <UIAddDocumentSelectorPopup>
+    <title>
+      <UIAddDocumentSelector>Select document</UIAddDocumentSelector>
+    </title>
+  </UIAddDocumentSelectorPopup>
 </bundle>

@@ -408,7 +408,7 @@
 		 * Create a meet with given parameters.
 		 */
 		var createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
-			var create = postMeet(name, agenda, startTime, endTime, autoRecording, true);
+			var create = postMeet(name, agenda, startTime, endTime, autoRecording, false);
 			create.done(function(meet) {
 				if (meet) {
 					// then add users to the meet asynchronously
@@ -880,7 +880,6 @@
 
 		/**
 		 * Public access to meet creation.
-		 * @Deprecated
 		 */
 		this.createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
 			return createMeet(name, agenda, startTime, endTime, autoRecording, users);
@@ -922,12 +921,17 @@
 
 			function openPageWindow() {
 				var url = serverUrl + "/portal/rest/moxtra/page/";
-				if (pageWindow) {
-					if (!pageWindow.location.host || pageWindow.location.href === url) {
-						pageWindow.close();
+				if (lastWindow) {
+					lastWindow.location = url;
+					pageWindow = lastWindow;
+				} else {
+					if (pageWindow) {
+						if (!pageWindow.location || pageWindow.location.host || pageWindow.location.href === url) {
+							pageWindow.close();
+						}
 					}
+					pageWindow = window.open(url, "_blank");
 				}
-				pageWindow = window.open(url, "_blank");
 				pageWindow.focus();
 				return pageWindow;
 			}
@@ -1000,16 +1004,6 @@
 					}
 					exoWindow.focus();
 					eval(dsLink);
-					// setTimeout(function() {
-					// $tools.find("#UIAddDocumentSelector .uiAction .btn").each(function(i, elem) {
-					// var btnLink = $(elem).attr("onclick");
-					// var ci = btnLink.lastIndexOf("')");
-					// if (ci > 0) {
-					// btnLink = btnLink.slice(0, ci) + "&sessionId=" + event.session_id + "&binderId=" + event.binder_id + "')";
-					// $(elem).attr("onclick", btnLink);
-					// }
-					// });
-					// }, 750);
 				} else {
 					log("ERROR: document selector tool not found");
 				}
@@ -1185,6 +1179,9 @@
 							addExoDocument(event);
 						}
 					};
+				}
+				if (binderId) {
+					options.schedule_binder_id = binderId;
 				}
 				api.meet(options);
 				process.resolve(api);

@@ -1,4 +1,9 @@
-#{param name=isNew/} #{param name=exoUser/} #{param name=isManager/} #{param name=isAuthorized/} #{param name=authLink/} #{param name=binderId/}
+#{param name=isNew/} 
+#{param name=exoUser/} 
+#{param name=isManager/} 
+#{param name=isAuthorized/} 
+#{param name=authLink/} 
+#{param name=binderId/}
 <%
   def disabled = isNew ? 'disabled' : ''
 %>

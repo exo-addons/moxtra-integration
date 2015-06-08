@@ -173,6 +173,9 @@
 							var startTime = $form.find("input[name='meetStartTime']:visible").val();
 							var endTime = $form.find("input[name='meetEndTime']:visible").val();
 							var participants = $form.find(".meetSpaceMembers select[name='meetParticipants']").val();
+							if (!participants) {
+								participants = [];
+							}
 							var moxtraUsers = $form.find(".meetMoxtraContacts select[name='meetParticipants']").val();
 							if (moxtraUsers) {
 								// merge participants: remove duplicates

@@ -210,12 +210,12 @@ public class MoxtraBinderSpaceController {
       return errorMessage("Error reading Moxtra contacts " + e.getMessage());
     }
   }
-  
+
   @Ajax
   @Resource
   public Response spaceMembersList() {
     try {
-      return meetParticipants.with().isMoxtra(false).users(moxtra.getBinderSpace().getSpaceUsers()).ok();
+      return meetParticipants.with().isMoxtra(false).users(moxtra.getBinderSpace().getSpaceUsers(false)).ok();
     } catch (Exception e) {
       LOG.error("Error reading Moxtra contacts for current user", e);
       return errorMessage("Error reading Moxtra contacts " + e.getMessage());

@@ -409,13 +409,21 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       }
       return null;
     }
-    
-    public Collection<MoxtraUser> getSpaceUsers() throws Exception {
+
+    public Collection<MoxtraUser> getSpaceUsers(boolean includeMe) throws Exception {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      String myId = currentConvo.getIdentity().getUserId();
       Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
       for (String userId : space.getManagers()) {
+        if (userId.equals(myId) && !includeMe) {
+          continue;
+        }
         users.add(findUser(userId));
       }
       for (String userId : space.getMembers()) {
+        if (userId.equals(myId) && !includeMe) {
+          continue;
+        }
         users.add(findUser(userId));
       }
       return users;

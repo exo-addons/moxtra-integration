@@ -165,16 +165,15 @@
 						// init meets
 						var $meetPopup = $("#moxtra-binder-meet");
 						var $form = $meetPopup.find("form");
-						$form.submit(function(ev) {
-							ev.preventDefault();
+						function openMeet(startNow) {
 							var $message = $meetPopup.find(".meetMessage");
 							var topic = $form.find("input[name='meetTopic']").val();
 							var agenda = $form.find("textarea[name='meetAgenda']").val();
 							var autoRec = $form.find("input[name='meetAutorec']").val();
 							var startTime = $form.find("input[name='meetStartTime']:visible").val();
 							var endTime = $form.find("input[name='meetEndTime']:visible").val();
-							var participants = $form.find("meetSpaceMembers select[name='meetParticipants']").val();
-							var moxtraUsers = $form.find("meetMoxtraContacts select[name='meetParticipants']").val();
+							var participants = $form.find(".meetSpaceMembers select[name='meetParticipants']").val();
+							var moxtraUsers = $form.find(".meetMoxtraContacts select[name='meetParticipants']").val();
 							if (moxtraUsers) {
 								// merge participants: remove duplicates
 								nextUser :
@@ -191,20 +190,39 @@
 
 							function showMeet(meet) {
 								// use Moxtra JS to open the meet
-								moxtra.moxtrajs().startMeet(meet.binderId, {
-									end_meet : function() {
-										// TODO initiate meet saving here
-									},
-									error : function(event) {
-										showError(event.error_message + " (" + event.error_code + ")", $message);
-									}
-								});
+								if (startNow) {
+									moxtra.moxtrajs().startMeet(meet.binderId, {
+										end_meet : function() {
+											// TODO initiate meet saving here
+										},
+										error : function(event) {
+											showError(event.error_message + " (" + event.error_code + ")", $message);
+										}
+									});
+								} else {
+									// open meet's url
+									window.open(meet.startMeetUrl, "_blank");
+								}
 							}
 
 							// quick meet for about 30min
+							if (startTime) {
+								try {
+									startTime = new Date(startTime);
+								} catch(e) {
+									startTime = null;
+								}
+							}
 							if (!startTime) {
 								startTime = new Date();
 								startTime.setMinutes(startTime.getMinutes() + 1);
+							}
+							if (endTime) {
+								try {
+									endTime = new Date(endTime);
+								} catch(e) {
+									endTime = null;
+								}
 							}
 							if (!endTime) {
 								endTime = new Date();
@@ -226,7 +244,8 @@
 									showError(e.message, $message);
 								});
 							}
-						});
+						}
+
 
 						$data.find("a.meetStartAction").click(function() {
 							// Start meet action
@@ -234,6 +253,10 @@
 							// load current user contacts
 							$form.find(".meetMoxtraContacts").jzLoad("MoxtraBinderSpaceController.contactsList()", function(response) {
 								$form.find(".meetSpaceMembers").jzLoad("MoxtraBinderSpaceController.spaceMembersList()", function(response) {
+									$form.submit(function(ev) {
+										ev.preventDefault();
+										openMeet(true);
+									});
 									$form.find(".meetStart").show();
 									$form.find(".meetTime").hide();
 									$form.find(".meetSchedule").hide();
@@ -248,6 +271,10 @@
 							// load current user contacts
 							$form.find(".meetMoxtraContacts").jzLoad("MoxtraBinderSpaceController.contactsList()", function(response) {
 								$form.find(".meetSpaceMembers").jzLoad("MoxtraBinderSpaceController.spaceMembersList()", function(response) {
+									$form.submit(function(ev) {
+										ev.preventDefault();
+										openMeet();
+									});
 									$form.find(".meetTime").show();
 									$form.find(".meetSchedule").show();
 									$form.find(".meetStart").hide();

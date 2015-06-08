@@ -21,12 +21,14 @@ package org.exoplatform.moxtra.social;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
+import org.exoplatform.ecm.webui.component.explorer.UIWorkingArea;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.social.space.UIMoxtraBinderSpaceTools;
 import org.exoplatform.moxtra.webui.MoxtraApplication;
 import org.exoplatform.moxtra.webui.MoxtraNotInitializedException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.webui.application.WebuiRequestContext;
 import org.exoplatform.webui.core.UIApplication;
 
 /**
@@ -84,6 +86,8 @@ public class MoxtraSocialApplication implements MoxtraApplication {
           if (LOG.isDebugEnabled()) {
             LOG.debug("<< activated UISpaceMenuPortlet " + docSelector);
           }
+          WebuiRequestContext context = WebuiRequestContext.getCurrentInstance();
+          context.addUIComponentToUpdateByAjax(uiApp);
         }
       } catch (Exception e) {
         LOG.error("Error adding document selector: " + e.getMessage(), e);

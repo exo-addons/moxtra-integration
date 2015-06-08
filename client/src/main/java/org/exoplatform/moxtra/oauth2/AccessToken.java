@@ -214,13 +214,13 @@ public class AccessToken {
   }
 
   /**
-   * Return <code>true</code> if this instance of {@link AccessToken} initialized with access token and not
-   * expired.
+   * Return <code>true</code> if this instance of {@link AccessToken} initialized with access token.
    * 
    * @return <code>true</code> if initialized, <code>false</code> otherwise
+   * @see #isExpired()
    */
   public boolean isInitialized() {
-    return accessToken != null && !isExpired();
+    return accessToken != null;
   }
 
   /**

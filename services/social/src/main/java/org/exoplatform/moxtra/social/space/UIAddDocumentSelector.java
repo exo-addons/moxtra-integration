@@ -121,7 +121,23 @@ public class UIAddDocumentSelector extends UIContainer implements UIPopupCompone
             try {
               MoxtraBinder binder = moxtra.getBinder(selectorContainer.binderId);
               MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
-              binderSpace.createPage(fileNode);
+              if (binderSpace != null) {
+                if (binderSpace.hasPage(fileNode)) {
+                  uiApp.addMessage(new ApplicationMessage("UIAddDocumentSelector.msg.alreadyPage",
+                                                          null,
+                                                          ApplicationMessage.INFO));
+                  ((PortalRequestContext) event.getRequestContext().getParentAppRequestContext()).ignoreAJAXUpdateOnPortlets(true);
+                  return;
+                } else {
+                  binderSpace.createPage(fileNode);
+                }
+              } else {
+                uiApp.addMessage(new ApplicationMessage("UIAddDocumentSelector.msg.binderSpaceNotFound",
+                                                        null,
+                                                        ApplicationMessage.ERROR));
+                ((PortalRequestContext) event.getRequestContext().getParentAppRequestContext()).ignoreAJAXUpdateOnPortlets(true);
+                return;
+              }
             } catch (NotFoundException e) {
               ApplicationMessage msg = new ApplicationMessage("UIAddDocumentSelector.msg.binderNotFound",
                                                               new String[] { e.getMessage() },

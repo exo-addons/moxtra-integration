@@ -24,6 +24,7 @@ import org.exoplatform.services.log.Log;
 import org.exoplatform.web.application.Application;
 import org.exoplatform.web.application.ApplicationLifecycle;
 import org.exoplatform.web.application.RequestFailure;
+import org.exoplatform.webui.application.StateManager;
 import org.exoplatform.webui.application.WebuiApplication;
 import org.exoplatform.webui.application.WebuiRequestContext;
 import org.exoplatform.webui.core.UIApplication;
@@ -99,13 +100,19 @@ public class MoxtraLifecycle implements ApplicationLifecycle<WebuiRequestContext
       // PortalRequestContext prContext = (PortalRequestContext) context;
 
       UIApplication uiApp = context.getUIApplication();
+      StateManager stateManager = null;
       if (uiApp == null) {
-        WebuiApplication webuiApp = (WebuiApplication) app;
-        uiApp = webuiApp.getStateManager().restoreUIRootComponent(context);
+        WebuiApplication webuiApp = (WebuiApplication) app;//((WebuiApplication) app).getStateManager().restoreUIRootComponent(context);
+        stateManager = webuiApp.getStateManager();
+        uiApp = stateManager.restoreUIRootComponent(context);
       }
 
       if (uiApp != null) {
         moxtraApps.activate(uiApp);
+        if (stateManager != null) {
+          context.setUIApplication(uiApp);
+          stateManager.storeUIRootComponent(context);
+        }
       }
     }
   }

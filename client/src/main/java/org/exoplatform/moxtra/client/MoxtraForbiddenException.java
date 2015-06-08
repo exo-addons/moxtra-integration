@@ -25,7 +25,7 @@ package org.exoplatform.moxtra.client;
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraUnauthorizedException.java 00000 May 19, 2015 pnedonosko $
+ * @version $Id: MoxtraForbiddenException.java 00000 May 19, 2015 pnedonosko $
  * 
  */
 public class MoxtraForbiddenException extends MoxtraAccessException {

@@ -7,6 +7,8 @@
       <fileNotNode>File not a node</fileNotNode>
       <uploadError>Error uploading file. {0}</uploadError>
       <binderNotFound>Moxtra Binder cannot be found</binderNotFound>
+      <binderSpaceNotFound>Cannot find a space associated with Moxtra Binder</binderSpaceNotFound>
+      <alreadyPage>It is already a Moxtra page</alreadyPage>
     </msg>
   </UIAddDocumentSelector>
   <UIAddDocumentSelectorPopup>

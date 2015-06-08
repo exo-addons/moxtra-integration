@@ -28,6 +28,7 @@ import org.exoplatform.ecm.webui.component.explorer.control.UIControl;
 import org.exoplatform.ecm.webui.component.explorer.control.listener.UIWorkingAreaActionListener;
 import org.exoplatform.ecm.webui.component.explorer.search.UISearchResult;
 import org.exoplatform.ecm.webui.utils.JCRExceptionManager;
+import org.exoplatform.moxtra.client.MoxtraPage;
 import org.exoplatform.moxtra.social.MoxtraSocialException;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
@@ -124,11 +125,14 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
           if (binderSpace != null) {
             // if not a page yet, create a such in Moxtra
             boolean isPageCreating;
-            if (!binderSpace.hasPage(selectedNode)) {
-              binderSpace.createPage(selectedNode);
-              isPageCreating = true;
+            MoxtraPage page;
+            if (binderSpace.hasPage(selectedNode)) {
+              page = binderSpace.getPage(selectedNode);
+              isPageCreating = !page.isCreated();
             } else {
-              isPageCreating = false;
+              binderSpace.createPage(selectedNode);
+              page = null;
+              isPageCreating = true;
             }
 
             uiExplorer.updateAjax(event);
@@ -151,7 +155,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
               } else {
                 // open existing page
                 requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId() + "', '"
-                    + binderSpace.getPage(selectedNode).getId() + "');");
+                    + page.getId() + "');");
               }
             } else {
               // set current node after page creation

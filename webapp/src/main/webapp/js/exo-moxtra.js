@@ -291,7 +291,7 @@
 			var h = 400;
 			var left = (screen.width / 2) - (w / 2);
 			var top = (screen.height / 2) - (h / 2);
-			return window.open(url, "Moxtra", 'width=' + w + ',height=' + h + ',top=' + top + ',left=' + left);
+			return window.open(url, "_blank", "width=" + w + ",height=" + h + ",top=" + top + ",left=" + left);
 		};
 
 		var waitAuth = function(authWindow) {
@@ -326,25 +326,42 @@
 			return process.promise();
 		};
 
-		var authorize = function() {
+		var authorize = function(userWindow) {
 			var process = $.Deferred();
 			if (authorized) {
 				process.resolve();
 			} else {
 				var authWindow;
+
+				function openAuthWindow() {
+					if (userWindow) {
+						// using provided window
+						userWindow.location.href = authLink;
+						authWindow = userWindow;
+					} else {
+						// open a new window
+						authWindow = openPopup(authLink);
+					}
+				}
+
+				function closeAuthWindow() {
+					if (authWindow && authWindow != userWindow) {
+						authWindow.close();
+					}
+				}
+
 				if (authLink) {
 					// open Moxtra OAuth2 login
-					authWindow = openPopup(authLink);
+					//authWindow = openPopup(authLink);
+					openAuthWindow();
 				} else {
 					//authWindow = openPopup("");
 					var userAuthProc = getMoxtraUserAuth(false);
 					userAuthProc.done(function(authData) {
 						if (authData.authorized) {
 							authorized = true;
+							closeAuthWindow();
 							currentUser = authData.userName;
-							if (authWindow) {
-								authWindow.close();
-							}
 							process.resolve(authData);
 						} else {
 							authorized = false;
@@ -361,13 +378,15 @@
 				if (!authorized && authLink) {
 					//authWindow.location.href = authLink;
 					if (!authWindow) {
-						authWindow = openPopup(authLink);
+						//authWindow = openPopup(authLink);
+						openAuthWindow();
 					}
 					// wait for authentication
 					var auth = waitAuth(authWindow);
 					auth.done(function() {
 						log("INFO: " + currentUser + " user authenticated successfully.");
 						authorized = true;
+						closeAuthWindow();
 						process.resolve();
 					});
 					auth.fail(function(message) {
@@ -418,8 +437,8 @@
 		var initPageWindow = function(target, binderId, pageId, spaceName, pageNodeUUID) {
 			var process = $.Deferred();
 			var $t = $(target.document);
-			// ensure user authorized if runs in this window
-			if (authorized || target != window) {
+			// ensure user authorized if runs in this window or page not exists in Moxtra
+			if (authorized || (target != window && binderId && pageId)) {
 				var $editor = $t.find("#moxtra-page-editor");
 				var $progress = $t.find("#moxtra-page-progress");
 				if (!binderId) {
@@ -576,6 +595,24 @@
 			}
 
 			// page may contain auth button, init it accordingly
+			// var $authButton = $("a.moxtraAuthLink");
+			// if ($authButton.size() > 0) {
+			// var url = $authButton.attr("href");
+			// if (url) {
+			// if (!authLink) {
+			// authLink = url;
+			// }
+			// $authButton.removeAttr("href");
+			// // $authButton.attr("href", "javascript:void(0);");
+			// $authButton.click(function() {
+			// authorize();
+			// });
+			// }
+			// }
+		};
+
+		this.initCalendar = function() {
+			// init auth button for Calendar UI
 			var $authButton = $("a.moxtraAuthLink");
 			if ($authButton.size() > 0) {
 				var url = $authButton.attr("href");
@@ -590,9 +627,7 @@
 					});
 				}
 			}
-		};
 
-		this.initCalendar = function() {
 			// if user not authorized, we force auth login on enable checkbox click immediately,
 			// then we'll proceed the enabler action.
 			var $enableMeet = $("input#enableMeet");
@@ -679,7 +714,7 @@
 						e.preventDefault();
 						var href = $button.attr("href");
 						if (href) {
-							window.open(href);
+							window.open(href, "_blank");
 						} else {
 							if (authorized) {
 								if (!meetWindow) {
@@ -742,7 +777,8 @@
 									// TODO notify the error to an user
 								});
 							} else {
-								var auth = authorize();
+								// we can use meetWindow as auth window, it will not be closed on done
+								var auth = authorize(meetWindow);
 								auth.done(function() {
 									$button.click();
 								});
@@ -856,65 +892,79 @@
 		this.initDocuments = function(openInNewWindow) {
 			// ensure authorization
 			var $editInMoxtra = $("#ECMContextMenu a[exo\\:attr='EditInMoxtra']");
-			if (openInNewWindow) {
-				$editInMoxtra.click(function() {
+			// if (openInNewWindow) {
+			// $editInMoxtra.click(function() {
+			// // open blank window before ajax request
+			// var url = serverUrl + "/portal/rest/moxtra/page/";
+			// if (pageWindow) {
+			// if (!pageWindow.location.host || pageWindow.location.href === url) {
+			// pageWindow.close();
+			// }
+			// }
+			// pageWindow = window.open(url, "_blank");
+			// window.focus();
+			// });
+			// }
+			// if (!authorized) {
+			// // remove original action href to avoid calling the service under not authr user
+			// $editInMoxtra.each(function(i, elem) {
+			// var action = $(elem).attr("href");
+			// //var jsi = action.indexOf("javascript:");
+			// //if (jsi == 0) {
+			// //	action = action.slice(11);
+			// //}
+			// $(elem).data("moxtra-page-action", action);
+			// $(elem).removeAttr("href");
+			// });
+			// }
+
+			var lastWindow;
+
+			function openPageWindow() {
+				var url = serverUrl + "/portal/rest/moxtra/page/";
+				if (pageWindow) {
+					if (!pageWindow.location.host || pageWindow.location.href === url) {
+						pageWindow.close();
+					}
+				}
+				pageWindow = window.open(url, "_blank");
+				pageWindow.focus();
+				return pageWindow;
+			}
+
+
+			$editInMoxtra.click(function(ev) {
+				if (!$editInMoxtra.data("moxtra-page-opening")) {
 					// open blank window before ajax request
-					var url = serverUrl + "/portal/rest/moxtra/page/";
-					if (pageWindow) {
-						if (!pageWindow.location.host || pageWindow.location.href === url) {
-							pageWindow.close();
+					if (!lastWindow && openInNewWindow) {
+						lastWindow = openPageWindow();
+					}
+					if (authorized) {
+						lastWindow = null;
+						return true;
+					} else {
+						ev.preventDefault();
+						// first authorize user
+						try {
+							// temp marker to avoid double invocation
+							$editInMoxtra.data("moxtra-page-opening", true);
+							var auth = authorize(pageWindow);
+							auth.done(function() {
+								$editInMoxtra.data("moxtra-page-opening", false);
+								$editInMoxtra.click();
+							});
+							auth.fail(function(error) {
+								$editInMoxtra.data("moxtra-page-opening", false);
+								log("Moxtra authorization error " + error);
+								// TODO notify the error to an user
+							});
+						} catch(e) {
+							log("Error opening Moxtra page", e);
 						}
 					}
-					pageWindow = window.open(url);
-					window.focus();
-				});
-			}
-			/*if (!authorized) {
-			 // remove original action href to avoid calling the service under not authr user
-			 $editInMoxtra.each(function(i, elem) {
-			 var action = $(elem).attr("href");
-			 //var jsi = action.indexOf("javascript:");
-			 //if (jsi == 0) {
-			 //	action = action.slice(11);
-			 //}
-			 $(elem).data("moxtra-page-action", action);
-			 $(elem).removeAttr("href");
-			 });
-			 }
-			 $editInMoxtra.click(function(ev) {
-			 if (!$editInMoxtra.data("moxtra-page-opening")) {
-			 if (authorized) {
-			 return true;
-			 } else {
-			 ev.preventDefault();
-			 // first authorize user
-			 try {
-			 // temp marker to avoid double invocation
-			 $editInMoxtra.data("moxtra-page-opening", true);
-			 var auth = authorize();
-			 auth.done(function() {
-			 var action = $editInMoxtra.data("moxtra-page-action");
-			 if (action) {
-			 $editInMoxtra.attr("href", action);
-			 eval(action);
-			 } else {
-			 $editInMoxtra.click();
-			 }
-			 });
-			 auth.fail(function(error) {
-			 log("Moxtra authorization error " + error);
-			 // TODO notify the error to an user
-			 });
-			 auth.always(function() {
-			 $editInMoxtra.data("moxtra-page-opening", false);
-			 });
-			 } catch(e) {
-			 log("Error opening Moxtra page", e);
-			 }
-			 return false;
-			 }
-			 }
-			 });*/
+				}
+				return false;
+			});
 		};
 	}
 
@@ -1037,58 +1087,6 @@
 			}
 		};
 
-		this.showPage_not_used = function(binderId, pageId, elemId, callbacks) {
-			var process = $.Deferred();
-			var apiReady = load();
-			apiReady.done(function(api) {
-				var options = {
-					binder_id : binderId,
-					page_id : pageId,
-					iframe : true,
-					tagid4iframe : elemId,
-					start_page : function(event) {
-						log("PageView started session Id: " + event.session_id);
-						invoke("start_page", event, callbacks);
-					},
-					share : function(event) {
-						log("Share session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
-						invoke("share", event);
-					},
-					error : function(event) {
-						log("PageView error code: " + event.error_code + " error message: " + event.error_message);
-						invoke("error", event, callbacks);
-					},
-					publish_feed : function(event) {
-						log("Published feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
-						invoke("publish_feed", event, callbacks);
-					},
-					receive_feed : function(event) {
-						log("Received feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
-						invoke("receive_feed", event, callbacks);
-					},
-					extension : {
-						"menus" : [{
-							"add_page" : [{
-								"menu_name" : "eXo Document",
-								"position" : "bottom"
-							}]
-						}]
-					},
-					add_page : function(event) {
-						if (event.action == "eXo Document") {
-							alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
-						}
-					}
-				};
-				api.pageView(options);
-				process.resolve(api);
-			});
-			apiReady.fail(function(error) {
-				process.reject(error);
-			});
-			return process.promise();
-		};
-
 		this.showPages = function(binderId, pageId, elemId, callbacks) {
 			var process = $.Deferred();
 			var apiReady = load();
@@ -1116,22 +1114,24 @@
 					receive_feed : function(event) {
 						log("Received feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
 						invoke("receive_feed", event, callbacks);
-					},
-					extension : {
+					}
+				};
+				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
+					options.extension = {
 						"menus" : [{
 							"add_page" : [{
 								"menu_name" : "eXo Document",
 								"position" : "bottom"
 							}]
 						}]
-					},
-					add_page : function(event) {
+					};
+					options.add_page = function(event) {
 						if (event.action == "eXo Document") {
 							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
 							addExoDocument(event);
 						}
-					}
-				};
+					};
+				}
 				if (pageId) {
 					options.page_id = pageId;
 				}
@@ -1165,8 +1165,10 @@
 					end_meet : function(event) {
 						log("end_meet: Meet end event");
 						invoke("end_meet", event, callbacks);
-					},
-					extension : {
+					}
+				};
+				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
+					options.extension = {
 						"show_dialogs" : {
 							"meet_invite" : true
 						},
@@ -1176,14 +1178,14 @@
 								"position" : "bottom"
 							}]
 						}]
-					},
-					add_page : function(event) {
+					};
+					options.add_page = function(event) {
 						if (event.action == "My eXo Document") {
 							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
 							addExoDocument(event);
 						}
-					}
-				};
+					};
+				}
 				api.meet(options);
 				process.resolve(api);
 			});

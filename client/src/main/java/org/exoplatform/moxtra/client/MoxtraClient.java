@@ -917,7 +917,28 @@ public class MoxtraClient {
    * @return <code>true</code> if client is authorized to access Moxtra services, <code>false</code> otherwise
    */
   public boolean isAuthorized() {
-    return oAuthToken.isInitialized();
+    if (oAuthToken.isInitialized()) {
+      if (oAuthToken.isExpired()) {
+        // try refresh the token causing call to Moxtra (not cached)
+        // if refresh token is valid, then access will be refreshed with new expiration time
+        try {
+          getCurrentUser(false);
+        } catch (MoxtraAuthorizationException e) {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("isAuthorized: " + e.getMessage());
+          }
+          // it means user have to re-authorize
+          return false;
+        } catch (MoxtraException e) {
+          LOG.warn("Error getting current user while checking authorization status", e);
+          // an error during auth* assumed as as not authorized
+          return false;
+        }
+      }
+      return true;
+    }
+
+    return false;
   }
 
   /**
@@ -969,7 +990,7 @@ public class MoxtraClient {
   }
 
   public MoxtraUser getUser(String userId) throws MoxtraAuthenticationException, MoxtraException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         String url = API_USER.replace("{user_id}", userId);
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
@@ -1028,7 +1049,7 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1037,7 +1058,7 @@ public class MoxtraClient {
   }
 
   protected List<MoxtraUser> getContacts(String userId) throws MoxtraAuthenticationException, MoxtraException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         String url = API_USER_CONTACTS.replace("{user_id}", userId);
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
@@ -1080,7 +1101,7 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1089,7 +1110,7 @@ public class MoxtraClient {
                                                   OAuthProblemException,
                                                   MoxtraException,
                                                   MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_BINDER.replace("{binder_id}", binderId);
       RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
 
@@ -1195,7 +1216,7 @@ public class MoxtraClient {
         throw new MoxtraException("Binder request doesn't return an expected body (data)");
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1216,7 +1237,7 @@ public class MoxtraClient {
                                                     MoxtraClientException {
     // XXX here we do a workaround: we post update meet with no changes to get a meet current data
     // indeed this way we actually do update the meet: its revision increments each request
-    if (isAuthorized()) {
+    if (isInitialized()) {
       // prepare body
       JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
       Map<String, Object> params = new HashMap<String, Object>(); // empty JSON
@@ -1317,7 +1338,7 @@ public class MoxtraClient {
         throw new MoxtraException("Error parsing meet time " + e.getMessage(), e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1339,7 +1360,7 @@ public class MoxtraClient {
                                               OAuthProblemException,
                                               MoxtraException,
                                               MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         String url = API_MEETS_SESSION.replace("{session_key}", sessionKey);
         RESTResponse resp = restRequest(url.toString(), OAuth.HttpMethod.GET);
@@ -1358,7 +1379,7 @@ public class MoxtraClient {
         throw new MoxtraException("Error parsing meet time " + e.getMessage(), e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1482,7 +1503,7 @@ public class MoxtraClient {
                                                                                       OAuthProblemException,
                                                                                       MoxtraException,
                                                                                       MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       if (days > GET_MEETS_LIST_MAX_DAYS) {
         LOG.warn("Meets search time period too large. Period cut to maximum " + GET_MEETS_LIST_MAX_DAYS
             + " days");
@@ -1524,7 +1545,7 @@ public class MoxtraClient {
         throw new MoxtraException("Error parsing meet time " + e.getMessage(), e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1627,7 +1648,7 @@ public class MoxtraClient {
                                                 OAuthProblemException,
                                                 MoxtraException,
                                                 MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_BINDER.replace("{binder_id}", binderId);
       RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
 
@@ -1639,7 +1660,7 @@ public class MoxtraClient {
         throw new MoxtraException("Binder request doesn't return an expected body (data)");
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1657,7 +1678,7 @@ public class MoxtraClient {
                                                        OAuthProblemException,
                                                        MoxtraException,
                                                        MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_BINDERS.replace("{user_id}", user.getId());
       RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
 
@@ -1683,7 +1704,7 @@ public class MoxtraClient {
         throw new MoxtraException("Binders request doesn't return an expected body (data)");
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1702,7 +1723,7 @@ public class MoxtraClient {
                                                                      OAuthProblemException,
                                                                      MoxtraException,
                                                                      MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       // prepare body
       JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
       Map<String, Object> params = new HashMap<String, Object>();
@@ -1756,7 +1777,7 @@ public class MoxtraClient {
         throw new MoxtraClientException("Error creating JSON request from binder creation", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1776,7 +1797,7 @@ public class MoxtraClient {
                                          OAuthProblemException,
                                          MoxtraException,
                                          MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       // prepare body
       JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
       Map<String, Object> params = new HashMap<String, Object>();
@@ -1849,7 +1870,7 @@ public class MoxtraClient {
         throw new MoxtraClientException("Error creating JSON request from meet parameters", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1858,7 +1879,7 @@ public class MoxtraClient {
                                                                      MoxtraException,
                                                                      MoxtraClientException {
 
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         String url = API_MEETS_RECORDINGS.replace("{session_key}", meet.getSessionKey());
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
@@ -1906,7 +1927,7 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1914,7 +1935,7 @@ public class MoxtraClient {
                                                    MoxtraClientException,
                                                    MoxtraAuthenticationException {
 
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         String url = API_MEETS_STATUS.replace("{session_key}", sessionKey);
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
@@ -1936,7 +1957,7 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -1956,7 +1977,7 @@ public class MoxtraClient {
                                                                MoxtraException,
                                                                MoxtraClientException {
 
-    if (isAuthorized()) {
+    if (isInitialized()) {
       try {
         RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET, contentType, null);
         InputStream res = resp.getInputStream();
@@ -1967,7 +1988,7 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
 
   }
@@ -2019,7 +2040,7 @@ public class MoxtraClient {
                                          OAuthProblemException,
                                          MoxtraException,
                                          MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String meetStatus = getMeetStatus(meet.getSessionKey());
       if (MoxtraMeet.SESSION_SCHEDULED.equals(meetStatus)) {
         // metadata update possible only for scheduled meets
@@ -2160,7 +2181,7 @@ public class MoxtraClient {
       }
       // }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2177,12 +2198,12 @@ public class MoxtraClient {
                                          OAuthProblemException,
                                          MoxtraException,
                                          MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_MEETS_SESSION.replace("{session_key}", meet.getSessionKey());
       restRequest(url, OAuth.HttpMethod.DELETE);
       meet.setStatus(MoxtraMeet.SESSION_DELETED);
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2199,11 +2220,11 @@ public class MoxtraClient {
                                                OAuthProblemException,
                                                MoxtraException,
                                                MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_BINDER.replace("{binder_id}", binder.getBinderId());
       restRequest(url, OAuth.HttpMethod.DELETE);
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2221,7 +2242,7 @@ public class MoxtraClient {
                                                MoxtraException,
                                                MoxtraClientException {
     // FYI to remove a meet we remove its binder (created by scheduling the meet)
-    if (isAuthorized()) {
+    if (isInitialized()) {
       // prepare body
       JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
       Map<String, Object> params = new HashMap<String, Object>();
@@ -2233,7 +2254,7 @@ public class MoxtraClient {
         throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2260,7 +2281,7 @@ public class MoxtraClient {
       users = null;
     }
     if (users != null && users.size() > 0) {
-      if (isAuthorized()) {
+      if (isInitialized()) {
         // prepare body
         JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
         Map<String, Object> params = new LinkedHashMap<String, Object>();
@@ -2289,7 +2310,7 @@ public class MoxtraClient {
         } // else meet host user already a member (all invitees are already members)
         return true;
       } else {
-        throw new MoxtraException("Authorization required");
+        throw new MoxtraAuthorizationException("Authorization required");
       }
     } else {
       if (LOG.isDebugEnabled()) {
@@ -2322,7 +2343,7 @@ public class MoxtraClient {
       users = null;
     }
     if (users != null && users.size() > 0) {
-      if (isAuthorized()) {
+      if (isInitialized()) {
         // prepare body
         JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
         Map<String, Object> params = new HashMap<String, Object>();
@@ -2350,7 +2371,7 @@ public class MoxtraClient {
         } // else meet host user already a member (all invitees are already members)
         return true;
       } else {
-        throw new MoxtraException("Authorization required");
+        throw new MoxtraAuthorizationException("Authorization required");
       }
     } else {
       if (LOG.isDebugEnabled()) {
@@ -2382,7 +2403,7 @@ public class MoxtraClient {
       users = null;
     }
     if (users != null && users.size() > 0) {
-      if (isAuthorized()) {
+      if (isInitialized()) {
         // XXX need remove user one by one
         for (MoxtraUser user : users) {
           // prepare body
@@ -2404,7 +2425,7 @@ public class MoxtraClient {
           }
         }
       } else {
-        throw new MoxtraException("Authorization required");
+        throw new MoxtraAuthorizationException("Authorization required");
       }
     } else if (LOG.isDebugEnabled()) {
       LOG.debug("removeUsers: empty users list for " + binder.getBinderId() + " " + binder.getName());
@@ -2427,7 +2448,7 @@ public class MoxtraClient {
                                                                                                               OAuthProblemException,
                                                                                                               MoxtraException,
                                                                                                               MoxtraClientException {
-    if (isAuthorized()) {
+    if (isInitialized()) {
       String url = API_BINDER_PAGEUPLOAD.replace("{binder_id}", binder.getBinderId());
       RESTResponse resp = restRequest(url, OAuth.HttpMethod.POST, contentType, content, contentFileName);
 
@@ -2443,7 +2464,7 @@ public class MoxtraClient {
         throw new MoxtraException("Page upload request doesn't return an expected body (code)");
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2459,11 +2480,15 @@ public class MoxtraClient {
    * @throws MoxtraException
    * @throws MoxtraClientException
    */
-  public void boardUpload(String sessionKey, String sessionId, InputStream content, long contentLength, String contentFileName) throws OAuthSystemException,
-                                                                                                           OAuthProblemException,
-                                                                                                           MoxtraException,
-                                                                                                           MoxtraClientException {
-    if (isAuthorized()) {
+  public void boardUpload(String sessionKey,
+                          String sessionId,
+                          InputStream content,
+                          long contentLength,
+                          String contentFileName) throws OAuthSystemException,
+                                                 OAuthProblemException,
+                                                 MoxtraException,
+                                                 MoxtraClientException {
+    if (isInitialized()) {
       StringBuilder url = new StringBuilder();
       url.append(MOXTRA_URL);
       url.append("board/upload");
@@ -2496,7 +2521,7 @@ public class MoxtraClient {
         throw new MoxtraException("Board upload request doesn't return an expected body (code)");
       }
     } else {
-      throw new MoxtraException("Authorization required");
+      throw new MoxtraAuthorizationException("Authorization required");
     }
   }
 
@@ -2703,66 +2728,63 @@ public class MoxtraClient {
                                                                                                           OAuthProblemException,
                                                                                                           MoxtraException,
                                                                                                           MoxtraClientException {
-    if (isAuthorized()) {
-      RESTResponse resp = null;
-      boolean wasRetry = false;
-      retry: while (true) {
-        try {
-          // OAuthClientRequest bearerClientRequest = new
-          // OAuthBearerClientRequest(url).setAccessToken(accessToken())
-          // .buildQueryMessage();
+    RESTResponse resp = null;
+    boolean wasRetry = false;
+    retry: while (true) {
+      try {
+        RESTRequest clientRequest = new RESTRequestBuilder(url).setAccessToken(accessToken())
+                                                               .buildQueryMessage();
+        if (contentType != null) {
+          clientRequest.setHeader(OAuth.HeaderType.CONTENT_TYPE, contentType);
+        }
 
-          RESTRequest clientRequest = new RESTRequestBuilder(url).setAccessToken(accessToken())
-                                                                 .buildQueryMessage();
-          if (contentType != null) {
-            clientRequest.setHeader(OAuth.HeaderType.CONTENT_TYPE, contentType);
-          }
+        if (bodyEntity != null) {
+          clientRequest.setBodyEntity(bodyEntity);
+        }
 
-          if (bodyEntity != null) {
-            // clientRequest.setBody(body);
-            clientRequest.setBodyEntity(bodyEntity);
-          }
+        resp = oAuthClient.resource(clientRequest, method, RESTResponse.class);
 
-          resp = oAuthClient.resource(clientRequest, method, RESTResponse.class);
+        checkError(resp);
 
-          checkError(resp);
-
-          return resp;
-        } catch (MoxtraAccessException e) {
-          // check expired token
-          // Authentication error: Unable to respond to any of these challenges: {bearer=WWW-Authenticate:
-          // Bearer realm="oauth", error="invalid_token",
-          // error_description="Access token expired: ByIwMgAAAUxn-rC9AACowFVZUHBSUFA1SUxiMlJCbnpMT05jTzY2IAAAAANUa0hienlIeVRuaTZQSEVTamJrNUg0M3NXdTM2b0lrenM0"}
-          // Moxtra response: 401 application/json;charset=UTF-8 -1bytes isRestReponse:true
-          if (resp != null && !wasRetry && resp.getResponseCode() == HttpStatus.SC_UNAUTHORIZED) {
-            if (resp.getValue().toString().indexOf("invalid_token") >= 0) {
-              // need update access token (by refresh token)
-              try {
-                authorizer().refresh(); // TODO handle error when refresh failed and need cause reauth in UI
-              } catch (AuthProblemException ape) {
-                // catch text of OAuthProblemException in initial occurence:
-                // invalid_token, Invalid refresh token (expired): $REFRESH_TOKEN
-                // or readRefreshTokenForAccessToken of next attemots to refresh using expired refresh_token
-                String err = ape.getErrorMessage();
-                if (err != null) {
-                  if (err.indexOf("invalid_token") >= 0 || err.indexOf("readRefreshTokenForAccessToken") >= 0) {
-                    // it's expired refresh token: reset user authorization, need reauth user
-                    oAuthToken.reset();
-                    throw new MoxtraRenewAccessException("Re-authorization is required", ape);
+        return resp;
+      } catch (MoxtraAccessException e) {
+        // check expired token
+        // Authentication error: Unable to respond to any of these challenges: {bearer=WWW-Authenticate:
+        // Bearer realm="oauth", error="invalid_token",
+        // error_description="Access token expired: ByIwMgAAAUxn-rC9AACowFVZUHBSUFA1SUxiMlJCbnpMT05jTzY2IAAAAANUa0hienlIeVRuaTZQSEVTamJrNUg0M3NXdTM2b0lrenM0"}
+        // Moxtra response: 401 application/json;charset=UTF-8 -1bytes isRestReponse:true
+        if (resp != null && !wasRetry && resp.getResponseCode() == HttpStatus.SC_UNAUTHORIZED) {
+          if (resp.getValue().toString().indexOf("invalid_token") >= 0) {
+            // need update access token (by refresh token)
+            try {
+              authorizer().refresh();
+            } catch (AuthProblemException ape) {
+              // it's expired refresh token or unexpected error: reset user authorization, need re-auth user in UI
+              oAuthToken.reset();
+              // catch text of OAuthProblemException in initial occurrence:
+              // "invalid_token, Invalid refresh token (expired): $REFRESH_TOKEN",
+              // or "login error: Not logged in" with ape.getMessage():
+              // "invalid_request, Missing parameters: access_token.",
+              // or "readRefreshTokenForAccessToken" of next attempts to refresh using expired refresh_token
+              String err = ape.getErrorMessage();
+              if (err != null) {
+                if (err.indexOf("invalid_token") >= 0 || err.indexOf("login error") >= 0
+                    || err.indexOf("readRefreshTokenForAccessToken") >= 0) {
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Assuming expired refresh token: '" + err + "' caused refresh error " + ape.getMessage());
                   }
+                  throw new MoxtraAuthorizationException("Re-authorization required", e);
                 }
-                throw ape; // as is
               }
-              wasRetry = true;
-              continue retry;
+              throw ape; // smth unexpected, throw as is
             }
-          } else {
-            throw e;
+            wasRetry = true;
+            continue retry;
           }
+        } else {
+          throw e;
         }
       }
-    } else {
-      throw new MoxtraException("Authorization required");
     }
   }
 
@@ -3140,5 +3162,14 @@ public class MoxtraClient {
       currentConvo.removeAttribute(MOXTRA_CURRENT_USER);
       currentConvo.removeAttribute(MOXTRA_CURRENT_USER_EXPIRE);
     }
+  }
+
+  /**
+   * Return <code>true</code> if client's {@link AccessToken} initialized with access token.
+   * 
+   * @return <code>true</code> if {@link AccessToken} initialized, <code>false</code> otherwise
+   */
+  protected boolean isInitialized() {
+    return oAuthToken.isInitialized();
   }
 }

@@ -96,7 +96,7 @@ public class OAuthCodeAuthenticator implements ResourceContainer {
                                            EMPTY,
                                            0, // reset error cookie
                                            false))
-                     .entity("<!doctype html><html><head><script type='text/javascript'> window.close();</script>"
+                     .entity("<!doctype html><html><head><script type='text/javascript'>/*window.close();*/</script>"
                          + "</head><body><div id='messageString'>Connecting to Moxtra...</div></body></html>")
                      .build();
     } catch (OAuthSystemException e) {

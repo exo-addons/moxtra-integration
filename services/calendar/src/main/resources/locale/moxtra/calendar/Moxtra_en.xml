@@ -21,8 +21,7 @@
       <meetLinkHint>Use this link to open your meet</meetLinkHint>
       <meetAgenda>Agenda</meetAgenda>
       <meetSchedule>Schedule</meetSchedule>
-      <meetCreationInfo>Your meeting will be created with title, time and description of this event when it will
-        be saved.</meetCreationInfo>
+      <meetCreationInfo>Your meeting will be created with title, time and description of this event when it will be saved.</meetCreationInfo>
       <poweredBy>Powered by</poweredBy>
       <startMeetHint>Click to start meeting now</startMeetHint>
       <joinMeetHint>Click to join meeting now</joinMeetHint>

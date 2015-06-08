@@ -20,15 +20,15 @@
 package org.exoplatform.moxtra.client;
 
 /**
- * Access credentials (access and refresh tokens) expired and need re-authenticate an user.<br>
+ * Access credentials (access and refresh tokens) required or expired and need (re-)authorize an user.<br>
  * 
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraRenewAccessException.java 00000 May 19, 2015 pnedonosko $
+ * @version $Id: MoxtraAuthorizationException.java 00000 May 19, 2015 pnedonosko $
  * 
  */
-public class MoxtraRenewAccessException extends MoxtraAccessException {
+public class MoxtraAuthorizationException extends MoxtraAccessException {
 
   /**
    * 
@@ -38,7 +38,7 @@ public class MoxtraRenewAccessException extends MoxtraAccessException {
   /**
    * @param message
    */
-  public MoxtraRenewAccessException(String message) {
+  public MoxtraAuthorizationException(String message) {
     super(message);
   }
 
@@ -46,7 +46,7 @@ public class MoxtraRenewAccessException extends MoxtraAccessException {
    * @param message
    * @param cause
    */
-  public MoxtraRenewAccessException(String message, Throwable cause) {
+  public MoxtraAuthorizationException(String message, Throwable cause) {
     super(message, cause);
   }
 

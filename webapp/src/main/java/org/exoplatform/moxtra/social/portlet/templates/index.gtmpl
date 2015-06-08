@@ -25,7 +25,7 @@
 			%>
 				<span id="moxtra-auth-button" style="display: none;">
 					<a class="btn moxtraAuthLink" rel="tooltip" data-placement="bottom" data-trigger="hover" data-toggle="tooltip"
-							title="&{Moxtra.loginMoxtraHint}" href="#" target="_blank">&{Moxtra.loginMoxtra}</a>
+							title="&{Moxtra.loginMoxtraHint}" href="#">&{Moxtra.loginMoxtra}</a>
 				</span>
 			<%
 			  }
@@ -35,7 +35,9 @@
 				<div class="alert" style="display: none;"></div>
 			</div>
 		</div>
-		<div id="moxtra-binder-data" class="span12">
+		<div class="row-fluid">
+			<div id="moxtra-binder-data" class="span12">
+			</div>
 		</div>
 		<%
 		  if (isManager) {

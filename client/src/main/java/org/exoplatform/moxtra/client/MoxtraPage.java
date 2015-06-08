@@ -89,6 +89,8 @@ public class MoxtraPage {
 
   protected Date            updatedTime;
 
+  protected Date            creatingTime;
+
   /**
    * New page constructor.
    */
@@ -117,12 +119,21 @@ public class MoxtraPage {
     this.thumbnailUrl = thumbnailUrl;
     this.backgroundUrl = backgroundUrl;
   }
-  
+
   /**
    * Local, existing or creating page constructor.
    */
+  @Deprecated
   public MoxtraPage(String originalFileName) {
     this.originalFileName = originalFileName;
+  }
+
+  /**
+   * Constructor of existing locally and creating in Moxtra page.
+   */
+  public MoxtraPage(String originalFileName, Date creatingTime) {
+    this.originalFileName = originalFileName;
+    this.creatingTime = creatingTime;
   }
 
   /**
@@ -201,7 +212,16 @@ public class MoxtraPage {
   public Date getUpdatedTime() {
     return updatedTime;
   }
-  
+
+  /**
+   * Answers does the page already created in Moxtra or just creating (uploading) and need wait before use it.
+   * 
+   * @return <code>true</code> if page ready for use, <code>false</code> otherwise
+   */
+  public boolean isCreated() {
+    return url != null;
+  }
+
   // ******** internals *********
 
   /**

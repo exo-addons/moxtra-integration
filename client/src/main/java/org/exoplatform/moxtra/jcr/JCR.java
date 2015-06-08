@@ -18,6 +18,8 @@
  */
 package org.exoplatform.moxtra.jcr;
 
+import org.exoplatform.moxtra.client.MoxtraBinder;
+
 import java.util.Calendar;
 import java.util.Date;
 
@@ -27,6 +29,7 @@ import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
 import javax.jcr.PropertyIterator;
 import javax.jcr.RepositoryException;
+import javax.jcr.Session;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
@@ -350,13 +353,20 @@ public class JCR {
 
     return res;
   }
-
+  
   public static void addPageDocument(Node document) throws RepositoryException {
     document.addMixin(NODETYPE_PAGE_DOCUMENT);
   }
 
   public static boolean isPageDocument(Node document) throws RepositoryException {
     return document.isNodeType(NODETYPE_PAGE_DOCUMENT);
+  }
+  
+  public static NodeIterator findBinder(Node node, MoxtraBinder binder) throws RepositoryException {
+    QueryManager qm = node.getSession().getWorkspace().getQueryManager();
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_BINDER_OBJECT + " WHERE moxtra:id='" + binder.getBinderId()
+        + "' AND jcr:path LIKE '" + node.getPath() + "/%'", Query.SQL);
+    return q.execute().getNodes();
   }
 
   public static Property setCreatingTime(Node document, Date time) throws RepositoryException {

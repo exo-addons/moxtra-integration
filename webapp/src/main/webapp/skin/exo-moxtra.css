@@ -51,6 +51,7 @@ a:hover>.uiIconEcmsEditInMoxtra {
 .meetErrorMessage, .meetCreationInfo {
 	font-size: 12px;
 	display: inline;
+	line-height: 16px;
 }
 
 .meetSchedule>.input-small {

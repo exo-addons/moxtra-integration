@@ -1,5 +1,5 @@
 <!-- Binder data -->
-<div class="offset9 span2">
+<div class="offset10 span2">
 	<div class="dropdown pull-right">
 		<a class="btn dropdown-toggle moxtraIcon" data-toggle="dropdown" href="#" style="margin-left: 5px;"> <i
 			class="uiIconMoxtra"></i>&{MoxtraBinderSpaceController.meetButton}
@@ -11,7 +11,9 @@
 		</ul>
 	</div>
 </div>
-<div id="moxtra-binder-pages" class="span11 moxtraPages"></div>
+<div class="row-fluid">
+	<div id="moxtra-binder-pages" class="moxtraPages span12"></div>
+</div>
 <!-- div class="poweredByMoxtra">
 	<span>&{Moxtra.poweredBy}&nbsp</span><a href="http://www.moxtra.com"> <img src="/moxtra/images/moxtra-logo.png" width="108" height="24"
 		alt="Moxtra" align="right"></a>

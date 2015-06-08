@@ -207,6 +207,7 @@
 				var auth = moxtra.authorize();
 				auth.done(function() {
 					log("Moxtra user authorized successfully");
+					$authButton.hide();
 					loadData();
 				});
 				auth.fail(function(error) {

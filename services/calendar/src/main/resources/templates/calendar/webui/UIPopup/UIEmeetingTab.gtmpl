@@ -72,12 +72,16 @@
 					<%	} %>
 				</span>
 					<%	if (uicomponent.meetNew) { %>
-        <div class="meetCreationInfo ui-widget">
-          <div class="ui-state-highlight ui-corner-all" style="padding: 0 .7em;">
-             <span class="ui-icon ui-icon-info" style="float: left; margin-right: .3em;"></span>
+				<div class="meetCreationInfo">
+          <div class="alert" style="padding: 0 .7em; margin: 0;">
              <span><%=uiForm.getLabel(uicomponent.MESSAGE_MEET_CREATION_INFO)%></span>
           </div>
         </div>
+        <!-- div class="meetCreationInfo ui-widget">
+          <div class="ui-state-highlight ui-corner-all" style="padding: 0 .7em;">
+             <span class="ui-icon ui-icon-info" style="float: left; margin-right: .3em;"></span>
+          </div>
+        </div -->
         	<%	}
            		if (uicomponent.canStartMeet) { %>
         <span class="meetStartAction" rel="tooltip" data-placement="bottom" 

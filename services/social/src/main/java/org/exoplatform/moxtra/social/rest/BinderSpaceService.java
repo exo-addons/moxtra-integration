@@ -20,6 +20,7 @@ package org.exoplatform.moxtra.social.rest;
 
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.client.MoxtraClientException;
+import org.exoplatform.moxtra.client.MoxtraPage;
 import org.exoplatform.moxtra.rest.ErrorInfo;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
@@ -73,13 +74,18 @@ public class BinderSpaceService implements ResourceContainer {
       MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
       if (binderSpace != null) {
         if (binderSpace.hasPage(pageNodeUUID)) {
-          return Response.ok().entity(binderSpace.getPage(pageNodeUUID)).build();
+          MoxtraPage page = binderSpace.getPage(pageNodeUUID);
+          if (page.isCreated()) {
+            return Response.ok().entity(page).build();
+          }
         }
       }
+      // TODO would use of "Accepted" response be more correct? 
       return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
-                     .entity(ErrorInfo.clientError("Error getting binder page " + spaceName + " " + pageNodeUUID))
+                     .entity(ErrorInfo.clientError("Error getting binder page " + spaceName + " "
+                         + pageNodeUUID))
                      .build();
     } catch (MoxtraException e) {
       LOG.error("Error getting binder page " + spaceName + " " + pageNodeUUID, e);

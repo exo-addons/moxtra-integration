@@ -20,6 +20,7 @@ package org.exoplatform.moxtra.social.portlet;
 
 import juzu.Action;
 import juzu.Path;
+import juzu.PropertyType;
 import juzu.Resource;
 import juzu.Response;
 import juzu.SessionScoped;
@@ -114,15 +115,17 @@ public class MoxtraBinderSpaceController {
         String exoUser = resourceContext.getSecurityContext().getRemoteUser();
         boolean isNew;
         boolean isManager;
-        String binderId;
+        String binderId, spaceName;
         if (binderSpace != null) {
           isNew = binderSpace.isNew();
           isManager = binderSpace.isCurrentUserManager();
           binderId = binderSpace.getBinder().getBinderId();
+          spaceName = binderSpace.getSpace().getPrettyName();
         } else {
           isManager = moxtra.isContextSpaceManager();
-          isNew = true; // if no binder space then it's new space
+          isNew = true; // if no binder space then it's new binder
           binderId = "";
+          spaceName = moxtra.getContextSpace().getPrettyName();
         }
         if (moxtra.isAuthorized()) {
           return index.with()
@@ -132,6 +135,7 @@ public class MoxtraBinderSpaceController {
                       .isAuthorized(true)
                       .authLink("")
                       .binderId(binderId)
+                      .spaceName(spaceName)
                       .ok();
         } else {
           return index.with()
@@ -141,6 +145,7 @@ public class MoxtraBinderSpaceController {
                       .isAuthorized(false)
                       .authLink(moxtra.getOAuth2Link())
                       .binderId(binderId)
+                      .spaceName(spaceName)
                       .ok();
         }
       } catch (Throwable e) {
@@ -249,7 +254,7 @@ public class MoxtraBinderSpaceController {
         }
         context.reset();
       }
-      return MoxtraBinderSpaceController_.index();
+      return MoxtraBinderSpaceController_.index().withNo(PropertyType.REDIRECT_AFTER_ACTION);
     } catch (Throwable e) {
       LOG.error("Error saving Moxtra Binder in the space", e);
       return MoxtraBinderSpaceController_.error(e.getMessage());
@@ -259,7 +264,7 @@ public class MoxtraBinderSpaceController {
   @Action
   public Response.View cancel() {
     context.reset();
-    return MoxtraBinderSpaceController_.index();
+    return MoxtraBinderSpaceController_.index().withNo(PropertyType.REDIRECT_AFTER_ACTION);
   }
 
   @View

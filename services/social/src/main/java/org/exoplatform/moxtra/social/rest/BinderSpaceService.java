@@ -18,9 +18,14 @@
  */
 package org.exoplatform.moxtra.social.rest;
 
+import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
+
+import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.client.MoxtraClientException;
+import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraPage;
+import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.rest.ErrorInfo;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
@@ -28,9 +33,17 @@ import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
 
+import java.util.Date;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 import javax.annotation.security.RolesAllowed;
 import javax.jcr.RepositoryException;
+import javax.ws.rs.DefaultValue;
+import javax.ws.rs.FormParam;
 import javax.ws.rs.GET;
+import javax.ws.rs.POST;
 import javax.ws.rs.Path;
 import javax.ws.rs.PathParam;
 import javax.ws.rs.Produces;
@@ -80,7 +93,7 @@ public class BinderSpaceService implements ResourceContainer {
           }
         }
       }
-      // TODO would use of "Accepted" response be more correct? 
+      // TODO would use of "Accepted" response be more correct?
       return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
@@ -93,6 +106,94 @@ public class BinderSpaceService implements ResourceContainer {
     } catch (RepositoryException e) {
       LOG.error("Error reading binder page " + spaceName + " " + pageNodeUUID, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error reading binder page")).build();
+    }
+  }
+
+  @POST
+  @RolesAllowed("users")
+  @Path("/{spaceName}/meets")
+  public Response createMeet(@Context UriInfo uriInfo,
+                             @PathParam("spaceName") String spaceName,
+                             @FormParam("name") String name,
+                             @FormParam("agenda") @DefaultValue("") String agenda,
+                             @FormParam("startTime") String startTimeMs,
+                             @FormParam("endTime") String endTimeMs,
+                             @FormParam("autoRecording") @DefaultValue("false") String autoRecording,
+                             @FormParam("users[]") List<String> users) {
+
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      if (binderSpace != null) {
+        if (name != null && name.length() > 0) {
+          if (startTimeMs != null && endTimeMs != null) {
+            Date startTime;
+            try {
+              startTime = Moxtra.getDate(Long.parseLong(startTimeMs));
+            } catch (NumberFormatException e) {
+              return Response.status(Status.BAD_REQUEST)
+                             .entity(ErrorInfo.clientError("Error parsing meet start date " + startTimeMs))
+                             .build();
+            }
+            Date endTime;
+            try {
+              endTime = Moxtra.getDate(Long.parseLong(endTimeMs));
+            } catch (NumberFormatException e) {
+              return Response.status(Status.BAD_REQUEST)
+                             .entity(ErrorInfo.clientError("Error parsing meet end date " + endTimeMs))
+                             .build();
+            }
+            // parse users
+            Set<MoxtraUser> userSet = new LinkedHashSet<MoxtraUser>();
+            for (String u : users) {
+              String[] uparts = u.split("\\+");
+              String email, uniqueId, orgId;
+              if (uparts.length >= 3) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = cleanValue(uparts[2]);
+              } else if (uparts.length == 2) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = null;
+              } else {
+                email = u;
+                uniqueId = orgId = null;
+              }
+              userSet.add(new MoxtraUser(uniqueId, orgId, email));
+            }
+
+            MoxtraMeet meet = moxtra.createMeet(binderSpace,
+                                                name,
+                                                agenda,
+                                                startTime,
+                                                endTime,
+                                                Boolean.parseBoolean(autoRecording),
+                                                userSet);
+            return Response.ok().entity(meet).build();
+          } else {
+            return Response.status(Status.BAD_REQUEST)
+                           .entity(ErrorInfo.clientError("Meet time required"))
+                           .build();
+          }
+        } else {
+          return Response.status(Status.BAD_REQUEST)
+                         .entity(ErrorInfo.clientError("Meet name required"))
+                         .build();
+        }
+      } else {
+        return Response.status(Status.NOT_FOUND).entity("{\"code\":\"spacebinder_not_found\"}").build();
+      }
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error creating meet '" + name + "' in '" + spaceName
+                         + "' space "))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error creating meet in '" + spaceName + "' space", e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error creating meet in space")).build();
+    } catch (RepositoryException e) {
+      LOG.error("Error saving meet in '" + spaceName + "' space", e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error saving meet in space")).build();
     }
   }
 

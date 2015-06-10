@@ -191,6 +191,25 @@
 
 			return initRequest(request);
 		};
+		
+		var postBinderSpaceMeet = function(spaceName, name, agenda, startTime, endTime, autoRecording, users, async) {
+			var request = $.ajax({
+				async : async ? true : false,
+				type : "POST",
+				url : serverUrl + "/portal/rest/moxtra/binder/space/" + spaceName + "/meets",
+				dataType : "json",
+				data : {
+					name : name,
+					agenda : agenda,
+					startTime : startTime,
+					endTime : endTime,
+					autoRecording : autoRecording ? true : false,
+					users : users
+				}
+			});
+
+			return initRequest(request);
+		};
 
 		var getMeet = function(sessionKey, async) {
 			var request = $.ajax({
@@ -408,7 +427,7 @@
 		 * Create a meet with given parameters.
 		 */
 		var createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
-			var create = postMeet(name, agenda, startTime, endTime, autoRecording, false);
+			var create = postMeet(name, agenda, startTime, endTime, autoRecording, true);
 			create.done(function(meet) {
 				if (meet) {
 					// then add users to the meet asynchronously
@@ -887,6 +906,21 @@
 		this.createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
 			return createMeet(name, agenda, startTime, endTime, autoRecording, users);
 		};
+		
+		/**
+		 * Create a meet in binder space with given parameters.
+		 */
+		this.createBinderMeet = function(spaceName, name, agenda, startTime, endTime, autoRecording, users) {
+			var create = postBinderSpaceMeet(spaceName, name, agenda, startTime, endTime, autoRecording, users, true);
+			create.done(function(meet) {
+				// TODO nothing here?
+			});
+			create.fail(function(error) {
+				// TODO notif user about an error
+				log("ERROR: Error creating binder meet " + name + ". " + (error.message ? error.message : error), error);
+			});
+			return create;
+		};
 
 		/**
 		 * Init binder space documents app.
@@ -894,6 +928,7 @@
 		this.initDocuments = function(openInNewWindow) {
 			// ensure authorization
 			var $editInMoxtra = $("#ECMContextMenu a[exo\\:attr='EditInMoxtra']");
+			// TODO cleanup
 			// if (openInNewWindow) {
 			// $editInMoxtra.click(function() {
 			// // open blank window before ajax request
@@ -1061,7 +1096,6 @@
 					init();
 				} else {
 					// load Moxtra JS API, then init it
-					//$.getScript("https://www.moxtra.com/api/js/moxtra-latest.js", function(data, textStatus, jqxhr) {
 					var jsLoader = loadScript("https://www.moxtra.com/api/js/moxtra-latest.js", "moxtrajs");
 					jsLoader.done(function() {
 						log("Moxtra JS API loaded");

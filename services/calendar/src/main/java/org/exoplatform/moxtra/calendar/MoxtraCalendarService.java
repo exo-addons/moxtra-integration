@@ -298,11 +298,17 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   /**
    * Create scheduled Meet in a new Event.
+   * @throws Exception 
    * 
    * @throws MoxtraCalendarException
    */
-  public MoxtraMeet scheduleMeet(String calendarId, CalendarEvent event) {
+  public MoxtraMeet scheduleMeet(String groupId, CalendarEvent event) throws Exception {
     // TODO
+    
+    //calendar.getCalendarById(calId);
+    //uiForm.calType_.equals(CalendarUtils.PUBLIC_TYPE)){
+    String calId = groupId;
+    calendar.savePublicEvent(calId, event, true);
     
     return null;
   }

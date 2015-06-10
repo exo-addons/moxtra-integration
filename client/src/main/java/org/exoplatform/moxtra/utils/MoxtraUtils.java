@@ -49,5 +49,18 @@ public class MoxtraUtils {
     }
     return name;
   }
+  
+  /**
+   * Return meaningful value of some text in the string. If string is empty then <code>null</code> will be returned.  
+   * 
+   * @param value input {@link String}
+   * @return textual value or <code>null</code>
+   */
+  public static String cleanValue(String value) {
+    if (value != null && value.trim().length() == 0) {
+      return null;
+    }
+    return value;
+  }
 
 }

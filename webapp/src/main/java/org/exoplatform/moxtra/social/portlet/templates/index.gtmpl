@@ -4,11 +4,13 @@
 #{param name=isAuthorized/} 
 #{param name=authLink/} 
 #{param name=binderId/}
+#{param name=spaceName/}
 <%
   def disabled = isNew ? 'disabled' : ''
 %>
 <div class="container-fluid">
-	<div id="moxtra-binder-app" class="row-fluid" data-exo-user="${exoUser}" data-moxtra-authorized=${isAuthorized}
+	<div id="moxtra-binder-app" class="row-fluid" data-exo-user="${exoUser}" 
+								data-moxtra-authorized=${isAuthorized} data-exo-space=${spaceName}
 								<%=authLink ? "data-moxtra-authlink=\"$authLink\"" : '' %> 
 								<%=binderId ? "data-moxtra-binder-id=\"$binderId\"" : '' %>>
 		<div class="span12">
@@ -68,6 +70,7 @@
 									</div>
 								</div>
 								<div class="control-group binderConfig ${disabled}"></div>
+								<input type="hidden" value="true" name="cancelBinder">
 							</div>
 					</div>
 					<div class="modal-footer">

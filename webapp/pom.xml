@@ -60,6 +60,20 @@
       <type>jar</type>
     </dependency>
     
+    <!-- eXo Social -->
+    <dependency>
+      <groupId>org.exoplatform.social</groupId>
+      <artifactId>social-component-core</artifactId>
+      <scope>provided</scope>
+      <type>jar</type>
+    </dependency>
+    <dependency>
+      <groupId>org.exoplatform.social</groupId>
+      <artifactId>social-component-webui</artifactId>
+      <scope>provided</scope>
+      <type>jar</type>
+    </dependency>
+    
     <!-- eXo Platform's Juzu -->
     <dependency>
       <groupId>org.exoplatform.commons</groupId>

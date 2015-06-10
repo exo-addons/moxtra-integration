@@ -134,9 +134,9 @@
       <depends>
         <module>exoMoxtra</module>
       </depends>
-      <!-- depends>
+      <depends>
         <module>jqueryUI</module>
-      </depends -->
+      </depends>
       <depends>
         <module>juzu-ajax</module>
       </depends>

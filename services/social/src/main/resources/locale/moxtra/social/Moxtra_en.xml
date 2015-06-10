@@ -38,6 +38,8 @@
     <meetSpaceMembers>Space members</meetSpaceMembers>
     <meetEmails>Invite by email</meetEmails>
     <meetAutorec>Record automatically</meetAutorec>
+    <meetCreating>Please wait, you meeting is creating...</meetCreating>
+    <meetCreated>Your meet created successfully!</meetCreated>
     <cancel>Cancel</cancel>
     <start>Start</start>
     <schedule>Schedule</schedule>

@@ -1,25 +1,25 @@
 <!-- Binder data -->
 <div class="offset10 span2">
 	<div class="dropdown pull-right">
-		<a class="btn dropdown-toggle moxtraIcon" data-toggle="dropdown" href="#" style="margin-left: 5px;"> <i
-			class="uiIconMoxtra"></i>&{MoxtraBinderSpaceController.meetButton}
+		<a class="btn dropdown-toggle moxtraIcon" data-toggle="dropdown" href="#" style="margin-left: 5px;"> <i class="uiIconMoxtra"></i>&{MoxtraBinderSpaceController.meetButton}
 		</a>
 		<ul class="dropdown-menu" role="menu" aria-labelledby="dLabel">
-			<li role="presentation"><a type="button" role="menuitem" tabindex="-1" href="#" class="meetStartAction"> &{MoxtraBinderSpaceController.startMeet} </a></li>
-			<li role="presentation"><a id="" type="button" role="menuitem" tabindex="-1" href="#" class="meetScheduleAction"> &{MoxtraBinderSpaceController.scheduleMeet} </a></li>
-			<li role="presentation"><a id="" type="button" role="menuitem" tabindex="-1" href="#" class="meetScheduledAction"> &{MoxtraBinderSpaceController.selectScheduledMeet} </a></li>
+			<li role="presentation"><a type="button" role="menuitem" tabindex="-1" href="#" class="meetStartAction">
+					&{MoxtraBinderSpaceController.startMeet} </a></li>
+			<li role="presentation"><a id="" type="button" role="menuitem" tabindex="-1" href="#" class="meetScheduleAction">
+					&{MoxtraBinderSpaceController.scheduleMeet} </a></li>
 		</ul>
 	</div>
 	<!-- Meet setup dialog -->
 	<div id="moxtra-binder-meet" class="modal hide fade" tabindex="-1" role="dialog" style="z-index: 1;"
-					aria-labelledby="moxtra-binder-meet-title" aria-hidden="true" data-backdrop="">
+		aria-labelledby="moxtra-binder-meet-title" aria-hidden="true" data-backdrop="">
 		<div class="modal-header">
 			<button type="button" class="close" data-dismiss="modal" aria-hidden="true">x</button>
 			<h3 id="moxtra-binder-meet-title">&{MoxtraBinderSpaceController.meetSettings}</h3>
 		</div>
-		<form role="form">
-			<fieldset>
-				<div class="modal-body">
+		<div class="modal-body">
+			<form role="form">
+				<fieldset>
 					<div class="meetMessage">
 						<div class="alert" style="display: none;"></div>
 					</div>
@@ -43,20 +43,19 @@
 								<div class="controls">
 									<div class="input-append date form_datetime form-control" data-date-format="mm/dd/yyyy hh:ii" data-link-field="meetStartTimeVal">
 										<input type="text" size="16" value="" readonly name="meetStartTime" placeholder="&{MoxtraBinderSpaceController.meetStartTimeHint}">
-									  <span class="add-on"><i class="icon-th"></i></span>
+										<span class="add-on"><i class="icon-th"></i></span>
 									</div>
-								  <input type="hidden" id="meetStartTimeVal">
-							  </div>
+								</div>
 							</div>
 							<div class="control-group">
 								<label class="control-label" for="meetEndTime">&{MoxtraBinderSpaceController.meetEndTime}</label>
 								<div class="controls">
 									<div class="input-append date form_datetime form-control" data-date-format="mm/dd/yyyy hh:ii" data-link-field="meetEndTimeVal">
 										<input type="text" size="16" value="" readonly name="meetEndTime" placeholder="&{MoxtraBinderSpaceController.meetEndTimeHint}">
-									  <span class="add-on"><i class="icon-th"></i></span>
+										<span class="add-on"><i class="icon-th"></i></span>
 									</div>
-								  <input type="hidden" id="meetEndTimeVal">
-							  </div>
+									<input type="hidden" id="meetEndTimeVal">
+								</div>
 							</div>
 						</div>
 						<div class="control-group">
@@ -68,10 +67,8 @@
 						<div class="meetParticipantsTitle">
 							<span>&{MoxtraBinderSpaceController.meetParticipants}</span>
 						</div>
-						<div class="meetMoxtraContacts">
-						</div>
-						<div class="meetSpaceMembers">
-						</div>
+						<div class="meetMoxtraContacts"></div>
+						<div class="meetSpaceMembers"></div>
 						<div class="meetEmailMembers">
 							<div class="control-group">
 								<label class="control-label" for="meetEmails">&{MoxtraBinderSpaceController.meetEmails}</label>
@@ -81,18 +78,42 @@
 							</div>
 						</div>
 					</div>
+				</fieldset>
+			</form>
+			<div class="meetCreating" style="display: none;">
+				<div class="control-group">
+					<div>&{MoxtraBinderSpaceController.meetCreating}</div>
+					<div class="waitThrobber"></div>
 				</div>
-				<div class="modal-footer">
-					<div class="control-group text-centered form-buttons">
-						<div class="controls">
-							<button type=submit class="btn btn-primary meetSchedule">&{MoxtraBinderSpaceController.schedule}</button>
-							<button type=submit class="btn btn-primary meetStart">&{MoxtraBinderSpaceController.start}</button>
-							<button type="button" class="btn meetCancel" onclick="" data-dismiss="modal" aria-hidden="true">&{MoxtraBinderSpaceController.cancel}</button>
-						</div>
+			</div>
+			<div class="meetCreated" style="display: none;">
+				<div class="control-group">
+					<label class="control-label" for="meetStartAction">&{MoxtraBinderSpaceController.meetCreated}</label>
+					<div class="controls">
+						<span class="meetStartAction" rel="tooltip" data-placement="bottom" title="" style="display: none;"> <a class="btn" href="#"
+							target="_blank">Start meet</a>
+						</span>
+					</div>
+					<label class="control-label">Meet link in Moxtra:</label>
+					<div class="controls meetLink">
+						<a href="#" data-placement="bottom" title="" target="_blank">#</a>
+					</div>
+					<label class="control-label">Meet in Calendar: </label>
+					<div class="controls meetEvent">
+						<a href="#" data-placement="bottom" title="" target="_blank">event</a>
 					</div>
 				</div>
-			</fieldset>
-		</form>
+			</div>
+		</div>
+		<div class="modal-footer">
+			<div class="control-group text-centered form-buttons">
+				<div class="controls">
+					<button type=submit class="btn btn-primary meetSchedule">&{MoxtraBinderSpaceController.schedule}</button>
+					<button type=submit class="btn btn-primary meetStart">&{MoxtraBinderSpaceController.start}</button>
+					<button type="button" class="btn meetCancel" onclick="" data-dismiss="modal" aria-hidden="true">&{MoxtraBinderSpaceController.cancel}</button>
+				</div>
+			</div>
+		</div>
 	</div>
 </div>
 <div class="row-fluid">

@@ -10,6 +10,7 @@ import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
+import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraPage;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
@@ -993,12 +994,22 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       throw new MoxtraSocialException("Meet document not a file " + document.getName() + " "
           + document.getPrimaryNodeType().getName());
     }
+  }
 
-//  public void uploadMeetDocument(Node document, String sessionKey, String sessionId) throws MoxtraClientException,
-//                                                                                    MoxtraSocialException,
-//                                                                                    RepositoryException,
-//                                                                                    MoxtraException {
-//    
+  public MoxtraMeet createMeet(MoxtraBinderSpace binderSpace,
+                               String topic,
+                               String agenda,
+                               Date startTime,
+                               Date endTime,
+                               boolean autoRecording,
+                               Set<MoxtraUser> userSet) throws MoxtraClientException,
+                                                       MoxtraSocialException,
+                                                       RepositoryException,
+                                                       MoxtraException {
+    
+    
+
+    return null;
   }
 
   // ********* internals *********

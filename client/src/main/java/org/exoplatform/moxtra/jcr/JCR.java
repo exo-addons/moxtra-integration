@@ -76,6 +76,8 @@ public class JCR {
   public static final String NODETYPE_ACCESS_TOKEN_STORE = "moxtra:accessTokenStore";
 
   public static final String VALUE_CREATING_ID           = "_creating";
+  
+  public static final String VALUE_EMPTY   = "";
 
   public static boolean isUserStore(Node node) throws RepositoryException {
     return node.isNodeType(NODETYPE_USER_STORE);
@@ -133,7 +135,7 @@ public class JCR {
     // // ignore it
     // }
 
-    //removeMoxtraItems(node);
+    // removeMoxtraItems(node);
     for (NodeIterator niter = node.getNodes(); niter.hasNext();) {
       cleanBaseNodeReferences(niter.nextNode());
     }
@@ -353,7 +355,7 @@ public class JCR {
 
     return res;
   }
-  
+
   public static void addPageDocument(Node document) throws RepositoryException {
     document.addMixin(NODETYPE_PAGE_DOCUMENT);
   }
@@ -361,11 +363,12 @@ public class JCR {
   public static boolean isPageDocument(Node document) throws RepositoryException {
     return document.isNodeType(NODETYPE_PAGE_DOCUMENT);
   }
-  
+
   public static NodeIterator findBinder(Node node, MoxtraBinder binder) throws RepositoryException {
     QueryManager qm = node.getSession().getWorkspace().getQueryManager();
-    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_BINDER_OBJECT + " WHERE moxtra:id='" + binder.getBinderId()
-        + "' AND jcr:path LIKE '" + node.getPath() + "/%'", Query.SQL);
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_BINDER_OBJECT + " WHERE moxtra:id='"
+                                 + binder.getBinderId() + "' AND jcr:path LIKE '" + node.getPath() + "/%'",
+                             Query.SQL);
     return q.execute().getNodes();
   }
 
@@ -407,13 +410,78 @@ public class JCR {
   public static Property getId(Node node) throws RepositoryException {
     return node.getProperty("moxtra:id");
   }
+  
+  public static String getIdString(Node node) throws RepositoryException {
+    String id = node.getProperty("moxtra:id").getString();
+    return id.equals(VALUE_EMPTY) ? null : id;
+  }
 
   public static Property setId(Node node, String id) throws RepositoryException {
-    return node.setProperty("moxtra:id", id);
+    return node.setProperty("moxtra:id", id != null ? id : VALUE_EMPTY);
   }
 
   public static Property setId(Node node, Long id) throws RepositoryException {
     return node.setProperty("moxtra:id", id);
+  }
+
+  public static Property getUniqueId(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:uniqueId");
+  }
+
+  public static String getUniqueIdString(Node node) throws RepositoryException {
+    try {
+      return node.getProperty("moxtra:uniqueId").getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
+  }
+
+  public static boolean hasUniqueId(Node node) throws RepositoryException {
+    return node.hasProperty("moxtra:uniqueId");
+  }
+
+  public static Property setUniqueId(Node node, String uniqueId) throws RepositoryException {
+    return node.setProperty("moxtra:uniqueId", uniqueId);
+  }
+
+  public static Property getOrgId(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:orgId");
+  }
+  
+  public static String getOrgIdString(Node node) throws RepositoryException {
+    try {
+      return node.getProperty("moxtra:orgId").getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
+  }
+
+  public static boolean hasOrgId(Node node) throws RepositoryException {
+    return node.hasProperty("moxtra:orgId");
+  }
+
+  public static Property setOrgId(Node node, String orgId) throws RepositoryException {
+    return node.setProperty("moxtra:orgId", orgId);
+  }
+  
+  public static Property getPictureUri(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:pictureUri");
+  }
+  
+  public static String getPictureUriString(Node node) throws RepositoryException {
+    try {
+      return node.getProperty("moxtra:pictureUri").getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
+  }
+
+  public static boolean hasPictureUri(Node node) throws RepositoryException {
+    return node.hasProperty("moxtra:pictureUri");
+  }
+
+  public static Property setPictureUri(Node node, String pictureUri) throws RepositoryException {
+    return node.setProperty("moxtra:pictureUri", pictureUri);
   }
 
   public static Property getName(Node node) throws RepositoryException {

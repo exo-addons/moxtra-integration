@@ -37,6 +37,10 @@ public class MoxtraUser {
 
   protected final String     id;
 
+  protected final String     uniqueId;
+
+  protected final String     orgId;
+
   protected final String     name;
 
   protected final String     email;
@@ -45,9 +49,9 @@ public class MoxtraUser {
 
   protected final String     lastName;
 
-  protected final String     type;
+  protected final String     pictureUri;
 
-  protected final String     status;
+  protected final String     type;
 
   protected final Date       createdTime;
 
@@ -55,36 +59,48 @@ public class MoxtraUser {
 
   protected final int        hashCode;
 
+  protected String           status;
+
   /**
    * Moxtra user full definition.
    * 
    * @param id
+   * @param uniqueId
+   * @param orgId
    * @param name
    * @param email
    * @param firstName
    * @param lastName
+   * @param pictureUri
    * @param type
    * @param createdTime
    * @param updatedTime
    */
   public MoxtraUser(String id,
+                    String uniqueId,
+                    String orgId,
                     String name,
                     String email,
                     String firstName,
                     String lastName,
+                    String pictureUri,
                     String type,
-                    String status,
                     Date createdTime,
                     Date updatedTime) {
     super();
     this.email = email;
     this.id = id;
+    this.uniqueId = uniqueId;
+    this.orgId = orgId;
     // XXX name can be empty - use email then, if email is null then use id
-    this.name = name != null && name.length() > 0 ? name : (email != null && email.length() > 0 ? email : id);
+    this.name = name != null && name.length() > 0 ? name
+                                                 : (email != null && email.length() > 0 ? email
+                                                                                       : (uniqueId != null ? uniqueId
+                                                                                                          : id));
     this.firstName = firstName;
     this.lastName = lastName;
+    this.pictureUri = pictureUri;
     this.type = type != null ? type : MoxtraUser.USER_TYPE_NORMAL;
-    this.status = status;
     this.createdTime = createdTime;
     this.updatedTime = updatedTime;
 
@@ -92,8 +108,8 @@ public class MoxtraUser {
     if (id != null) {
       hc = hc * 31 + id.hashCode();
     }
-    hc = hc * 31 + name.hashCode();
-    hc = hc * 31 + email.hashCode();
+    hc = hc * 31 + this.name.hashCode();
+    hc = hc * 31 + this.email.hashCode();
     if (type != null) {
       hc = hc * 31 + type.hashCode();
     }
@@ -107,26 +123,72 @@ public class MoxtraUser {
   }
 
   /**
-   * User in Moxtra Contacts.<br>
+   * Moxtra user definition without unique_id and org_id.
    * 
    * @param id
    * @param name
    * @param email
+   * @param firstName
+   * @param lastName
+   * @param type
+   * @param createdTime
+   * @param updatedTime
    */
-  public MoxtraUser(String id, String name, String email) {
-    this(id, name, email, null, null, USER_TYPE_NORMAL, null, null, null);
+  @Deprecated
+  public MoxtraUser(String id,
+                    String name,
+                    String email,
+                    String firstName,
+                    String lastName,
+                    String pictureUri,
+                    String type,
+                    Date createdTime,
+                    Date updatedTime) {
+    this(id, null, null, name, email, firstName, lastName, pictureUri, type, createdTime, updatedTime);
   }
 
   /**
-   * User in Moxtra Meet participants.<br>
+   * User in Moxtra Binder/Meet memebers.<br>
    * 
    * @param id
+   * @param uniqueId
+   * @param orgId
    * @param name
    * @param email
+   * @param pictureUri
    * @param type
    */
-  public MoxtraUser(String id, String name, String email, String type) {
-    this(id, name, email, null, null, type, null, null, null);
+  public MoxtraUser(String id,
+                    String uniqueId,
+                    String orgId,
+                    String name,
+                    String email,
+                    String pictureUri,
+                    String type) {
+    this(id, uniqueId, orgId, name, email, null, null, pictureUri, type, null, null);
+  }
+
+  /**
+   * User with name and email known (for invitation of local eXo users).<br>
+   * 
+   * @param uniqueId
+   * @param orgId
+   * @param name
+   * @param email
+   */
+  public MoxtraUser(String uniqueId, String orgId, String name, String email) {
+    this(null, uniqueId, orgId, name, email, null, null, null, USER_TYPE_NORMAL, null, null);
+  }
+
+  /**
+   * User with email known (for invitation).<br>
+   * 
+   * @param uniqueId
+   * @param orgId
+   * @param email
+   */
+  public MoxtraUser(String uniqueId, String orgId, String email) {
+    this(uniqueId, orgId, email, email);
   }
 
   /**
@@ -135,17 +197,7 @@ public class MoxtraUser {
    * @param email
    */
   public MoxtraUser(String email) {
-    this(email, email, email, null, null, USER_TYPE_NORMAL, null, null, null);
-  }
-
-  /**
-   * User with name and email known (for invitation).<br>
-   * 
-   * @param name
-   * @param email
-   */
-  public MoxtraUser(String name, String email) {
-    this(email, name, email, null, null, USER_TYPE_NORMAL, null, null, null);
+    this(null, null, email);
   }
 
   /**
@@ -176,8 +228,23 @@ public class MoxtraUser {
     str.append(name);
     str.append(" (");
     str.append(email);
+    String uniqueId = getUniqueId();
+    if (uniqueId != null) {
+      str.append(' ');
+      str.append(uniqueId);
+    }
+    String orgId = getOrgId();
+    if (orgId != null) {
+      if (uniqueId == null) {
+        str.append(' ');
+      }
+      str.append('+');
+      str.append(orgId);
+    }
     str.append(") ");
-    str.append(id);
+    if (id != null) {
+      str.append(id);
+    }
     return str.toString();
   }
 
@@ -259,6 +326,56 @@ public class MoxtraUser {
     return updatedTime;
   }
 
+  /**
+   * @return the pictureUri
+   */
+  public String getPictureUri() {
+    return pictureUri;
+  }
+
+  /**
+   * @return the uniqueId
+   */
+  public String getUniqueId() {
+    return uniqueId;
+  }
+
+  /**
+   * @return the orgId
+   */
+  public String getOrgId() {
+    return orgId;
+  }
+
+  /**
+   * Check if this user has the same identity as given (Unique ID + Org ID).
+   * 
+   * @param uniqueId
+   * @param orgId
+   * @return <code>true</code> if it is the same user, <code>false</code> otherwise
+   */
+  public boolean isSameIdentity(String uniqueId, String orgId) {
+    if (this.uniqueId != null && this.uniqueId.equals(uniqueId)) {
+      return isSameOrganization(orgId);
+    }
+    return false;
+  }
+
+  /**
+   * Check if belongs to the sane organization as given (by Org ID).
+   * 
+   * @param orgId
+   * @return <code>true</code> if it is the same organization, <code>false</code> otherwise
+   */
+  public boolean isSameOrganization(String orgId) {
+    if (this.orgId != null && orgId != null && this.orgId.equals(orgId)) {
+      return true;
+    } else if (this.orgId == null && orgId == null) {
+      return true;
+    }
+    return false;
+  }
+
   // ******** internals ******
 
   /**
@@ -272,11 +389,23 @@ public class MoxtraUser {
     if (id != null && id.equals(user.getId())) {
       return true;
     }
+    if (isSameIdentity(user.getUniqueId(), user.getOrgId())) {
+      return true;
+    }
     String email = getEmail();
     if (email != null && email.equals(user.getEmail())) {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Set user status in binder. Actual for binder members only.
+   * 
+   * @param status
+   */
+  protected void setStatus(String status) {
+    this.status = status;
   }
 
 }

@@ -11,8 +11,15 @@
 		<select name="meetParticipants" multiple="multiple" class="form-control">
 			<%
 			  for(u in users) {
+          def user = "${u.email}"
+          if (u.uniqueId) {
+            user << "+${u.uniqueId}"
+          }
+          if (u.orgId) {
+            user << "+${u.orgId}"
+          }
 			%>
-			<option value="${u.email}">${u.name ? u.name : u.email}</option>
+			<option value="${user}">${u.name ? u.name : u.email}</option>
 			<%
 			  }
 			%>

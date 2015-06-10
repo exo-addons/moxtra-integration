@@ -232,8 +232,22 @@ public class BinderService implements ResourceContainer {
           MoxtraClient client = moxtra.getClient();
           try {
             MoxtraBinder binder = client.getBinder(binderId).editor();
-            for (String email : users) {
-              binder.addUser(new MoxtraUser(email));
+            for (String u : users) {
+              String[] uparts = u.split("\\+");
+              String email, uniqueId, orgId;
+              if (uparts.length >= 3) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = cleanValue(uparts[2]);
+              } else if (uparts.length == 2) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = null;
+              } else {
+                email = u;
+                uniqueId = orgId = null;
+              }
+              binder.addUser(new MoxtraUser(uniqueId, orgId, email));
             }
             client.inviteUsers(binder);
 
@@ -277,5 +291,12 @@ public class BinderService implements ResourceContainer {
       }
     }
     return null;
+  }
+  
+  protected String cleanValue(String value) {
+    if (value != null && value.trim().length() == 0) {
+      return null;
+    }
+    return value;
   }
 }

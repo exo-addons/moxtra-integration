@@ -214,16 +214,31 @@ public class MeetService implements ResourceContainer {
   @GET
   @RolesAllowed("users")
   @Path("/find")
-  public Response find(@Context UriInfo uriInfo, @QueryParam("invitee") String inviteeEmail) {
+  public Response find(@Context UriInfo uriInfo, @QueryParam("invitee") String invitee) {
     try {
-      if (inviteeEmail != null) {
+      if (invitee != null) {
+        String[] iparts = invitee.split("\\+");
+        String email, uniqueId, orgId;
+        if (iparts.length >= 3) {
+          email = cleanValue(iparts[0]);
+          uniqueId = cleanValue(iparts[1]);
+          orgId = cleanValue(iparts[2]);
+        } else if (iparts.length == 2) {
+          email = cleanValue(iparts[0]);
+          uniqueId = cleanValue(iparts[1]);
+          orgId = null;
+        } else {
+          email = cleanValue(invitee);
+          uniqueId = orgId = null;
+        }
+
         MoxtraClient client = moxtra.getClient();
         Calendar from = Moxtra.getCalendar();
         from.add(Calendar.MINUTE, -60); // all created a hour ago
         for (MoxtraMeet meet : client.getMeets(from.getTime(), 1)) {
           if (meet.canStart()) {
             List<MoxtraUser> users = meet.getUsers();
-            MoxtraUser invited = findUser(users, inviteeEmail);
+            MoxtraUser invited = findUser(users, email, uniqueId, orgId);
             if (invited != null && users.size() == 2) {
               MoxtraUser hoster = meet.getHostUser();
               if (!hoster.equals(invited) && meet.hasUser(hoster)) {
@@ -236,16 +251,16 @@ public class MeetService implements ResourceContainer {
       return Response.noContent().build();
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
-                     .entity(ErrorInfo.clientError("Error searching meets with invitee " + inviteeEmail))
+                     .entity(ErrorInfo.clientError("Error searching meets with invitee " + invitee))
                      .build();
     } catch (MoxtraException e) {
-      LOG.error("Error searching meets with invitee " + inviteeEmail, e);
+      LOG.error("Error searching meets with invitee " + invitee, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error reading meet")).build();
     } catch (OAuthSystemException e) {
-      LOG.error("Access error for searching meets with invitee " + inviteeEmail, e);
+      LOG.error("Access error for searching meets with invitee " + invitee, e);
       return Response.serverError().entity(ErrorInfo.serverError("Access error for reading meet")).build();
     } catch (OAuthProblemException e) {
-      LOG.warn("Access problem while searching meets with invitee " + inviteeEmail, e);
+      LOG.warn("Access problem while searching meets with invitee " + invitee, e);
       return Response.status(Status.UNAUTHORIZED)
                      .entity(ErrorInfo.accessError("Acces problem while searching meet"))
                      .build();
@@ -265,8 +280,22 @@ public class MeetService implements ResourceContainer {
           MoxtraClient client = moxtra.getClient();
           try {
             MoxtraMeet meet = client.getMeet(sessionKey).editor();
-            for (String email : users) {
-              meet.addUser(new MoxtraUser(email));
+            for (String u : users) {
+              String[] uparts = u.split("\\+");
+              String email, uniqueId, orgId;
+              if (uparts.length >= 3) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = cleanValue(uparts[2]);
+              } else if (uparts.length == 2) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = null;
+              } else {
+                email = u;
+                uniqueId = orgId = null;
+              }
+              meet.addUser(new MoxtraUser(uniqueId, orgId, email));
             }
             client.inviteMeetUsers(meet);
 
@@ -303,12 +332,22 @@ public class MeetService implements ResourceContainer {
     }
   }
 
-  protected MoxtraUser findUser(List<MoxtraUser> users, String email) {
+  protected MoxtraUser findUser(List<MoxtraUser> users, String uniqueId, String orgId, String email) {
     for (MoxtraUser user : users) {
+      if (user.isSameIdentity(uniqueId, orgId)) {
+        return user;
+      }
       if (email.equals(user.getEmail())) {
         return user;
       }
     }
     return null;
+  }
+  
+  protected String cleanValue(String value) {
+    if (value != null && value.trim().length() == 0) {
+      return null;
+    }
+    return value;
   }
 }

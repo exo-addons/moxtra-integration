@@ -59,7 +59,7 @@
     </supertypes>
     <propertyDefinitions>
       <propertyDefinition name="moxtra:email" requiredType="String" autoCreated="false"
-        mandatory="true" onParentVersion="COPY" protected="false" multiple="false">
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
         <valueConstraints />
       </propertyDefinition>
       <propertyDefinition name="moxtra:type" requiredType="String" autoCreated="false"
@@ -142,7 +142,7 @@
     </propertyDefinitions>
     <childNodeDefinitions>
       <childNodeDefinition name="moxtra:users" defaultPrimaryType="moxtra:usersList"
-        autoCreated="false" mandatory="true" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        autoCreated="true" mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
         <requiredPrimaryTypes>
           <requiredPrimaryType>moxtra:usersList</requiredPrimaryType>
         </requiredPrimaryTypes>

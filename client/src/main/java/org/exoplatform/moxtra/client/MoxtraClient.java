@@ -22,7 +22,6 @@ import static org.exoplatform.moxtra.Moxtra.formatDate;
 import static org.exoplatform.moxtra.Moxtra.getCalendar;
 import static org.exoplatform.moxtra.Moxtra.getDate;
 import static org.exoplatform.moxtra.Moxtra.parseDate;
-
 import net.oauth.client.httpclient4.OAuthCredentials;
 
 import org.apache.http.Header;
@@ -61,6 +60,7 @@ import org.apache.oltu.oauth2.client.OAuthClient;
 import org.apache.oltu.oauth2.client.request.ClientHeaderParametersApplier;
 import org.apache.oltu.oauth2.client.request.OAuthBearerClientRequest;
 import org.apache.oltu.oauth2.client.request.OAuthClientRequest;
+import org.apache.oltu.oauth2.client.request.OAuthClientRequest.TokenRequestBuilder;
 import org.apache.oltu.oauth2.client.response.OAuthAccessTokenResponse;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponse;
 import org.apache.oltu.oauth2.client.response.OAuthClientResponseFactory;
@@ -72,13 +72,19 @@ import org.apache.oltu.oauth2.common.message.types.GrantType;
 import org.apache.oltu.oauth2.common.parameters.BodyURLEncodedParametersApplier;
 import org.apache.oltu.oauth2.common.parameters.QueryParameterApplier;
 import org.apache.oltu.oauth2.common.utils.OAuthUtils;
+import org.apache.ws.commons.util.Base64;
+import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.PortalContainer;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.NotFoundException;
 import org.exoplatform.moxtra.oauth2.AccessToken;
 import org.exoplatform.moxtra.rest.OAuthCodeAuthenticator;
+import org.exoplatform.moxtra.utils.MoxtraUtils;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.services.organization.Query;
+import org.exoplatform.services.organization.User;
 import org.exoplatform.services.security.ConversationState;
 import org.exoplatform.ws.frameworks.json.JsonParser;
 import org.exoplatform.ws.frameworks.json.impl.JsonDefaultHandler;
@@ -95,10 +101,13 @@ import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.net.URLEncoder;
+import java.security.InvalidKeyException;
 import java.security.KeyStore;
+import java.security.NoSuchAlgorithmException;
 import java.text.ParseException;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Iterator;
@@ -112,6 +121,8 @@ import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import javax.net.ssl.KeyManager;
 import javax.net.ssl.KeyManagerFactory;
 import javax.net.ssl.SSLContext;
@@ -165,7 +176,11 @@ public class MoxtraClient {
 
   public static final String     API_BINDER_REMOVEUSER              = API_BINDER + "/removeuser";
 
+  public static final String     API_BINDER_ADDTEAMUSER             = API_BINDER + "/addteamuser";
+
   public static final String     API_BINDER_PAGEUPLOAD              = API_BINDER + "/pageupload";
+
+  public static final String     API_BINDER_VIEWONLYLINK            = API_BINDER + "/viewonlylink";
 
   public static final String     API_BINDERS                        = API_V1 + "{user_id}/binders";
 
@@ -699,10 +714,14 @@ public class MoxtraClient {
     }
   }
 
+  public abstract class Authorizer {
+
+  }
+
   /**
    * Builder-style helper for Moxtra authorization via OAuth2.
    */
-  public class OAuth2Authorizer {
+  public class OAuth2Authorizer extends Authorizer {
     protected String redirectLink;
 
     /**
@@ -714,6 +733,18 @@ public class MoxtraClient {
      * @see {@link OAuthCodeAuthenticator}
      */
     public String authorizationLink() throws OAuthSystemException {
+      return authorizationOrgLink();
+    }
+
+    /**
+     * Create link for code based authorization using default redirect link handled by
+     * {@link OAuthCodeAuthenticator} REST service.
+     * 
+     * @return {@link String}
+     * @throws OAuthSystemException
+     * @see {@link OAuthCodeAuthenticator}
+     */
+    public String authorizationCodeLink() throws OAuthSystemException {
       StringBuilder redirectLink = new StringBuilder();
       redirectLink.append(oAuthClientSchema);
       redirectLink.append("://");
@@ -721,6 +752,26 @@ public class MoxtraClient {
       redirectLink.append('/');
       redirectLink.append(PortalContainer.getCurrentRestContextName());
       redirectLink.append("/moxtra/login");
+
+      return authorizationLink(redirectLink.toString());
+    }
+
+    /**
+     * Create link for org_id based authorization in Moxtra using default redirect link handled by
+     * {@link OAuthCodeAuthenticator} REST service.
+     * 
+     * @return {@link String}
+     * @throws OAuthSystemException
+     * @see {@link OAuthCodeAuthenticator}
+     */
+    public String authorizationOrgLink() throws OAuthSystemException {
+      StringBuilder redirectLink = new StringBuilder();
+      redirectLink.append(oAuthClientSchema);
+      redirectLink.append("://");
+      redirectLink.append(oAuthClientHost);
+      redirectLink.append('/');
+      redirectLink.append(PortalContainer.getCurrentRestContextName());
+      redirectLink.append("/moxtra/login/org");
 
       return authorizationLink(redirectLink.toString());
     }
@@ -770,6 +821,59 @@ public class MoxtraClient {
       }
     }
 
+    public MoxtraClient authorizeOrg(String orgId, String userId, String firstName, String lastName) throws OAuthSystemException,
+                                                                                                    OAuthProblemException,
+                                                                                                    MoxtraClientException {
+      // generate code
+      try {
+        String timestamp = Long.toString(System.currentTimeMillis());
+        Mac sha256HMAC = Mac.getInstance("HmacSHA256");
+        SecretKeySpec secretKey = new SecretKeySpec(oAuthClientSecret.getBytes(), "HmacSHA256");
+        sha256HMAC.init(secretKey);
+        StringBuffer total = new StringBuffer();
+        total.append(oAuthClientId);
+        total.append(userId);
+        total.append(timestamp);
+        String signature = encodeUrlSafe(sha256HMAC.doFinal(total.toString().getBytes()));
+
+        TokenRequestBuilder rbuilder = OAuthClientRequest.tokenLocation("https://api.moxtra.com/oauth/token")
+                                                         .setParameter(OAuth.OAUTH_GRANT_TYPE,
+                                                                       "http://www.moxtra.com/auth_uniqueid")
+                                                         .setParameter("uniqueid", userId)
+                                                         .setParameter("timestamp", timestamp)
+                                                         .setParameter("signature", signature)
+                                                         .setParameter("firstname", firstName)
+                                                         .setParameter("lastname", lastName)
+                                                         .setClientId(oAuthClientId)
+                                                         .setClientSecret(oAuthClientSecret);
+        if (orgId != null) {
+          rbuilder.setParameter("orgid", URLEncoder.encode(orgId, "UTF8"));
+        }
+
+        OAuthClientRequest request = rbuilder.buildQueryMessage();
+
+        // FYI Content-Type will be set to OAuth.ContentType.URL_ENCODED in oAuthClient.accessToken()
+        // request.setHeader(OAuth.HeaderType.CONTENT_TYPE, REQUEST_CONTENT_TYPE_JSON);
+        // we want any request in JSON, even errors
+        request.setHeader(REQUEST_ACCEPT, REQUEST_CONTENT_TYPE_JSON + "; q=1.0, text/*; q=0.9");
+
+        OAuthAccessTokenResponse resp = oAuthClient.accessToken(request, OAuth.HttpMethod.POST);
+
+        initOAuthToken(AccessToken.createToken(resp.getAccessToken(),
+                                               resp.getRefreshToken(),
+                                               resp.getExpiresIn(),
+                                               resp.getScope()));
+
+        return MoxtraClient.this;
+      } catch (InvalidKeyException e) {
+        throw new MoxtraClientException("Error preparing user authentication for " + userId, e);
+      } catch (NoSuchAlgorithmException e) {
+        throw new MoxtraClientException("Error preparing user authentication for " + userId, e);
+      } catch (UnsupportedEncodingException e) {
+        throw new MoxtraClientException("Error preparing user authentication for " + userId, e);
+      }
+    }
+
     public MoxtraClient refresh() throws OAuthSystemException, OAuthProblemException {
       String refreshToken = getOAuthToken().getRefreshToken();
       if (refreshToken != null) {
@@ -806,23 +910,32 @@ public class MoxtraClient {
     }
   }
 
-  protected final HttpClient    httpClient;
+  protected final OrganizationService orgService;
 
-  protected final OAuthClient   oAuthClient;
+  /**
+   * Org_ID in Moxtra notion. Can be <code>null</code> if single org should be used.
+   */
+  protected final String              orgId;
 
-  protected final HttpContext   context;
+  protected final boolean             useOrgAuth;
 
-  protected final String        oAuthClientId, oAuthClientSecret;
+  protected final HttpClient          httpClient;
 
-  protected final String        oAuthClientSchema, oAuthClientHost;
+  protected final OAuthClient         oAuthClient;
 
-  protected final Lock          authLock   = new ReentrantLock();
+  protected final HttpContext         context;
 
-  protected final ReadWriteLock accessLock = new ReentrantReadWriteLock();
+  protected final String              oAuthClientId, oAuthClientSecret;
 
-  protected AccessToken         oAuthToken = AccessToken.newToken();      // unauthorized by default
+  protected final String              oAuthClientSchema, oAuthClientHost;
 
-  protected OAuth2Authorizer    authorizer;
+  protected final Lock                authLock   = new ReentrantLock();
+
+  protected final ReadWriteLock       accessLock = new ReentrantReadWriteLock();
+
+  protected AccessToken               oAuthToken = AccessToken.newToken();      // unauthorized by default
+
+  protected OAuth2Authorizer          authorizer;
 
   /**
    * Moxtra client using OAuth2 authentication.
@@ -832,7 +945,14 @@ public class MoxtraClient {
   public MoxtraClient(String oauthClientId,
                       String oauthClientSecret,
                       String oauthClientSchema,
-                      String oauthClientHost) {
+                      String oauthClientHost,
+                      OrganizationService orgService,
+                      boolean useOrgAuth,
+                      String orgId) {
+    this.orgService = orgService;
+    this.useOrgAuth = useOrgAuth;
+    this.orgId = orgId;
+
     this.oAuthClientId = oauthClientId;
     this.oAuthClientSecret = oauthClientSecret;
 
@@ -903,6 +1023,22 @@ public class MoxtraClient {
       try {
         if (authorizer == null) {
           authorizer = new OAuth2Authorizer();
+          if (useOrgAuth) {
+            ConversationState currentConvo = ConversationState.getCurrent();
+            if (currentConvo != null) {
+              String userId = currentConvo.getIdentity().getUserId();
+              try {
+                User user = orgService.getUserHandler().findUserByName(userId);
+                if (user != null) {
+                  authorizer.authorizeOrg(orgId, userId, user.getFirstName(), user.getLastName());
+                } else {
+                  LOG.error("User not found in organization " + userId);
+                }
+              } catch (Exception e) {
+                LOG.error("Error searching organization user " + userId, e);
+              }
+            }
+          }
         }
       } finally {
         authLock.unlock();
@@ -998,26 +1134,99 @@ public class MoxtraClient {
         JsonValue json = resp.getValue();
         JsonValue dv = json.getElement("data");
         if (!isNull(dv)) {
+          // TODO use readUser()
+
           JsonValue vid = dv.getElement("id");
           if (isNull(vid)) {
             throw new MoxtraException("User request doesn't return user id");
           }
+          String name;
           JsonValue vname = dv.getElement("name");
-          if (isNull(vname)) {
-            throw new MoxtraException("User request doesn't return user name");
+          if (isNotNull(vname)) {
+            name = vname.getStringValue();
+          } else {
+            name = null;
           }
+          String email;
           JsonValue vemail = dv.getElement("email");
-          if (isNull(vemail)) {
-            throw new MoxtraException("User request doesn't return user email");
+          if (isNotNull(vemail)) {
+            // throw new MoxtraException("User request doesn't return user email");
+            email = vemail.getStringValue();
+          } else {
+            email = null;
           }
+          String firstName;
           JsonValue vFirstName = dv.getElement("first_name");
-          if (isNull(vFirstName)) {
-            throw new MoxtraException("User request doesn't return user first name");
+          if (isNotNull(vFirstName)) {
+            firstName = vFirstName.getStringValue();
+          } else {
+            firstName = null;
           }
+          String lastName;
           JsonValue vLastName = dv.getElement("last_name");
-          if (isNull(vLastName)) {
-            throw new MoxtraException("User request doesn't return user last name");
+          if (isNotNull(vLastName)) {
+            lastName = vLastName.getStringValue();
+          } else {
+            lastName = null;
           }
+          String uniqueId;
+          JsonValue vuid = dv.getElement("unique_id");
+          if (isNotNull(vuid) && (uniqueId = vuid.getStringValue()).length() > 0) {
+            // find user data in eXo organization and use it
+            try {
+              User user = orgService.getUserHandler().findUserByName(uniqueId);
+              if (user == null && email != null && email.length() > 0) {
+                // try by email if available
+                Query query = new Query();
+                query.setEmail(email);
+                ListAccess<User> emailUsers = orgService.getUserHandler().findUsersByQuery(query);
+                if (emailUsers.getSize() > 0) {
+                  // XXX use first occurrence
+                  user = emailUsers.load(0, 1)[0];
+                }
+              }
+              if (user != null) {
+                email = user.getEmail();
+                firstName = user.getFirstName();
+                lastName = user.getLastName();
+                name = MoxtraUtils.fullName(user);
+              } else {
+                // LOG.warn("User not found in organization service " + uniqueId);
+                throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
+              }
+            } catch (Exception e) {
+              // LOG.warn("Error searching user in organization service " + uniqueId, e);
+              throw new MoxtraClientException("Error searching user in organization service '" + uniqueId
+                  + "'", e);
+            }
+          } else {
+            // check if names and email exist
+            if (name == null) {
+              throw new MoxtraException("User request doesn't return user name");
+            }
+            if (email == null) {
+              throw new MoxtraException("User request doesn't return user email");
+            }
+            if (firstName == null) {
+              throw new MoxtraException("User request doesn't return user first_name");
+            }
+            if (lastName == null) {
+              throw new MoxtraException("User request doesn't return user last_name");
+            }
+            uniqueId = null;
+          }
+
+          String orgId;
+          JsonValue vorgid = dv.getElement("org_id");
+          if (isNotNull(vorgid)) {
+            orgId = vorgid.getStringValue();
+          } else {
+            orgId = null;
+            if (uniqueId != null && LOG.isDebugEnabled()) {
+              LOG.debug("Moxtra org_id not provided for user with unique_id " + uniqueId);
+            }
+          }
+
           JsonValue vtype = dv.getElement("type");
           if (isNull(vtype)) {
             throw new MoxtraException("User request doesn't return user type");
@@ -1030,11 +1239,14 @@ public class MoxtraClient {
           if (isNull(vUpdatedTime)) {
             throw new MoxtraException("User request doesn't return user updated time");
           }
+
           MoxtraUser user = new MoxtraUser(vid.getStringValue(),
-                                           vname.getStringValue(),
-                                           vemail.getStringValue(),
-                                           vFirstName.getStringValue(),
-                                           vLastName.getStringValue(),
+                                           uniqueId,
+                                           orgId,
+                                           name,
+                                           email,
+                                           firstName,
+                                           lastName,
                                            vtype.getStringValue(),
                                            MoxtraUser.USER_TYPE_NORMAL,
                                            new Date(vCreatedTime.getLongValue()),
@@ -1071,26 +1283,36 @@ public class MoxtraClient {
             List<MoxtraUser> contacts = new ArrayList<MoxtraUser>();
             for (Iterator<JsonValue> citer = csv.getElements(); citer.hasNext();) {
               JsonValue cv = citer.next();
-              JsonValue vemail = cv.getElement("email");
-              if (isNull(vemail)) {
-                throw new MoxtraException("User request doesn't return user email");
-              }
-              JsonValue vid = cv.getElement("id");
-              if (isNull(vid)) {
-                throw new MoxtraException("User request doesn't return user id");
-              }
-              JsonValue vname = cv.getElement("name");
-              if (isNull(vname)) {
-                throw new MoxtraException("User request doesn't return user name");
-              }
-              MoxtraUser contact = new MoxtraUser(vid.getStringValue(),
-                                                  vname.getStringValue(),
-                                                  vemail.getStringValue());
+              // TODO cleanup
+              // JsonValue vemail = cv.getElement("email");
+              // if (isNull(vemail)) {
+              // throw new MoxtraException("User request doesn't return user email");
+              // }
+              // JsonValue vid = cv.getElement("id");
+              // if (isNull(vid)) {
+              // throw new MoxtraException("User request doesn't return user id");
+              // }
+              // JsonValue vname = cv.getElement("name");
+              // if (isNull(vname)) {
+              // throw new MoxtraException("User request doesn't return user name");
+              // }
+              // String pictureUri;
+              // JsonValue vupic = cv.getElement("picture_uri");
+              // if (isNotNull(vupic)) {
+              // pictureUri = vupic.getStringValue();
+              // } else {
+              // pictureUri = null;
+              // }
+              // MoxtraUser contact = new MoxtraUser(vid.getStringValue(),
+              // vname.getStringValue(),
+              // vemail.getStringValue(),
+              // pictureUri);
+              MoxtraUser contact = readUser(cv);
               contacts.add(contact);
             }
             return contacts;
           } else {
-            throw new MoxtraException("User request doesn't return an expected body (contacts)");
+            return Collections.emptyList();
           }
         } else {
           throw new MoxtraException("User request doesn't return an expected body (data)");
@@ -1099,243 +1321,6 @@ public class MoxtraClient {
         throw new MoxtraAuthenticationException("Authentication error", e);
       } catch (OAuthProblemException e) {
         throw new MoxtraAuthenticationException("Authentication error", e);
-      }
-    } else {
-      throw new MoxtraAuthorizationException("Authorization required");
-    }
-  }
-
-  @Deprecated
-  public MoxtraMeet getMeetBinder(String binderId) throws OAuthSystemException,
-                                                  OAuthProblemException,
-                                                  MoxtraException,
-                                                  MoxtraClientException {
-    if (isInitialized()) {
-      String url = API_BINDER.replace("{binder_id}", binderId);
-      RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
-
-      JsonValue json = resp.getValue();
-      JsonValue dv = json.getElement("data");
-      if (!isNull(dv)) {
-        JsonValue vbid = dv.getElement("id");
-        if (isNull(vbid)) {
-          throw new MoxtraException("Binder request doesn't return id");
-        }
-        JsonValue vbname = dv.getElement("name");
-        if (isNull(vbname)) {
-          throw new MoxtraException("Binder request doesn't return name");
-        }
-        JsonValue vrevision = dv.getElement("revision");
-        if (isNull(vrevision)) {
-          throw new MoxtraException("Binder request doesn't return revision");
-        }
-        JsonValue vcreated = dv.getElement("created_time");
-        if (isNull(vcreated)) {
-          throw new MoxtraException("Binder request doesn't return created_time");
-        }
-        JsonValue vupdated = dv.getElement("updated_time");
-        if (isNull(vupdated)) {
-          throw new MoxtraException("Binder request doesn't return updated_time");
-        }
-        JsonValue vusers = dv.getElement("users");
-        if (isNull(vusers) || !vusers.isArray()) {
-          throw new MoxtraException("Binder request doesn't return users array");
-        }
-
-        // read meet participants - it's binder users
-        List<MoxtraUser> participants = new ArrayList<MoxtraUser>();
-        for (Iterator<JsonValue> vuiter = vusers.getElements(); vuiter.hasNext();) {
-          JsonValue vue = vuiter.next();
-
-          JsonValue vtype = vue.getElement("type");
-          if (isNull(vtype)) {
-            throw new MoxtraException("Binder request doesn't return user type");
-          }
-          JsonValue vstatus = vue.getElement("status");
-          if (isNull(vstatus)) {
-            throw new MoxtraException("Binder request doesn't return user status");
-          }
-          JsonValue vCreatedTime = vue.getElement("created_time");
-          if (isNull(vCreatedTime)) {
-            throw new MoxtraException("Binder request doesn't return user created time");
-          }
-          JsonValue vUpdatedTime = vue.getElement("updated_time");
-          if (isNull(vUpdatedTime)) {
-            throw new MoxtraException("Binder request doesn't return user updated time");
-          }
-
-          // user element
-          JsonValue vu = vue.getElement("user");
-          if (isNull(vu)) {
-            throw new MoxtraException("Binder request doesn't return user in users");
-          }
-          String userEmail;
-          JsonValue vemail = vu.getElement("email");
-          if (isNull(vemail)) {
-            throw new MoxtraException("Binder request doesn't return user email");
-          } else {
-            userEmail = vemail.getStringValue();
-          }
-          String userId;
-          JsonValue vid = vu.getElement("id");
-          if (isNull(vid)) {
-            // throw new MoxtraException("Binder request doesn't return user id");
-            userId = userEmail;
-          } else {
-            userId = vid.getStringValue();
-          }
-          String userName;
-          JsonValue vname = vu.getElement("name");
-          if (isNull(vname)) {
-            // throw new MoxtraException("Binder request doesn't return user name");
-            userName = userEmail;
-          } else {
-            userName = vname.getStringValue();
-          }
-
-          MoxtraUser user = new MoxtraUser(userId, userName, userEmail, //
-                                           null, // first name
-                                           null, // last name
-                                           vtype.getStringValue(),
-                                           vstatus.getStringValue(),
-                                           new Date(vCreatedTime.getLongValue()),
-                                           new Date(vUpdatedTime.getLongValue()));
-
-          participants.add(user);
-        }
-
-        MoxtraMeet meet = new MoxtraMeet(vbid.getStringValue(),
-                                         vbname.getStringValue(),
-                                         vrevision.getLongValue(),
-                                         new Date(vcreated.getLongValue()),
-                                         new Date(vupdated.getLongValue()));
-
-        meet.setUsers(participants);
-        return meet;
-      } else {
-        throw new MoxtraException("Binder request doesn't return an expected body (data)");
-      }
-    } else {
-      throw new MoxtraAuthorizationException("Authorization required");
-    }
-  }
-
-  /**
-   * DO NOT USE IT!
-   * 
-   * @param sessionKey
-   * @return
-   * @throws OAuthSystemException
-   * @throws OAuthProblemException
-   * @throws MoxtraException
-   * @throws MoxtraClientException
-   */
-  @Deprecated
-  public MoxtraMeet getUpdateMeet(String sessionKey) throws OAuthSystemException,
-                                                    OAuthProblemException,
-                                                    MoxtraException,
-                                                    MoxtraClientException {
-    // XXX here we do a workaround: we post update meet with no changes to get a meet current data
-    // indeed this way we actually do update the meet: its revision increments each request
-    if (isInitialized()) {
-      // prepare body
-      JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
-      Map<String, Object> params = new HashMap<String, Object>(); // empty JSON
-      try {
-        String url = API_MEETS_SESSION.replace("{session_key}", sessionKey);
-        RESTResponse resp = restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params)
-                                                                           .toString());
-
-        JsonValue json = resp.getValue();
-        JsonValue vcode = json.getElement("code");
-        if (!isNull(vcode) && vcode.getStringValue().equals(RESPONSE_SUCCESS)) {
-          JsonValue vdata = json.getElement("data");
-          if (!isNull(vdata)) {
-            JsonValue vkey = vdata.getElement("session_key");
-            if (isNull(vkey)) {
-              throw new MoxtraException("Meet reading request doesn't return session_key");
-            }
-            sessionKey = vkey.getStringValue(); // for a case :)
-            JsonValue vbid = vdata.getElement("schedule_binder_id");
-            if (isNull(vbid)) {
-              throw new MoxtraException("Meet reading request doesn't return schedule_binder_id");
-            }
-            JsonValue vbname = vdata.getElement("binder_name");
-            if (isNull(vbname)) {
-              throw new MoxtraException("Meet reading request doesn't return binder_name");
-            }
-            JsonValue vrevision = vdata.getElement("revision");
-            if (isNull(vrevision)) {
-              throw new MoxtraException("Meet reading request doesn't return revision");
-            }
-            JsonValue vurl = vdata.getElement("startmeet_url");
-            if (isNull(vurl)) {
-              throw new MoxtraException("Meet reading request doesn't return startmeet_url");
-            }
-            JsonValue vcreated = vdata.getElement("created_time");
-            if (isNull(vcreated)) {
-              throw new MoxtraException("Meet reading request doesn't return created_time");
-            }
-            JsonValue vupdated = vdata.getElement("updated_time");
-            if (isNull(vupdated)) {
-              throw new MoxtraException("Meet reading request doesn't return updated_time");
-            }
-            // time can be in two different forms starts/ends or scheduled_starts/scheduled_ends
-            Date startTime, endTime;
-            JsonValue vstarts = vdata.getElement("starts");
-            if (isNull(vstarts)) {
-              vstarts = vdata.getElement("scheduled_starts");
-              if (isNull(vstarts)) {
-                throw new MoxtraException("Meet reading request doesn't return starts time");
-              }
-              startTime = parseDate(vstarts.getStringValue());
-            } else {
-              startTime = new Date(vstarts.getLongValue());
-            }
-            JsonValue vends = vdata.getElement("ends");
-            if (isNull(vends)) {
-              vends = vdata.getElement("scheduled_ends");
-              if (isNull(vends)) {
-                throw new MoxtraException("Meet reading request doesn't return ends time");
-              }
-              endTime = parseDate(vends.getStringValue());
-            } else {
-              endTime = new Date(vends.getLongValue());
-            }
-            JsonValue vagenda = vdata.getElement("agenda");
-            if (isNull(vagenda)) {
-              throw new MoxtraException("Meet reading request doesn't return agenda");
-            }
-            JsonValue vautorec = vdata.getElement("auto_recording");
-            if (isNull(vautorec)) {
-              throw new MoxtraException("Meet reading request doesn't return auto_recording");
-            }
-
-            String status = getMeetStatus(sessionKey);
-
-            return new MoxtraMeet(vkey.getStringValue(), //
-                                  null, // sessionId,
-                                  vbid.getStringValue(),
-                                  vbname.getStringValue(),
-                                  vagenda.getStringValue(),
-                                  vrevision.getLongValue(),
-                                  vurl.getStringValue(),
-                                  getDate(vcreated.getLongValue()),
-                                  getDate(vupdated.getLongValue()),
-                                  startTime,
-                                  endTime,
-                                  vautorec.getBooleanValue(),
-                                  status);
-          } else {
-            throw new MoxtraException("Meet schedule request doesn't return an expected body (data)");
-          }
-        } else {
-          throw new MoxtraException("Meet schedule request doesn't return an expected body (code)");
-        }
-      } catch (JsonException e) {
-        throw new MoxtraClientException("Error creating JSON request from meet parameters", e);
-      } catch (ParseException e) {
-        throw new MoxtraException("Error parsing meet time " + e.getMessage(), e);
       }
     } else {
       throw new MoxtraAuthorizationException("Authorization required");
@@ -2290,13 +2275,39 @@ public class MoxtraClient {
         MoxtraUser currentUser = getCurrentUser();
         for (MoxtraUser user : users) {
           // skip current user (already invited by Moxtra)
+          // if (!currentUser.getEmail().equals(user.getEmail())) {
+          // Map<String, Object> emailMap = new HashMap<String, Object>();
+          // emailMap.put("email", user.getEmail());
+          // Map<String, Object> userMap = new HashMap<String, Object>();
+          // userMap.put("user", emailMap);
+          // usersList.add(userMap);
+          // }
+
+          // new version
           if (!currentUser.getEmail().equals(user.getEmail())) {
+            boolean isLocal = user.getId() == null;
+            String uniqueId = user.getUniqueId();
+            if (uniqueId != null && ((isMoxtraSSOAuth() && isLocal) || !isLocal)) {
+              // invite locals w/ SSO and existing in Moxtra by unique_id + org_id (user from another org)
+              Map<String, Object> uidMap = new HashMap<String, Object>();
+              uidMap.put("unique_id", uniqueId);
+              if (user.getOrgId() != null && !user.isSameOrganization(orgId)) {
+                uidMap.put("org_id", user.getOrgId());
+              }
+              Map<String, Object> userMap = new HashMap<String, Object>();
+              userMap.put("user", uidMap);
+              usersList.add(userMap);
+              continue;
+            }
+
+            // invite by email
             Map<String, Object> emailMap = new HashMap<String, Object>();
             emailMap.put("email", user.getEmail());
             Map<String, Object> userMap = new HashMap<String, Object>();
             userMap.put("user", emailMap);
             usersList.add(userMap);
           }
+
         }
         if (usersList.size() > 0) {
           params.put("users", usersList);
@@ -2346,29 +2357,78 @@ public class MoxtraClient {
       if (isInitialized()) {
         // prepare body
         JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
-        Map<String, Object> params = new HashMap<String, Object>();
-        List<Object> usersList = new ArrayList<Object>();
         MoxtraUser currentUser = getCurrentUser();
+        List<Object> inviteesList = new ArrayList<Object>();
+        List<Object> teamList = new ArrayList<Object>();
+
+        // we split users on team members (if unique_id found for ones) and invitees
         for (MoxtraUser user : users) {
           // skip current user (already invited by Moxtra)
           if (!currentUser.getEmail().equals(user.getEmail())) {
+            boolean isLocal = user.getId() == null;
+            String uniqueId = user.getUniqueId();
+            if (uniqueId != null) {
+              if (isMoxtraSSOAuth()) {
+                // if user local only add this user with its uniqueId (it is eXo user name) as team member
+                if (isLocal || user.isSameOrganization(orgId)) {
+                  // local and same org users add as a team member
+                  Map<String, Object> uidMap = new HashMap<String, Object>();
+                  uidMap.put("unique_id", uniqueId);
+                  // FYI read_only can be set additionally
+                  Map<String, Object> userMap = new HashMap<String, Object>();
+                  userMap.put("user", uidMap);
+                  teamList.add(userMap);
+                  continue;
+                }
+              }
+
+              if (!isLocal) {
+                // invite exiting in Moxtra by unique_id + org_id (user from another org)
+                Map<String, Object> uidMap = new HashMap<String, Object>();
+                uidMap.put("unique_id", uniqueId);
+                if (user.getOrgId() != null) {
+                  uidMap.put("org_id", user.getOrgId());
+                }
+                Map<String, Object> userMap = new HashMap<String, Object>();
+                userMap.put("user", uidMap);
+                inviteesList.add(userMap);
+                continue;
+              }
+            }
+
+            // invite by email
             Map<String, Object> emailMap = new HashMap<String, Object>();
             emailMap.put("email", user.getEmail());
             Map<String, Object> userMap = new HashMap<String, Object>();
             userMap.put("user", emailMap);
-            usersList.add(userMap);
+            inviteesList.add(userMap);
           }
         }
-        if (usersList.size() > 0) {
-          params.put("users", usersList);
-          params.put("message", "Please join the " + binder.getName()); // TODO message from user
+
+        if (teamList.size() > 0) {
+          Map<String, Object> team = new HashMap<String, Object>();
+          team.put("users", teamList);
+          try {
+            String url = API_BINDER_ADDTEAMUSER.replace("{binder_id}", binder.getBinderId());
+            restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(team).toString());
+          } catch (JsonException e) {
+            throw new MoxtraClientException("Error creating JSON request for adding users to binder", e);
+          }
+        }
+
+        if (inviteesList.size() > 0) {
+          Map<String, Object> invitees = new HashMap<String, Object>();
+          invitees.put("users", inviteesList);
+          invitees.put("message", "Please join the " + binder.getName()); // TODO message from user
           try {
             String url = API_BINDER_INVITEUSER.replace("{binder_id}", binder.getBinderId());
-            restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
+            restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(invitees).toString());
           } catch (JsonException e) {
-            throw new MoxtraClientException("Error creating JSON request from binder parameters", e);
+            throw new MoxtraClientException("Error creating JSON request for inviting users to binder", e);
           }
-        } // else meet host user already a member (all invitees are already members)
+        }
+
+        // if lists empty - meet host user already a member (all invitees are already members)
         return true;
       } else {
         throw new MoxtraAuthorizationException("Authorization required");
@@ -2532,6 +2592,33 @@ public class MoxtraClient {
    */
   public String getOAuthAccessToken() {
     return accessToken();
+  }
+
+  /**
+   * Tells if OAuth 2.0 SAML used for SSO in Moxtra.
+   * 
+   * @return boolean <code>false</code> always (not implemented)
+   */
+  public boolean isSAMLSSOAuth() {
+    return false;
+  }
+
+  /**
+   * Tells if OAuth 2.0 SSO used based on Moxtra organization group and user's Unique ID (eXo user name).
+   * 
+   * @return boolean <code>true</code> if SSO based on Unique ID used, <code>false</code> otherwise
+   */
+  public boolean isMoxtraSSOAuth() {
+    return useOrgAuth;
+  }
+
+  /**
+   * Moxtra organization (group/company/team ) ID that has been used for SSO authorization.
+   * 
+   * @return String can be <code>null</code> if no SSO or single group used
+   */
+  public String getMoxtraOrgId() {
+    return orgId;
   }
 
   // ******* internals ********
@@ -2759,7 +2846,8 @@ public class MoxtraClient {
             try {
               authorizer().refresh();
             } catch (AuthProblemException ape) {
-              // it's expired refresh token or unexpected error: reset user authorization, need re-auth user in UI
+              // it's expired refresh token or unexpected error: reset user authorization, need re-auth user
+              // in UI
               oAuthToken.reset();
               // catch text of OAuthProblemException in initial occurrence:
               // "invalid_token, Invalid refresh token (expired): $REFRESH_TOKEN",
@@ -2771,7 +2859,8 @@ public class MoxtraClient {
                 if (err.indexOf("invalid_token") >= 0 || err.indexOf("login error") >= 0
                     || err.indexOf("readRefreshTokenForAccessToken") >= 0) {
                   if (LOG.isDebugEnabled()) {
-                    LOG.debug("Assuming expired refresh token: '" + err + "' caused refresh error " + ape.getMessage());
+                    LOG.debug("Assuming expired refresh token: '" + err + "' caused refresh error "
+                        + ape.getMessage());
                   }
                   throw new MoxtraAuthorizationException("Re-authorization required", e);
                 }
@@ -2885,10 +2974,24 @@ public class MoxtraClient {
     for (JsonValue vu : vusers) {
       String userEmail;
       JsonValue vemail = vu.getElement("email");
-      if (isNull(vemail)) {
-        throw new MoxtraException("Meet request doesn't return user email");
+      if (isNull(vemail) || (userEmail = vemail.getStringValue()).length() == 0) {
+        userEmail = null;
       } else {
         userEmail = vemail.getStringValue();
+      }
+      String uniqueId;
+      JsonValue vuuid = vu.getElement("unique_id");
+      if (isNull(vuuid) || (uniqueId = vuuid.getStringValue()).length() == 0) {
+        uniqueId = null;
+      } else {
+        uniqueId = vuuid.getStringValue();
+      }
+      String orgId;
+      JsonValue vuoid = vu.getElement("org_id");
+      if (isNotNull(vuoid)) {
+        orgId = vuoid.getStringValue();
+      } else {
+        orgId = null;
       }
       String userName;
       JsonValue vname = vu.getElement("name");
@@ -2897,15 +3000,36 @@ public class MoxtraClient {
       } else {
         userName = vname.getStringValue();
       }
+      boolean isHost;
       JsonValue vhost = vu.getElement("host");
       if (isNull(vhost)) {
         throw new MoxtraException("Meet request doesn't return user host flag");
+      } else {
+        isHost = vhost.getBooleanValue();
       }
 
       // find user from associated binder
       MoxtraUser binderUser = null;
       for (MoxtraUser bu : meetBinder.getUsers()) {
-        if (userEmail.equals(bu.getEmail())) {
+        if (uniqueId != null && uniqueId.equals(bu.getUniqueId())) {
+          if (isHost) {
+            // XXX we don't do strict check for host user as uid+orgid in invitees will not contain orgid for
+            // the host user
+            binderUser = bu;
+            break;
+          } else {
+            if (orgId != null && bu.getOrgId() != null && orgId.equals(bu.getOrgId())) {
+              // same org with id
+              binderUser = bu;
+              break;
+            } else if (orgId == null && bu.getOrgId() == null) {
+              // same common org (when single org used)
+              binderUser = bu;
+              break;
+            }
+          }
+        }
+        if (userEmail != null && userEmail.equals(bu.getEmail())) {
           binderUser = bu;
           break;
         }
@@ -2916,21 +3040,28 @@ public class MoxtraClient {
         // TODO just invited user? why not already in the binder?
         // throw new MoxtraException("Cannot find meet participant in its binder users " + userEmail
         // + " (" + userName + ")");
+        if (userEmail == null) {
+          throw new MoxtraException("Meet user has no email and user not found in binder: '" + uniqueId + "' "
+              + userName);
+        }
         user = new MoxtraUser(userEmail);
       } else {
         user = new MoxtraUser(binderUser.getId(),
+                              binderUser.getUniqueId(),
+                              binderUser.getOrgId(),
                               userName != null ? userName : binderUser.getName(),
-                              userEmail,
+                              userEmail != null && userEmail.length() > 0 ? userEmail : binderUser.getEmail(),
                               binderUser.getFirstName(),
                               binderUser.getLastName(),
+                              binderUser.getPictureUri(),
                               binderUser.getType(),
-                              binderUser.getStatus(),
                               binderUser.getCreatedTime(),
                               binderUser.getUpdatedTime());
+        user.setStatus(binderUser.getStatus());
       }
 
       participants.add(user);
-      if (vhost.getBooleanValue()) {
+      if (isHost) {
         hostUser = user;
       }
     }
@@ -3082,63 +3213,7 @@ public class MoxtraClient {
     }
     List<MoxtraUser> users = new ArrayList<MoxtraUser>();
     for (Iterator<JsonValue> vuiter = vusers.getElements(); vuiter.hasNext();) {
-      JsonValue vue = vuiter.next();
-
-      JsonValue vutype = vue.getElement("type");
-      if (isNull(vutype)) {
-        throw new MoxtraException("Binder request doesn't return user type");
-      }
-      JsonValue vustatus = vue.getElement("status");
-      if (isNull(vustatus)) {
-        throw new MoxtraException("Binder request doesn't return user status");
-      }
-      JsonValue vucreated = vue.getElement("created_time");
-      if (isNull(vucreated)) {
-        throw new MoxtraException("Binder request doesn't return user created time");
-      }
-      JsonValue vuupdated = vue.getElement("updated_time");
-      if (isNull(vuupdated)) {
-        throw new MoxtraException("Binder request doesn't return user updated time");
-      }
-
-      // user element
-      JsonValue vu = vue.getElement("user");
-      if (isNull(vu)) {
-        throw new MoxtraException("Binder request doesn't return user in users");
-      }
-      String userEmail;
-      JsonValue vuemail = vu.getElement("email");
-      if (isNull(vuemail)) {
-        throw new MoxtraException("Binder request doesn't return user email");
-      } else {
-        userEmail = vuemail.getStringValue();
-      }
-      String userId;
-      JsonValue vuid = vu.getElement("id");
-      if (isNull(vuid)) {
-        // throw new MoxtraException("Binder request doesn't return user id");
-        userId = userEmail;
-      } else {
-        userId = vuid.getStringValue();
-      }
-      String userName;
-      JsonValue vuname = vu.getElement("name");
-      if (isNull(vuname)) {
-        // throw new MoxtraException("Binder request doesn't return user name");
-        userName = userEmail;
-      } else {
-        userName = vuname.getStringValue();
-      }
-
-      MoxtraUser user = new MoxtraUser(userId, userName, userEmail, //
-                                       null, // first name
-                                       null, // last name
-                                       vutype.getStringValue(),
-                                       vustatus.getStringValue(),
-                                       new Date(vucreated.getLongValue()),
-                                       new Date(vuupdated.getLongValue()));
-
-      users.add(user);
+      users.add(readBinderUser(vuiter.next()));
     }
 
     MoxtraBinder binder = new MoxtraBinder(vbid.getStringValue(),
@@ -3150,6 +3225,174 @@ public class MoxtraClient {
     binder.setUsers(users);
     binder.setPages(pages);
     return binder;
+  }
+
+  protected MoxtraUser readBinderUser(JsonValue vue) throws MoxtraException, MoxtraClientException {
+    JsonValue vutype = vue.getElement("type");
+    if (isNull(vutype)) {
+      throw new MoxtraException("Binder request doesn't return user type");
+    }
+    JsonValue vustatus = vue.getElement("status");
+    if (isNull(vustatus)) {
+      throw new MoxtraException("Binder request doesn't return user status");
+    }
+    JsonValue vucreated = vue.getElement("created_time");
+    if (isNull(vucreated)) {
+      throw new MoxtraException("Binder request doesn't return user created time");
+    }
+    JsonValue vuupdated = vue.getElement("updated_time");
+    if (isNull(vuupdated)) {
+      throw new MoxtraException("Binder request doesn't return user updated time");
+    }
+
+    // user element
+    JsonValue vu = vue.getElement("user");
+    if (isNull(vu)) {
+      throw new MoxtraException("Binder request doesn't return user in users");
+    }
+
+    MoxtraUser user = readUser(vu,
+                               vutype.getStringValue(),
+                               new Date(vucreated.getLongValue()),
+                               new Date(vuupdated.getLongValue()));
+    user.setStatus(vustatus.getStringValue());
+    return user;
+  }
+
+  /**
+   * Read Moxtra user.
+   * 
+   * @param vu {@link JsonValue}
+   * @return {@link MoxtraUser}
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  protected MoxtraUser readUser(JsonValue vu) throws MoxtraException, MoxtraClientException {
+    return readUser(vu, null, null, null);
+  }
+
+  /**
+   * Read Moxtra user.
+   * 
+   * @param vu {@link JsonValue}
+   * @param type String or <code>null</code> if should be read from given JSON value
+   * @param createdTime {@link Date} or <code>null</code> if should be read from given JSON value
+   * @param updatedTime {@link Date} or <code>null</code> if should be read from given JSON value
+   * @return {@link MoxtraUser}
+   * @throws MoxtraException
+   * @throws MoxtraClientException
+   */
+  protected MoxtraUser readUser(JsonValue vu, String type, Date createdTime, Date updatedTime) throws MoxtraException,
+                                                                                              MoxtraClientException {
+    if (type == null) {
+      JsonValue vutype = vu.getElement("type");
+      if (isNotNull(vutype)) {
+        type = vutype.getStringValue();
+      }
+    }
+    if (createdTime == null) {
+      JsonValue vucreated = vu.getElement("created_time");
+      if (isNotNull(vucreated)) {
+        createdTime = new Date(vucreated.getLongValue());
+      }
+    }
+    if (updatedTime == null) {
+      JsonValue vuupdated = vu.getElement("updated_time");
+      if (isNotNull(vuupdated)) {
+        updatedTime = new Date(vuupdated.getLongValue());
+      }
+    }
+
+    String userEmail;
+    JsonValue vuemail = vu.getElement("email");
+    if (isNotNull(vuemail)) {
+      userEmail = vuemail.getStringValue();
+    } else {
+      userEmail = null;
+    }
+    String name;
+    JsonValue vuname = vu.getElement("name");
+    if (isNull(vuname)) {
+      name = userEmail;
+    } else {
+      name = vuname.getStringValue();
+    }
+    String pictureUri;
+    JsonValue vupic = vu.getElement("picture_uri");
+    if (isNotNull(vupic)) {
+      pictureUri = vupic.getStringValue();
+    } else {
+      pictureUri = null;
+    }
+
+    String uniqueId;
+    String firstName;
+    String lastName;
+    JsonValue vuuid = vu.getElement("unique_id");
+    if (isNotNull(vuuid) && (uniqueId = vuuid.getStringValue()).length() > 0) {
+      // find user data in eXo organization and use it
+      try {
+        User user = orgService.getUserHandler().findUserByName(uniqueId);
+        if (user == null && userEmail != null && userEmail.length() > 0) {
+          // try by email if available
+          Query query = new Query();
+          query.setEmail(userEmail);
+          ListAccess<User> emailUsers = orgService.getUserHandler().findUsersByQuery(query);
+          if (emailUsers.getSize() > 0) {
+            // XXX use first occurrence
+            user = emailUsers.load(0, 1)[0];
+          }
+        }
+        if (user != null) {
+          userEmail = user.getEmail();
+          firstName = user.getFirstName();
+          lastName = user.getLastName();
+          name = MoxtraUtils.fullName(user);
+        } else {
+          // LOG.warn("User not found in organization service " + uniqueId);
+          throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
+        }
+      } catch (Exception e) {
+        // LOG.warn("Error searching user in organization service " + uniqueId, e);
+        throw new MoxtraClientException("Error searching user in organization service '" + uniqueId + "'", e);
+      }
+    } else {
+      uniqueId = lastName = firstName = null;
+    }
+    String orgId;
+    JsonValue vuorgid = vu.getElement("org_id");
+    if (isNotNull(vuorgid)) {
+      orgId = vuorgid.getStringValue();
+    } else {
+      orgId = null;
+      if (uniqueId != null && LOG.isDebugEnabled()) {
+        LOG.debug("Moxtra org_id not provided for user with unique_id " + uniqueId);
+      }
+    }
+    String userId;
+    JsonValue vuid = vu.getElement("id");
+    if (isNull(vuid)) {
+      // XXX user email as an id if user has no id in current Moxtra context
+      if (userEmail == null) {
+        throw new MoxtraException("Request doesn't return user email");
+      }
+      userId = userEmail;
+    } else {
+      userId = vuid.getStringValue();
+    }
+
+    MoxtraUser user = new MoxtraUser(userId,
+                                     uniqueId,
+                                     orgId,
+                                     name,
+                                     userEmail,
+                                     firstName,
+                                     lastName,
+                                     pictureUri,
+                                     type,
+                                     createdTime,
+                                     updatedTime);
+    return user;
   }
 
   /**
@@ -3171,5 +3414,29 @@ public class MoxtraClient {
    */
   protected boolean isInitialized() {
     return oAuthToken.isInitialized();
+  }
+
+  /**
+   * URLSafe Base64 encoding with space padding
+   * 
+   * @param data
+   * @return
+   */
+  protected static String encodeUrlSafe(byte[] data) {
+    // method copied from
+    // https://github.com/Moxtra/Moxtra-Java-Sample-Code/blob/master/src/main/java/com/moxtra/util/MoxtraAPIUtil.java
+    // NOTE: Base64 used from Apache WS instead of org.apache.xml.security.utils.Base64
+    String strcode = Base64.encode(data);
+    byte[] encode = strcode.getBytes();
+    for (int i = 0; i < encode.length; i++) {
+      if (encode[i] == '+') {
+        encode[i] = '-';
+      } else if (encode[i] == '/') {
+        encode[i] = '_';
+      } else if (encode[i] == '=') {
+        encode[i] = ' ';
+      }
+    }
+    return new String(encode).trim();
   }
 }

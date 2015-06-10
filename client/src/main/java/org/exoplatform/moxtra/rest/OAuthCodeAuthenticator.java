@@ -20,10 +20,15 @@ package org.exoplatform.moxtra.rest;
 
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.exoplatform.container.PortalContainer;
 import org.exoplatform.moxtra.MoxtraService;
+import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.services.organization.User;
 import org.exoplatform.services.rest.resource.ResourceContainer;
+import org.exoplatform.services.security.ConversationState;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.CookieParam;
@@ -52,25 +57,28 @@ import javax.ws.rs.core.UriInfo;
 @Produces(MediaType.TEXT_HTML)
 public class OAuthCodeAuthenticator implements ResourceContainer {
 
-  public static final String    CLIENT_CODE_COOKIE     = "moxtra-client-code";
+  public static final String          CLIENT_CODE_COOKIE     = "moxtra-client-code";
 
-  public static final int       CLIENT_COOKIE_EXPIRE   = 20;                                               // 20sec
+  public static final int             CLIENT_COOKIE_EXPIRE   = 20;                                               // 20sec
 
-  public static final String    CLIENT_ERROR_COOKIE    = "moxtra-client-error";
+  public static final String          CLIENT_ERROR_COOKIE    = "moxtra-client-error";
 
-  public static final String    CLIENT_CODE_AUTHORIZED = "authorized";
+  public static final String          CLIENT_CODE_AUTHORIZED = "authorized";
 
-  protected static final Log    LOG                    = ExoLogger.getLogger(OAuthCodeAuthenticator.class);
+  protected static final Log          LOG                    = ExoLogger.getLogger(OAuthCodeAuthenticator.class);
 
-  protected static final String EMPTY                  = "".intern();
+  protected static final String       EMPTY                  = "".intern();
 
-  protected final MoxtraService moxtra;
+  protected final MoxtraService       moxtra;
+
+  protected final OrganizationService orgService;
 
   /**
    * 
    */
-  public OAuthCodeAuthenticator(MoxtraService moxtra) {
+  public OAuthCodeAuthenticator(MoxtraService moxtra, OrganizationService orgService) {
     this.moxtra = moxtra;
+    this.orgService = orgService;
   }
 
   @GET
@@ -146,6 +154,153 @@ public class OAuthCodeAuthenticator implements ResourceContainer {
                                            0, // reset auth cookie
                                            false))
                      .entity("Authorization problem. " + msg)
+                     .build();
+    }
+  }
+
+  @GET
+  @RolesAllowed("users")
+  @Path("/org")
+  public Response authOrg(@Context UriInfo uriInfo,
+                          @QueryParam("code") String code,
+                          @CookieParam("JSESSIONID") Cookie jsessionsId,
+                          @CookieParam("JSESSIONIDSSO") Cookie jsessionsIdSSO) {
+
+    try {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+        User user;
+        try {
+          user = orgService.getUserHandler().findUserByName(userId);
+        } catch (Exception e) {
+          LOG.error("Error getting user object " + userId, e);
+          return Response.serverError()
+                         .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                               "System error",
+                                               "/",
+                                               uriInfo.getRequestUri().getHost(),
+                                               EMPTY,
+                                               CLIENT_COOKIE_EXPIRE,
+                                               false))
+                         .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                               CLIENT_CODE_AUTHORIZED,
+                                               "/",
+                                               uriInfo.getRequestUri().getHost(),
+                                               EMPTY,
+                                               0, // reset auth cookie
+                                               false))
+                         .entity("System error: cannot find organization user")
+                         .build();
+        }
+
+        // org_id it's base portal URL
+        String orgId = "PD8LdFdvtdmBUvazMUMYnL5";//uriInfo.getBaseUri().toString();// TODO replace rest with portal?
+
+        moxtra.getClient().authorizer().authorizeOrg(orgId, userId, user.getFirstName(), user.getLastName());
+        return Response.ok()
+                       .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                             CLIENT_CODE_AUTHORIZED,
+                                             "/",
+                                             uriInfo.getRequestUri().getHost(),
+                                             EMPTY,
+                                             CLIENT_COOKIE_EXPIRE,
+                                             false))
+                       .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                             "OAuth2 system error",
+                                             "/",
+                                             uriInfo.getRequestUri().getHost(),
+                                             EMPTY,
+                                             0, // reset error cookie
+                                             false))
+                       .entity("<!doctype html><html><head><script type='text/javascript'>/*window.close();*/</script>"
+                           + "</head><body><div id='messageString'>Connecting to Moxtra...</div></body></html>")
+                       .build();
+      } else {
+        return Response.status(Status.BAD_REQUEST)
+                       .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                             "Auth problem",
+                                             "/",
+                                             uriInfo.getRequestUri().getHost(),
+                                             EMPTY,
+                                             CLIENT_COOKIE_EXPIRE,
+                                             false))
+                       .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                             CLIENT_CODE_AUTHORIZED,
+                                             "/",
+                                             uriInfo.getRequestUri().getHost(),
+                                             EMPTY,
+                                             0, // reset auth cookie
+                                             false))
+                       .entity("Identity problem. Cannot find eXo user.")
+                       .build();
+      }
+    } catch (OAuthSystemException e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("OAuth2 system error", e);
+      }
+      return Response.serverError()
+                     .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                           "OAuth2 system error",
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           CLIENT_COOKIE_EXPIRE,
+                                           false))
+                     .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                           CLIENT_CODE_AUTHORIZED,
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           0, // reset auth cookie
+                                           false))
+                     .entity("System error. " + e.getMessage())
+                     .build();
+    } catch (OAuthProblemException e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("OAuth2 problem", e);
+      }
+      String msg = e.getMessage();
+      if (msg != null && msg.indexOf("invalid_request") >= 0) {
+        // use cause to get details
+        Throwable cause = e.getCause();
+        msg = "Invalid request. " + cause.getMessage();
+      }
+      return Response.status(Status.BAD_REQUEST)
+                     .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                           "OAuth2 problem",
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           CLIENT_COOKIE_EXPIRE,
+                                           false))
+                     .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                           CLIENT_CODE_AUTHORIZED,
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           0, // reset auth cookie
+                                           false))
+                     .entity("Authorization problem. " + msg)
+                     .build();
+    } catch (MoxtraClientException e) {
+      LOG.error("Error preparing org client: " + e.getMessage(), e);
+      return Response.status(Status.INTERNAL_SERVER_ERROR)
+                     .cookie(new NewCookie(CLIENT_ERROR_COOKIE,
+                                           "Moxtra problem",
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           CLIENT_COOKIE_EXPIRE,
+                                           false))
+                     .cookie(new NewCookie(CLIENT_CODE_COOKIE,
+                                           CLIENT_CODE_AUTHORIZED,
+                                           "/",
+                                           uriInfo.getRequestUri().getHost(),
+                                           EMPTY,
+                                           0, // reset auth cookie
+                                           false))
+                     .entity("System problem: cannot initialize organization client.")
                      .build();
     }
   }

@@ -467,9 +467,11 @@
 						} else {
 							try {
 								// target window should care about authorization by itself
-								target.initPage(binderId, pageId);
-								// when opening in another window it's resolved for this current one
-								process.resolve();
+								$t.ready(function() {
+									target.initPage(binderId, pageId);
+									// when opening in another window it's resolved for this current one
+									process.resolve();
+								});
 							} catch(e) {
 								process.reject(e, e);
 							}
@@ -724,6 +726,7 @@
 								}
 								var user = getExoUser(userName, true);
 								user.done(function(user) {
+									var uinfo = user.email + "+" + user.userName;
 									// personal talk for about 30min
 									var startTime = new Date();
 									startTime.setMinutes(startTime.getMinutes() + 1);
@@ -742,7 +745,7 @@
 										}
 
 										function createNewMeet() {
-											var create = createMeet(meetName, "", startTime.getTime(), endTime.getTime(), false, [user.email]);
+											var create = createMeet(meetName, "", startTime.getTime(), endTime.getTime(), false, [uinfo]);
 											create.done(function(meet) {
 												showMeet(meet);
 											});
@@ -751,7 +754,7 @@
 											});
 										}
 
-										var search = findInviteeMeet(user.email, true);
+										var search = findInviteeMeet(uinfo, true);
 										search.done(function(meet) {
 											if (meet) {
 												// meet already exists
@@ -1176,6 +1179,7 @@
 					options.add_page = function(event) {
 						if (event.action == "My eXo Document") {
 							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
+							//window.open(exoWindow.location.href + "#exo-document-selector", "_blank");
 							addExoDocument(event);
 						}
 					};

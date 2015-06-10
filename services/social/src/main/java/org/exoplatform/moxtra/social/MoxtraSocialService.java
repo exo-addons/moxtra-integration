@@ -14,6 +14,7 @@ import org.exoplatform.moxtra.client.MoxtraPage;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
+import org.exoplatform.moxtra.utils.MoxtraUtils;
 import org.exoplatform.services.cms.BasePath;
 import org.exoplatform.services.cms.drives.ManageDriveService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
@@ -235,12 +236,18 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         if (spaceService.hasAccessPermission(space, userId)) {
           // 2. if user has an access to the space, check binder membership
           String userEmail;
+          String userName;
           try {
-            User orgUser = orgService.getUserHandler().findUserByName(userId);
-            userEmail = orgUser.getEmail();
+            User user = orgService.getUserHandler().findUserByName(userId);
+            if (user != null) {
+              userEmail = user.getEmail();
+              userName = MoxtraUtils.fullName(user);
+            } else {
+              userEmail = userName = null;
+            }
           } catch (Exception e) {
             LOG.error("Error reading organization user " + userId, e);
-            userEmail = null;
+            userEmail = userName = null;
           }
           if (userEmail != null) {
             MoxtraBinder binder = getBinder();
@@ -252,7 +259,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             }
             if (moxtraUser == null) {
               // add user to the binder editor
-              moxtraUser = new MoxtraUser(userEmail);
+              moxtraUser = new MoxtraUser(userId, moxtra.getClient().getMoxtraOrgId(), userName, userEmail);
               binder = binder.editor();
               binder.addUser(moxtraUser);
               try {
@@ -441,11 +448,12 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
     protected MoxtraUser findUser(String userId) throws Exception {
       User orgUser = orgService.getUserHandler().findUserByName(userId);
-      String name = orgUser.getDisplayName();
-      if (name == null || name.length() == 0) {
-        name = orgUser.getFirstName() + " " + orgUser.getLastName();
+      if (orgUser != null) {
+        String name = MoxtraUtils.fullName(orgUser);
+        return new MoxtraUser(userId, moxtra.getClient().getMoxtraOrgId(), name, orgUser.getEmail());
+      } else {
+        throw new MoxtraClientException("User not found in organization service '" + userId + "'");
       }
-      return new MoxtraUser(name, orgUser.getEmail());
     }
 
     @Deprecated
@@ -639,8 +647,9 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
                                                               MoxtraSocialException {
     MoxtraBinder binder = binderSpace.getBinder();
     try {
-      // TODO do we have smth to update in Moxtra
-      // MoxtraClient client = moxtra.getClient();
+      // TODO do we have smth to update in Moxtra - yes, invite users!
+      MoxtraClient client = moxtra.getClient();
+      client.inviteUsers(binder); // TODO merge member users from space and binder 
       // client.getBinder(binder.getBinderId());
       binderSpace.resetNew();
 
@@ -1285,12 +1294,15 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     if (binder.isNew() || !JCR.hasUsers(binderNode)) {
       // create local users
       Node usersNode = JCR.addUsers(binderNode);
-      for (MoxtraUser users : binder.getUsers()) {
-        Node unode = usersNode.addNode(users.getEmail());
-        JCR.setId(unode, users.getId());
-        JCR.setName(unode, users.getName());
-        JCR.setEmail(unode, users.getEmail());
-        JCR.setType(unode, users.getType());
+      for (MoxtraUser user : binder.getUsers()) {
+        Node unode = usersNode.addNode(user.getEmail());
+        JCR.setId(unode, user.getId());
+        JCR.setUniqueId(unode, user.getUniqueId());
+        JCR.setOrgId(unode, user.getOrgId());
+        JCR.setName(unode, user.getName());
+        JCR.setEmail(unode, user.getEmail());
+        JCR.setPictureUri(unode, user.getPictureUri());
+        JCR.setType(unode, user.getType());
       }
     } else if (binder.hasUsersAdded() || binder.hasUsersRemoved()) {
       // update local users
@@ -1308,8 +1320,11 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         for (MoxtraUser user : binder.getAddedUsers()) {
           Node unode = usersNode.addNode(user.getEmail());
           JCR.setId(unode, user.getId());
+          JCR.setUniqueId(unode, user.getUniqueId());
+          JCR.setOrgId(unode, user.getOrgId());
           JCR.setName(unode, user.getName());
           JCR.setEmail(unode, user.getEmail());
+          JCR.setPictureUri(unode, user.getPictureUri());
           JCR.setType(unode, user.getType());
         }
       }
@@ -1330,8 +1345,11 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             unode = usersNode.addNode(email);
           }
           JCR.setId(unode, user.getId());
+          JCR.setUniqueId(unode, user.getUniqueId());
+          JCR.setOrgId(unode, user.getOrgId());
           JCR.setName(unode, user.getName());
           JCR.setEmail(unode, email);
+          JCR.setPictureUri(unode, user.getPictureUri());
           JCR.setType(unode, user.getType());
         }
         // remove not in the meet users list
@@ -1364,9 +1382,12 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     Node usersNode = JCR.getUsers(binderNode);
     for (NodeIterator piter = usersNode.getNodes(); piter.hasNext();) {
       Node pnode = piter.nextNode();
-      users.add(new MoxtraUser(JCR.getId(pnode).getString(),
+      users.add(new MoxtraUser(JCR.getIdString(pnode),
+                               JCR.getUniqueIdString(pnode),
+                               JCR.getOrgIdString(pnode),
                                JCR.getName(pnode).getString(),
                                JCR.getEmail(pnode).getString(),
+                               JCR.getPictureUriString(pnode),
                                JCR.getType(pnode).getString()));
     }
 

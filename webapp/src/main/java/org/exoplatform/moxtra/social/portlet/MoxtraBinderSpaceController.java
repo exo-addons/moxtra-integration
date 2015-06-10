@@ -264,15 +264,15 @@ public class MoxtraBinderSpaceController {
 
   @View
   public Response error(String message) {
-    return error.with().message(message).ok();
+    return error.with().message(message != null ? message : "").ok();
   }
 
   Response errorMessage(String text) {
-    return errorMessage.with().message(text).ok();
+    return errorMessage.with().message(text != null ? text : "").ok();
   }
 
   Response warnMessage(String text) {
-    return warnMessage.with().message(text).ok();
+    return warnMessage.with().message(text != null ? text : "").ok();
   }
 
   // ***************** internals *****************

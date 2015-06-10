@@ -24,6 +24,7 @@ import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.security.ConversationState;
 import org.picocontainer.Startable;
 
@@ -42,6 +43,8 @@ public class MoxtraService implements Startable {
 
   protected static final Log                        LOG     = ExoLogger.getLogger(MoxtraService.class);
 
+  protected final OrganizationService               orgService;
+
   protected OAuthClientConfiguration                oAuthConfig;
 
   protected MoxtraClientStore                       usersStore;
@@ -52,6 +55,14 @@ public class MoxtraService implements Startable {
    * No dependency constructor.
    */
   public MoxtraService() {
+    this.orgService = null;
+  }
+
+  /**
+   * Construct MoxtrService using organizational service.
+   */
+  public MoxtraService(OrganizationService orgService) {
+    this.orgService = orgService;
   }
 
   /**
@@ -106,10 +117,15 @@ public class MoxtraService implements Startable {
    */
   protected MoxtraClient createOAuthClient() {
     // TODO create clients per eXo user with single HTTP pool!!!
+    // TODO "exo" team for tests of SSO Unique ID + Sig + Org ID
+    String orgId = null; //"PD8LdFdvtdmBUvazMUMYnL5";
     MoxtraClient client = new MoxtraClient(oAuthConfig.getClientId(),
                                            oAuthConfig.getClientSecret(),
                                            oAuthConfig.getClientSchema(),
-                                           oAuthConfig.getClientHost());
+                                           oAuthConfig.getClientHost(),
+                                           orgService,
+                                           true,
+                                           orgId);
     if (usersStore != null) {
       try {
         if (!usersStore.load(client)) {

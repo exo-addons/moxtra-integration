@@ -57,9 +57,20 @@
 								<input type="checkbox" name="meetAutorec" placeholder="&{MoxtraBinderSpaceController.meetAutorecHint}" class="form-control">
 							</div>
 						</div>
+						<div>
+							<span class="control-label">&{MoxtraBinderSpaceController.meetParticipants}</span>
+						</div>
 						<div class="meetMoxtraContacts">
 						</div>
 						<div class="meetSpaceMembers">
+						</div>
+						<div class="meetEmailMembers">
+							<div class="control-group">
+								<label class="control-label" for="meetEmails">&{MoxtraBinderSpaceController.meetEmails}</label>
+								<div class="controls">
+									<textarea name="meetEmails" placeholder="&{MoxtraBinderSpaceController.meetEmailsHint}" class="form-control" rows="3" cols="50"></textarea>
+								</div>
+							</div>
 						</div>
 					</div>
 				</div>

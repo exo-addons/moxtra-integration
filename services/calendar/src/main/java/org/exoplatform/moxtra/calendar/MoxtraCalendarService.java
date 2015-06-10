@@ -39,6 +39,7 @@ import org.exoplatform.moxtra.client.MoxtraMeetRecording;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
+import org.exoplatform.moxtra.utils.MoxtraUtils;
 import org.exoplatform.services.cms.drives.DriveData;
 import org.exoplatform.services.cms.drives.ManageDriveService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
@@ -666,32 +667,32 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     List<MoxtraUser> newUsers = new ArrayList<MoxtraUser>();
     // added eXo and Moxtra users (TODO move Moxtra users to event invitations)
     next: for (String nameOrEmail : event.getParticipant()) {
-      String name, email;
+      String userId, name, email;
       User user = orgService.getUserHandler().findUserByName(nameOrEmail);
       if (user != null) {
         email = user.getEmail();
+        userId = user.getUserName();
         for (MoxtraUser participant : currentUsers) {
           if (participant.getEmail().equals(email)) {
             alreadyUsers.add(email);
             continue next; // already participant
           }
         }
-        name = user.getDisplayName();
-        if (name == null) {
-          name = user.getFirstName() + " " + user.getLastName();
-          if (name.trim().length() == 0) {
-            name = email;
-          }
-        }
+        name = MoxtraUtils.fullName(user);
       } else if (nameOrEmail.indexOf('@') > 0) {
         // assume it is email
         email = name = nameOrEmail;
+        userId = null;
       } else {
         // skip undetected user
         LOG.warn("Cannot recognize user " + nameOrEmail + " for Moxtra Meet. User skipped.");
         continue next;
       }
-      newUsers.add(new MoxtraUser(name, email));
+      if (userId != null) {
+        newUsers.add(new MoxtraUser(userId, moxtra.getClient().getMoxtraOrgId(), name, email));
+      } else {
+        newUsers.add(new MoxtraUser(email));
+      }
     }
     // event invitations by email
     next: for (String email : event.getInvitation()) {
@@ -764,8 +765,11 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       for (MoxtraUser participant : users.size() > 0 ? users : meet.getUsers()) {
         Node pnode = usersNode.addNode(participant.getEmail());
         JCR.setId(pnode, participant.getId());
+        JCR.setUniqueId(pnode, participant.getUniqueId());
+        JCR.setOrgId(pnode, participant.getOrgId());
         JCR.setName(pnode, participant.getName());
         JCR.setEmail(pnode, participant.getEmail());
+        JCR.setPictureUri(pnode, participant.getPictureUri());
         JCR.setType(pnode, participant.getType());
       }
     } else {
@@ -791,8 +795,11 @@ public class MoxtraCalendarService extends BaseMoxtraService {
           for (MoxtraUser participant : meet.getAddedUsers()) {
             Node pnode = usersNode.addNode(participant.getEmail());
             JCR.setId(pnode, participant.getId());
+            JCR.setUniqueId(pnode, participant.getUniqueId());
+            JCR.setOrgId(pnode, participant.getOrgId());
             JCR.setName(pnode, participant.getName());
             JCR.setEmail(pnode, participant.getEmail());
+            JCR.setPictureUri(pnode, participant.getPictureUri());
             JCR.setType(pnode, participant.getType());
           }
         }
@@ -813,8 +820,11 @@ public class MoxtraCalendarService extends BaseMoxtraService {
               pnode = usersNode.addNode(email);
             }
             JCR.setId(pnode, participant.getId());
+            JCR.setUniqueId(pnode, participant.getUniqueId());
+            JCR.setOrgId(pnode, participant.getOrgId());
             JCR.setName(pnode, participant.getName());
             JCR.setEmail(pnode, email);
+            JCR.setPictureUri(pnode, participant.getPictureUri());
             JCR.setType(pnode, participant.getType());
           }
           // remove not in the meet users list
@@ -886,9 +896,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     Node usersNode = JCR.getUsers(meetNode);
     for (NodeIterator piter = usersNode.getNodes(); piter.hasNext();) {
       Node pnode = piter.nextNode();
-      users.add(new MoxtraUser(JCR.getId(pnode).getString(),
+      users.add(new MoxtraUser(JCR.getIdString(pnode),
+                               JCR.getUniqueIdString(pnode),
+                               JCR.getOrgIdString(pnode),
                                JCR.getName(pnode).getString(),
                                JCR.getEmail(pnode).getString(),
+                               JCR.getPictureUriString(pnode),
                                JCR.getType(pnode).getString()));
     }
 

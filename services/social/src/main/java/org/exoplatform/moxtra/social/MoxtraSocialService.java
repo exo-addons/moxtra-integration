@@ -649,7 +649,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     try {
       // TODO do we have smth to update in Moxtra - yes, invite users!
       MoxtraClient client = moxtra.getClient();
-      client.inviteUsers(binder); // TODO merge member users from space and binder 
+      client.inviteUsers(binder); // TODO merge member users from space and binder
       // client.getBinder(binder.getBinderId());
       binderSpace.resetNew();
 
@@ -787,6 +787,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
    * @param pageId
    * @throws RepositoryException
    */
+  @Deprecated
   public void savePageConversation(Node document, MoxtraBinder binder, String pageId) throws RepositoryException {
     Node parent = document.getParent();
     Node convoDocument = parent.addNode(convoName(document.getName()), "nt:file");
@@ -992,6 +993,12 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       throw new MoxtraSocialException("Meet document not a file " + document.getName() + " "
           + document.getPrimaryNodeType().getName());
     }
+
+//  public void uploadMeetDocument(Node document, String sessionKey, String sessionId) throws MoxtraClientException,
+//                                                                                    MoxtraSocialException,
+//                                                                                    RepositoryException,
+//                                                                                    MoxtraException {
+//    
   }
 
   // ********* internals *********

@@ -106,8 +106,8 @@
         <includes>
           <include>**/*.xml</include>
           <include>**/*.properties</include>
-          <include>**/*.xsl</include>
-          <include>**/*.dtd</include>
+          <include>**/*.css</include>
+          <include>**/*.js</include>
         </includes>
       </resource>
       <resource>
@@ -115,12 +115,8 @@
         <includes>
           <include>**/*.properties</include>
           <include>**/*.xml</include>
-          <include>**/*.drl</include>
-          <include>**/*.doc</include>
-          <include>**/*.xls</include>
-          <include>**/*.ppt</include>
-          <include>**/*.txt</include>
-          <include>**/*.jar</include>
+          <include>**/*.css</include>
+          <include>**/*.js</include>
           <include>**/*.pom</include>
           <include>**/*.sha1</include>
           <include>**/*.conf</include>

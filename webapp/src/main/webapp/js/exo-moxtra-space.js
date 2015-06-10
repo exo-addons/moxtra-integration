@@ -165,13 +165,65 @@
 						// init meets
 						var $meetPopup = $("#moxtra-binder-meet");
 						var $form = $meetPopup.find("form");
+
+						// init meet datepicker
+						// $form.find(".form_datetime").append("<input type='text' value='2012-05-15 21:05' id='datetimepicker'>");
+						// $('#datetimepicker').datetimepicker({
+						// format : 'yyyy-mm-dd hh:ii',
+						// autoclose : true,
+						// todayBtn : true,
+						// minuteStep : 15,
+						// pickerPosition : "bottom-left"
+						// });
+
+						var $pickers = $form.find(".form_datetime");
+						$pickers.each(function(i, el) {
+							$(el).datetimepicker({
+								autoclose : true,
+								todayBtn : true,
+								minuteStep : 15,
+								pickerPosition : "bottom-left"
+								//
+								// // weekStart : 1,
+								// // todayBtn : 1,
+								// // autoclose : 1,
+								// // todayHighlight : 1,
+								// // startView : 2,
+								// // forceParse : 0,
+								// // showMeridian : 1
+							});
+						});
+						var $startPicker = $pickers.find("input[name='meetStartTime']");
+						var startPicker = $startPicker.parent().data("datetimepicker");
+						// if (startPicker) {
+						// var startTime = new Date();
+						// startTime.setMinutes(startTime.getMinutes() + 1);
+						// startPicker.setDate(startTime);
+						// }
+						$startPicker.on("changeDate", function(e) {
+							log("meetStartTime: " + e.getDate().toString());
+						});
+						var $endPicker = $pickers.find("input[name='meetEndTime']");
+						$endPicker.on("changeDate", function(e) {
+							log("meetEndTime: " + e.getDate().toString());
+						});
+						var endPicker = $endPicker.parent().data("datetimepicker");
+						// if (endPicker) {
+						// var endTime = new Date();
+						// endTime.setMinutes(startTime.getMinutes() + 30);
+						// endPicker.setDate(endTime);
+						// }
+
+						// show and process a meet
 						function openMeet(startNow) {
 							var $message = $meetPopup.find(".meetMessage");
 							var topic = $form.find("input[name='meetTopic']").val();
 							var agenda = $form.find("textarea[name='meetAgenda']").val();
 							var autoRec = $form.find("input[name='meetAutorec']").val();
-							var startTime = $form.find("input[name='meetStartTime']:visible").val();
-							var endTime = $form.find("input[name='meetEndTime']:visible").val();
+							//var startTime = $form.find("input[name='meetStartTime']:visible").val();
+							var startTime = startPicker.getDate();
+							//var endTime = $form.find("input[name='meetEndTime']:visible").val();
+							var endTime = endPicker.getDate();
 							var participants = $form.find(".meetSpaceMembers select[name='meetParticipants']").val();
 							if (!participants) {
 								participants = [];

@@ -297,6 +297,17 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   }
 
   /**
+   * Create scheduled Meet in a new Event.
+   * 
+   * @throws MoxtraCalendarException
+   */
+  public MoxtraMeet scheduleMeet(String calendarId, CalendarEvent event) {
+    // TODO
+    
+    return null;
+  }
+  
+  /**
    * Confirm Meet for given Event or Task.
    * 
    * @throws MoxtraCalendarException

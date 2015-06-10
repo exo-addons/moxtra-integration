@@ -23,9 +23,14 @@
 @Portlet(name = "MoxtraBinderSpacePortlet")
 @Bindings({ @Binding(value = MoxtraSocialService.class), @Binding(value = SessionProviderService.class),
     @Binding(value = NodeHierarchyCreator.class), @Binding(value = MoxtraBinderSpaceContext.class) })
+@Assets(location = AssetLocation.SERVER,
+        stylesheets = { @Stylesheet(src = "skin/bootstrap-datetimepicker.min.css") })
 package org.exoplatform.moxtra.social.portlet;
 
 import juzu.Application;
+import juzu.asset.AssetLocation;
+import juzu.plugin.asset.Assets;
+import juzu.plugin.asset.Stylesheet;
 import juzu.plugin.binding.Binding;
 import juzu.plugin.binding.Bindings;
 import juzu.plugin.portlet.Portlet;

@@ -30,10 +30,10 @@
     <meetAgenda>Agenda</meetAgenda>
     <meetAgendaHint>Describe your meet agenda</meetAgendaHint>
     <meetStartTime>Start time</meetStartTime>
-    <meetStartTimeHint>Choose start-time of your meet</meetStartTimeHint>
+    <meetStartTimeHint>Choose meet start-time</meetStartTimeHint>
     <meetEndTime>End time</meetEndTime>
-    <meetEndTimeHint>Choose end-time of your meet</meetEndTimeHint>
-    <meetParticipants>Invite meet paticipants</meetParticipants>
+    <meetEndTimeHint>Choose meet end-time</meetEndTimeHint>
+    <meetParticipants>Invite meet participants</meetParticipants>
     <meetMoxtraContacts>Moxtra contacts</meetMoxtraContacts>
     <meetSpaceMembers>Space members</meetSpaceMembers>
     <meetEmails>Invite by email</meetEmails>

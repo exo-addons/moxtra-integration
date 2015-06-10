@@ -78,6 +78,28 @@
     </depends>
   </module>
   <module>
+    <name>bootstrapDatepicker</name>
+    <load-group>moxtraGRP</load-group>
+    <script>
+      <adapter>
+        (function() {
+        var oldJQuery = window.jQuery;
+        window.jQuery = jQuery;
+        <include>/js/bootstrap-datetimepicker.min.js</include>
+        window.jQuery = oldJQuery;
+        return jQuery;
+        })();
+      </adapter>
+    </script>
+    <depends>
+      <module>jquery</module>
+      <as>jQuery</as>
+    </depends>
+    <depends>
+      <module>bts_dropdown</module>
+    </depends>
+  </module>
+  <module>
     <name>exoMoxtra</name>
     <load-group>moxtraGRP</load-group>
     <script>
@@ -94,6 +116,9 @@
     </depends>
     <depends>
       <module>jqueryPnotify</module>
+    </depends>
+    <depends>
+      <module>bootstrapDatepicker</module>
     </depends>
   </module>
 

@@ -34,21 +34,29 @@
 							<label class="control-label" for="meetAgenda">&{MoxtraBinderSpaceController.meetAgenda}</label>
 							<div class="controls">
 								<!-- input type="text" name="meetAgenda" placeholder="&{MoxtraBinderSpaceController.meetAgendaHint}" class="form-control" -->
-								<textarea name="meetAgenda" placeholder="&{MoxtraBinderSpaceController.meetAgendaHint}" class="form-control" rows="3" cols="50"></textarea>
+								<textarea name="meetAgenda" placeholder="&{MoxtraBinderSpaceController.meetAgendaHint}" class="form-control" rows="2" cols="50"></textarea>
 							</div>
 						</div>
 						<div class="meetTime">
 							<div class="control-group">
 								<label class="control-label" for="meetStartTime">&{MoxtraBinderSpaceController.meetStartTime}</label>
 								<div class="controls">
-									<input type="datetime-local" name="meetStartTime" placeholder="&{MoxtraBinderSpaceController.meetStartTimeHint}" class="form-control">
-								</div>
+									<div class="input-append date form_datetime form-control" data-date-format="mm/dd/yyyy hh:ii" data-link-field="meetStartTimeVal">
+										<input type="text" size="16" value="" readonly name="meetStartTime" placeholder="&{MoxtraBinderSpaceController.meetStartTimeHint}">
+									  <span class="add-on"><i class="icon-th"></i></span>
+									</div>
+								  <input type="hidden" id="meetStartTimeVal">
+							  </div>
 							</div>
 							<div class="control-group">
 								<label class="control-label" for="meetEndTime">&{MoxtraBinderSpaceController.meetEndTime}</label>
 								<div class="controls">
-									<input type="datetime-local" name="meetEndTime" placeholder="&{MoxtraBinderSpaceController.meetEndTimeHint}" class="form-control">
-								</div>
+									<div class="input-append date form_datetime form-control" data-date-format="mm/dd/yyyy hh:ii" data-link-field="meetEndTimeVal">
+										<input type="text" size="16" value="" readonly name="meetEndTime" placeholder="&{MoxtraBinderSpaceController.meetEndTimeHint}">
+									  <span class="add-on"><i class="icon-th"></i></span>
+									</div>
+								  <input type="hidden" id="meetEndTimeVal">
+							  </div>
 							</div>
 						</div>
 						<div class="control-group">
@@ -57,8 +65,8 @@
 								<input type="checkbox" name="meetAutorec" placeholder="&{MoxtraBinderSpaceController.meetAutorecHint}" class="form-control">
 							</div>
 						</div>
-						<div>
-							<span class="control-label">&{MoxtraBinderSpaceController.meetParticipants}</span>
+						<div class="meetParticipantsTitle">
+							<span>&{MoxtraBinderSpaceController.meetParticipants}</span>
 						</div>
 						<div class="meetMoxtraContacts">
 						</div>
@@ -68,7 +76,7 @@
 							<div class="control-group">
 								<label class="control-label" for="meetEmails">&{MoxtraBinderSpaceController.meetEmails}</label>
 								<div class="controls">
-									<textarea name="meetEmails" placeholder="&{MoxtraBinderSpaceController.meetEmailsHint}" class="form-control" rows="3" cols="50"></textarea>
+									<textarea name="meetEmails" placeholder="&{MoxtraBinderSpaceController.meetEmailsHint}" class="form-control" rows="2" cols="50"></textarea>
 								</div>
 							</div>
 						</div>

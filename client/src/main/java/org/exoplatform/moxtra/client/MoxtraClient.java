@@ -722,7 +722,15 @@ public class MoxtraClient {
    * Builder-style helper for Moxtra authorization via OAuth2.
    */
   public class OAuth2Authorizer extends Authorizer {
+    /**
+     * Redirect link for standard OAuth2 authorization.
+     */
     protected String redirectLink;
+
+    /**
+     * Organization user identifiers for custom OAuth2 authorization.
+     */
+    protected String userId, firstName, lastName;
 
     /**
      * Create authorization link using default redirect link handled by {@link OAuthCodeAuthenticator} REST
@@ -733,7 +741,7 @@ public class MoxtraClient {
      * @see {@link OAuthCodeAuthenticator}
      */
     public String authorizationLink() throws OAuthSystemException {
-      return authorizationOrgLink();
+      return authorizationCodeLink();
     }
 
     /**
@@ -752,26 +760,6 @@ public class MoxtraClient {
       redirectLink.append('/');
       redirectLink.append(PortalContainer.getCurrentRestContextName());
       redirectLink.append("/moxtra/login");
-
-      return authorizationLink(redirectLink.toString());
-    }
-
-    /**
-     * Create link for org_id based authorization in Moxtra using default redirect link handled by
-     * {@link OAuthCodeAuthenticator} REST service.
-     * 
-     * @return {@link String}
-     * @throws OAuthSystemException
-     * @see {@link OAuthCodeAuthenticator}
-     */
-    public String authorizationOrgLink() throws OAuthSystemException {
-      StringBuilder redirectLink = new StringBuilder();
-      redirectLink.append(oAuthClientSchema);
-      redirectLink.append("://");
-      redirectLink.append(oAuthClientHost);
-      redirectLink.append('/');
-      redirectLink.append(PortalContainer.getCurrentRestContextName());
-      redirectLink.append("/moxtra/login/org");
 
       return authorizationLink(redirectLink.toString());
     }
@@ -821,9 +809,14 @@ public class MoxtraClient {
       }
     }
 
-    public MoxtraClient authorizeOrg(String orgId, String userId, String firstName, String lastName) throws OAuthSystemException,
-                                                                                                    OAuthProblemException,
-                                                                                                    MoxtraClientException {
+    public MoxtraClient authorizeOrg(String userId, String firstName, String lastName) throws OAuthSystemException,
+                                                                                      OAuthProblemException,
+                                                                                      MoxtraClientException {
+      // save user identifiers
+      this.userId = userId;
+      this.firstName = firstName;
+      this.lastName = lastName;
+
       // generate code
       try {
         String timestamp = Long.toString(System.currentTimeMillis());
@@ -874,7 +867,7 @@ public class MoxtraClient {
       }
     }
 
-    public MoxtraClient refresh() throws OAuthSystemException, OAuthProblemException {
+    public MoxtraClient refresh() throws OAuthSystemException, OAuthProblemException, MoxtraClientException {
       String refreshToken = getOAuthToken().getRefreshToken();
       if (refreshToken != null) {
         OAuthClientRequest request = OAuthClientRequest.tokenLocation("https://api.moxtra.com/oauth/token")
@@ -897,6 +890,9 @@ public class MoxtraClient {
                                                resp.getScope()));
 
         return MoxtraClient.this;
+      } else if (isMoxtraSSOAuth() && userId != null) {
+        // request new access token using stored user identifiers from previous call of authorizeOrg()
+        return authorizeOrg(userId, firstName, lastName);
       } else {
         throw new OAuthSystemException("Refresh token required");
       }
@@ -1030,7 +1026,7 @@ public class MoxtraClient {
               try {
                 User user = orgService.getUserHandler().findUserByName(userId);
                 if (user != null) {
-                  authorizer.authorizeOrg(orgId, userId, user.getFirstName(), user.getLastName());
+                  authorizer.authorizeOrg(userId, user.getFirstName(), user.getLastName());
                 } else {
                   LOG.error("User not found in organization " + userId);
                 }
@@ -1843,6 +1839,7 @@ public class MoxtraClient {
             meet.setCreatedTime(getDate(vcreated.getLongValue()));
             meet.setUpdatedTime(getDate(vupdated.getLongValue()));
 
+            // TODO remove meet on users invitation (aka rollback the creation)
             // inviteUsers(meet);
             inviteMeetUsers(meet);
           } else {
@@ -2153,9 +2150,6 @@ public class MoxtraClient {
 
       meet.setStatus(meetStatus);
 
-      // TODO user invitation/removal for started also?
-      // if (MoxtraMeet.SESSION_SCHEDULED.equals(meetStatus) || MoxtraMeet.SESSION_STARTED.equals(meetStatus))
-      // {
       // handle users
       if (meet.hasUsersAdded()) {
         inviteMeetUsers(meet);
@@ -2164,7 +2158,6 @@ public class MoxtraClient {
       if (meet.hasUsersRemoved()) {
         removeUsers(meet);
       }
-      // }
     } else {
       throw new MoxtraAuthorizationException("Authorization required");
     }
@@ -2469,7 +2462,17 @@ public class MoxtraClient {
           // prepare body
           JsonGeneratorImpl jsonGen = new JsonGeneratorImpl();
           Map<String, Object> params = new HashMap<String, Object>();
-          params.put("email", user.getEmail());
+
+          String uniqueId = user.getUniqueId();
+          if (uniqueId != null) {
+            params.put("unique_id", uniqueId);
+            if (!user.isSameOrganization(orgId)) {
+              params.put("org_id", user.getOrgId());
+            }
+          } else {
+            params.put("email", user.getEmail());
+          }
+
           try {
             String url = API_BINDER_REMOVEUSER.replace("{binder_id}", binder.getBinderId());
             restRequest(url, OAuth.HttpMethod.POST, jsonGen.createJsonObjectFromMap(params).toString());
@@ -2971,7 +2974,7 @@ public class MoxtraClient {
     }
     MoxtraUser hostUser = null;
     List<MoxtraUser> participants = new ArrayList<MoxtraUser>();
-    for (JsonValue vu : vusers) {
+    nextUser: for (JsonValue vu : vusers) {
       String userEmail;
       JsonValue vemail = vu.getElement("email");
       if (isNull(vemail) || (userEmail = vemail.getStringValue()).length() == 0) {
@@ -3037,12 +3040,13 @@ public class MoxtraClient {
 
       MoxtraUser user;
       if (binderUser == null) {
-        // TODO just invited user? why not already in the binder?
-        // throw new MoxtraException("Cannot find meet participant in its binder users " + userEmail
-        // + " (" + userName + ")");
+        // just invited user by email?
         if (userEmail == null) {
-          throw new MoxtraException("Meet user has no email and user not found in binder: '" + uniqueId + "' "
-              + userName);
+          // well just skip the user
+          LOG.warn("Skiped meet participant withput email and unique_id. " + vu);
+          continue nextUser;
+          // throw new MoxtraException("Meet user has no email and user not found in binder: '" + uniqueId
+          // + "' " + userName);
         }
         user = new MoxtraUser(userEmail);
       } else {

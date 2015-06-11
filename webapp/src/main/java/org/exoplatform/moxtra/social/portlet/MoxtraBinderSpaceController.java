@@ -18,6 +18,8 @@
  */
 package org.exoplatform.moxtra.social.portlet;
 
+import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
+
 import juzu.Action;
 import juzu.Path;
 import juzu.PropertyType;
@@ -28,10 +30,19 @@ import juzu.View;
 import juzu.request.RequestContext;
 
 import org.exoplatform.commons.juzu.ajax.Ajax;
+import org.exoplatform.moxtra.Moxtra;
+import org.exoplatform.moxtra.client.MoxtraMeet;
+import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
+import org.exoplatform.moxtra.social.MoxtraSocialService.MeetEvent;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+
+import java.util.ArrayList;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Provider;
@@ -89,6 +100,10 @@ public class MoxtraBinderSpaceController {
   org.exoplatform.moxtra.social.portlet.templates.meetParticipants meetParticipants;
 
   @Inject
+  @Path("meetData.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.meetData         meetData;
+
+  @Inject
   @Path("error.gtmpl")
   org.exoplatform.moxtra.social.portlet.templates.error            error;
 
@@ -109,6 +124,8 @@ public class MoxtraBinderSpaceController {
           binderSpace = moxtra.getBinderSpace();
           if (binderSpace != null) {
             context.set(binderSpace);
+            // force users autojoin here (per-session)
+            binderSpace.autojoin();
           }
         }
 
@@ -209,7 +226,15 @@ public class MoxtraBinderSpaceController {
   @Resource
   public Response contactsList() {
     try {
-      return meetParticipants.with().isMoxtra(true).users(moxtra.getContacts()).ok();
+      // remove space members from the contacts
+      List<MoxtraUser> parts = new ArrayList<MoxtraUser>();
+      List<MoxtraUser> spaceMembers = moxtra.getBinderSpace().getMembers(false);
+      for (MoxtraUser user : moxtra.getContacts()) {
+        if (!spaceMembers.contains(user)) {
+          parts.add(user);
+        }
+      }
+      return meetParticipants.with().isMoxtra(true).users(parts).ok();
     } catch (Exception e) {
       LOG.error("Error reading Moxtra contacts for current user", e);
       return errorMessage("Error reading Moxtra contacts " + e.getMessage());
@@ -220,10 +245,90 @@ public class MoxtraBinderSpaceController {
   @Resource
   public Response spaceMembersList() {
     try {
-      return meetParticipants.with().isMoxtra(false).users(moxtra.getBinderSpace().getSpaceUsers(false)).ok();
+      return meetParticipants.with().isMoxtra(false).users(moxtra.getBinderSpace().getMembers(false)).ok();
     } catch (Exception e) {
       LOG.error("Error reading Moxtra contacts for current user", e);
       return errorMessage("Error reading Moxtra contacts " + e.getMessage());
+    }
+  }
+
+  @Ajax
+  @Resource
+  public Response createMeet(String spaceName,
+                             String name,
+                             String agenda,
+                             String startTime,
+                             String endTime,
+                             String autoRecording,
+                             String users) {
+    try {
+
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      if (binderSpace != null) {
+        if (name != null && name.length() > 0) {
+          if (startTime != null && endTime != null) {
+            MoxtraMeet meet = new MoxtraMeet().editor();
+            meet.editName(name);
+            meet.editAgenda(agenda);
+
+            try {
+              meet.editStartTime(Moxtra.getDate(Long.parseLong(startTime)));
+            } catch (NumberFormatException e) {
+              return errorMessage("Error parsing meet start date " + startTime);
+            }
+            try {
+              meet.editEndTime(Moxtra.getDate(Long.parseLong(endTime)));
+            } catch (NumberFormatException e) {
+              return errorMessage("Error parsing meet end date " + endTime);
+            }
+            meet.editAutoRecording(Boolean.valueOf(autoRecording));
+
+            // parse users
+            Set<MoxtraUser> userSet = new LinkedHashSet<MoxtraUser>();
+            for (String u : users.split(",")) {
+              String[] uparts = u.split("\\+");
+              String email, uniqueId, orgId;
+              if (uparts.length >= 3) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = cleanValue(uparts[2]);
+              } else if (uparts.length == 2) {
+                email = cleanValue(uparts[0]);
+                uniqueId = cleanValue(uparts[1]);
+                orgId = null;
+              } else {
+                email = u;
+                uniqueId = orgId = null;
+              }
+              userSet.add(new MoxtraUser(uniqueId, orgId, email));
+            }
+            for (MoxtraUser user : userSet) {
+              meet.addUser(user);
+            }
+
+            MeetEvent event = moxtra.createMeet(binderSpace, meet);
+            String eventLink = "";
+            return meetData.with()
+                           .binderId(meet.getBinderId())
+                           .sessionKey(meet.getSessionKey())
+                           .startLink(meet.getStartMeetUrl())
+                           .eventLink(event.getEventActivityLink())
+                           .startTime(meet.getStartTime().getTime())
+                           .endTime(meet.getEndTime().getTime())
+                           .ok();
+          } else {
+            return errorMessage("Meet time required");
+          }
+        } else {
+          return errorMessage("Meet name required");
+        }
+      } else {
+        LOG.warn("Space binder not found " + spaceName);
+        return errorMessage("Space binder not found");
+      }
+    } catch (Exception e) {
+      LOG.error("Error creating Moxtra meet", e);
+      return errorMessage("Error creating Moxtra meet " + e.getMessage());
     }
   }
 
@@ -243,9 +348,13 @@ public class MoxtraBinderSpaceController {
           // name or confirm use of existing binder
           context.set(binderSpace);
         } else if ("_existing".equals(selectBinder)) {
-          MoxtraBinderSpace binderSpace = moxtra.newBinderSpace(moxtra.getBinder(binderId));
-          moxtra.assignSpaceBinder(binderSpace);
-          context.set(binderSpace);
+          if (binderId != null && binderId.length() > 0) {
+            MoxtraBinderSpace binderSpace = moxtra.newBinderSpace(moxtra.getBinder(binderId));
+            moxtra.assignSpaceBinder(binderSpace);
+            context.set(binderSpace);
+          } else {
+            return MoxtraBinderSpaceController_.error("Existing binder cannot be empty");
+          }
         }
       } else {
         MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();

@@ -55,15 +55,6 @@ public class MoxtraBinderSpaceFilter implements UIExtensionFilter {
     UIJCRExplorer uiExplorer = (UIJCRExplorer) context.get(UIJCRExplorer.class.getName());
     NodeHierarchyCreator nodeHierarchyCreator = uiExplorer.getApplicationComponent(NodeHierarchyCreator.class);
 
-    // TODO
-    // String userId = Util.getPortalRequestContext().getRemoteUser();
-    // SessionProvider sessionProvider = WCMCoreUtils.getUserSessionProvider();
-    // Node userNode = nodeHierarchyCreator.getUserNode(sessionProvider, userId);
-    // String driveRootPath =
-    // org.exoplatform.services.cms.impl.Utils.getPersonalDrivePath(uiExplorer.getDriveData()
-    // .getHomePath(),
-    // userId);
-
     String driveRootPath = uiExplorer.getDriveData().getHomePath();
 
     String groupsPath = nodeHierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);

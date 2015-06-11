@@ -33,7 +33,6 @@ import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
 
-import java.util.Date;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -86,11 +85,18 @@ public class BinderSpaceService implements ResourceContainer {
     try {
       MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
       if (binderSpace != null) {
-        if (binderSpace.hasPage(pageNodeUUID)) {
-          MoxtraPage page = binderSpace.getPage(pageNodeUUID);
-          if (page.isCreated()) {
-            return Response.ok().entity(page).build();
+        if (binderSpace.ensureSpaceMember()) {
+          if (binderSpace.hasPage(pageNodeUUID)) {
+            MoxtraPage page = binderSpace.getPage(pageNodeUUID);
+            if (page.isCreated()) {
+              return Response.ok().entity(page).build();
+            }
           }
+        } else {
+          return Response.status(Status.FORBIDDEN)
+                         .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
+                             + spaceName + "'"))
+                         .build();
         }
       }
       // TODO would use of "Accepted" response be more correct?
@@ -126,22 +132,26 @@ public class BinderSpaceService implements ResourceContainer {
       if (binderSpace != null) {
         if (name != null && name.length() > 0) {
           if (startTimeMs != null && endTimeMs != null) {
-            Date startTime;
+            MoxtraMeet meet = new MoxtraMeet().editor();
+            meet.editName(name);
+            meet.editAgenda(agenda);
+
             try {
-              startTime = Moxtra.getDate(Long.parseLong(startTimeMs));
+              meet.editStartTime(Moxtra.getDate(Long.parseLong(startTimeMs)));
             } catch (NumberFormatException e) {
               return Response.status(Status.BAD_REQUEST)
                              .entity(ErrorInfo.clientError("Error parsing meet start date " + startTimeMs))
                              .build();
             }
-            Date endTime;
             try {
-              endTime = Moxtra.getDate(Long.parseLong(endTimeMs));
+              meet.editEndTime(Moxtra.getDate(Long.parseLong(endTimeMs)));
             } catch (NumberFormatException e) {
               return Response.status(Status.BAD_REQUEST)
                              .entity(ErrorInfo.clientError("Error parsing meet end date " + endTimeMs))
                              .build();
             }
+            meet.editAutoRecording(Boolean.parseBoolean(autoRecording));
+
             // parse users
             Set<MoxtraUser> userSet = new LinkedHashSet<MoxtraUser>();
             for (String u : users) {
@@ -161,14 +171,11 @@ public class BinderSpaceService implements ResourceContainer {
               }
               userSet.add(new MoxtraUser(uniqueId, orgId, email));
             }
+            for (MoxtraUser user : userSet) {
+              meet.addUser(user);
+            }
 
-            MoxtraMeet meet = moxtra.createMeet(binderSpace,
-                                                name,
-                                                agenda,
-                                                startTime,
-                                                endTime,
-                                                Boolean.parseBoolean(autoRecording),
-                                                userSet);
+            moxtra.createMeet(binderSpace, meet);
             return Response.ok().entity(meet).build();
           } else {
             return Response.status(Status.BAD_REQUEST)

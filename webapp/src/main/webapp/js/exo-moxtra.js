@@ -1139,12 +1139,16 @@
 						invoke("error", event, callbacks);
 					},
 					publish_feed : function(event) {
-						log("Published feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						log("publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
 						invoke("publish_feed", event, callbacks);
 					},
 					receive_feed : function(event) {
-						log("Received feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						log("receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
 						invoke("receive_feed", event, callbacks);
+					},
+					start_note : function(event) {
+						log("start_note session Id: " + event.session_id + " session key: " + event.session_key);
+						invoke("start_note", event, callbacks);
 					}
 				};
 				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {

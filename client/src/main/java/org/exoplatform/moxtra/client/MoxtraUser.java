@@ -110,14 +110,14 @@ public class MoxtraUser {
     }
     hc = hc * 31 + this.name.hashCode();
     hc = hc * 31 + this.email.hashCode();
-    if (type != null) {
-      hc = hc * 31 + type.hashCode();
-    }
     if (createdTime != null) {
       hc = hc * 31 + createdTime.hashCode();
     }
-    if (updatedTime != null) {
-      hc = hc * 31 + updatedTime.hashCode();
+    if (uniqueId != null) {
+      hc = hc * 31 + uniqueId.hashCode();
+    }
+    if (orgId != null) {
+      hc = hc * 31 + orgId.hashCode();
     }
     this.hashCode = hc;
   }
@@ -166,6 +166,25 @@ public class MoxtraUser {
                     String pictureUri,
                     String type) {
     this(id, uniqueId, orgId, name, email, null, null, pictureUri, type, null, null);
+  }
+
+  /**
+   * User with full names and email known (for invitation of local eXo users).<br>
+   * 
+   * @param uniqueId
+   * @param orgId
+   * @param name
+   * @param email
+   * @param firstName
+   * @param lastName
+   */
+  public MoxtraUser(String uniqueId,
+                    String orgId,
+                    String name,
+                    String email,
+                    String firstName,
+                    String lastName) {
+    this(null, uniqueId, orgId, name, email, firstName, lastName, null, USER_TYPE_NORMAL, null, null);
   }
 
   /**

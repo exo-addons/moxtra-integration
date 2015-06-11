@@ -107,7 +107,7 @@ public class MoxtraBinder {
    */
   protected List<MoxtraPage>           pages;
 
-  protected transient Boolean    isNew;
+  protected transient Boolean          isNew;
 
   protected transient boolean          deleted;
 
@@ -308,20 +308,25 @@ public class MoxtraBinder {
   }
 
   /**
-   * @param user
+   * Add user to the binder editor.
+   * 
+   * @param user {@link MoxtraUser}
+   * 
+   * @return boolean <code>true</code> if user was actually added, <code>false</code> if already added or a
+   *         member
    */
-  public synchronized void addUser(MoxtraUser user) {
+  public synchronized boolean addUser(MoxtraUser user) {
     if (isEditor()) {
       for (MoxtraUser added : addedUsers) {
         if (added.equals(user)) {
-          return;
+          return false;
         }
       }
       List<MoxtraUser> origUsers = original.getUsers();
       if (origUsers != null) {
         for (MoxtraUser existing : origUsers) {
           if (existing.equals(user)) {
-            return;
+            return false;
           }
         }
       }
@@ -332,6 +337,7 @@ public class MoxtraBinder {
         }
       }
       this.addedUsers.add(user);
+      return true;
     } else {
       throw new IllegalStateException("Not editor instance");
     }
@@ -472,7 +478,7 @@ public class MoxtraBinder {
   // ******* internals *******
 
   /**
-   * Mark the binder as not new (for refreshing of newly crated). 
+   * Mark the binder as not new (for refreshing of newly crated).
    */
   protected void resetNew() {
     if (isEditor()) {
@@ -482,7 +488,7 @@ public class MoxtraBinder {
       this.isNew = false;
     }
   }
-  
+
   /**
    * Set binder users.
    * 

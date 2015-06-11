@@ -161,7 +161,6 @@ public class MeetService implements ResourceContainer {
       if (name != null) {
         if (startTimeMs != null && endTimeMs != null) {
           MoxtraMeet meet = new MoxtraMeet().editor();
-          // TODO fill meet fields
           meet.editName(name);
           meet.editAgenda(agenda);
           try {

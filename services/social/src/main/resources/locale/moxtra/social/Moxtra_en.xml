@@ -40,6 +40,10 @@
     <meetAutorec>Record automatically</meetAutorec>
     <meetCreating>Please wait, you meeting is creating...</meetCreating>
     <meetCreated>Your meet created successfully!</meetCreated>
+    <meetLink>Meet link in Moxtra</meetLink>
+    <meetEvent>Meet scheduled in the space calendar</meetEvent>
+    <meetOpenEvent>Open space calendar</meetOpenEvent>
+    <meetStart>Start meet</meetStart>
     <cancel>Cancel</cancel>
     <start>Start</start>
     <schedule>Schedule</schedule>

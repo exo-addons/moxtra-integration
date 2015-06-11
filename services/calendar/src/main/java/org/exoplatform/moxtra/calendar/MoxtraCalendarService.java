@@ -23,8 +23,10 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.calendar.service.Calendar;
 import org.exoplatform.calendar.service.CalendarEvent;
 import org.exoplatform.calendar.service.CalendarSetting;
+import org.exoplatform.calendar.service.Reminder;
 import org.exoplatform.calendar.service.Utils;
 import org.exoplatform.calendar.service.impl.CalendarServiceImpl;
+import org.exoplatform.calendar.service.impl.NewUserListener;
 import org.exoplatform.commons.utils.MimeTypeResolver;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
@@ -59,6 +61,7 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.io.InputStream;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
 import java.util.List;
@@ -86,6 +89,16 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   public static final String MEET_VIDEO_DOWNLOAD_JOB_GROUP_NAME = "moxtra_meet_download";
 
   protected static final Log LOG                                = ExoLogger.getLogger(MoxtraCalendarService.class);
+
+  public final static String EVENT_STATE_BUSY                   = "busy".intern();
+
+  public final static String COMMA                              = ",".intern();
+
+  /**
+   * A period in ms, if scheduling meet event will happen later of it comparing to current time, then a
+   * reminder will be set up for the calendar event.
+   */
+  public final static long   MEET_EVENT_REMINDER_THRESHOLD      = 60 * 60 * 1000;
 
   protected class UserSettings {
     final ConversationState conversation;
@@ -298,21 +311,116 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   /**
    * Create scheduled Meet in a new Event.
-   * @throws Exception 
    * 
-   * @throws MoxtraCalendarException
+   * @throws Exception
    */
-  public MoxtraMeet scheduleMeet(String groupId, CalendarEvent event) throws Exception {
-    // TODO
-    
-    //calendar.getCalendarById(calId);
-    //uiForm.calType_.equals(CalendarUtils.PUBLIC_TYPE)){
-    String calId = groupId;
-    calendar.savePublicEvent(calId, event, true);
-    
-    return null;
+  public CalendarEvent scheduleMeet(String groupId, MoxtraMeet meet) throws Exception {
+    ConversationState conversation = ConversationState.getCurrent();
+    String userId;
+    if (conversation != null && (userId = conversation.getIdentity().getUserId()) != null) {
+      // create event first
+      String calendarId = Utils.getCalendarIdFromSpace(groupId);
+      CalendarSetting userSettings = calendar.getCalendarSetting(userId);
+
+      // long spaghetti to init the event :)
+      CalendarEvent event = new CalendarEvent();
+      event.setSummary(meet.getName());
+      event.setDescription(meet.getAgenda());
+      event.setCalendarId(calendarId);
+      event.setCalType(String.valueOf(Calendar.TYPE_PUBLIC));
+      event.setEventType(CalendarEvent.TYPE_EVENT);
+      event.setEventState(EVENT_STATE_BUSY);
+      event.setEventCategoryId(NewUserListener.DEFAULT_EVENTCATEGORY_ID_MEETING);
+      event.setEventCategoryName("Meetings"); // TODO constant?
+      event.setSendOption(userSettings.getSendOption());
+
+      event.setRepeatType(CalendarEvent.RP_NOREPEAT);
+      event.setRepeatInterval(0);
+      event.setRepeatCount(0);
+      event.setRepeatUntilDate(null);
+      event.setRepeatByDay(null);
+      event.setRepeatByMonthDay(null);
+
+      event.setPrivate(false);
+      // TODO do we have a constant for the below string?
+      event.setPriority("none");
+      event.setEventState(EVENT_STATE_BUSY);
+
+      // participants
+      List<MoxtraUser> users = meet.getUsers();
+      List<String> parts = new ArrayList<String>();
+      List<String> partStatuses = new ArrayList<String>();
+      List<String> invitations = new ArrayList<String>();
+      List<String> reminded = new ArrayList<String>();
+      for (int i = 0; i < users.size(); i++) {
+        MoxtraUser user = users.get(i);
+        String uid = user.getUniqueId();
+        if (uid != null) {
+          // it's eXo user
+          parts.add(uid);
+          partStatuses.add(uid + ":");
+        } else {
+          // invited by email or Moxtra user
+          String email = user.getEmail();
+          partStatuses.add(email + ":");
+          invitations.add(email);
+          reminded.add(email);
+        }
+      }
+      // [pnedonosko, james]
+      event.setParticipant(parts.toArray(new String[parts.size()]));
+      // [pnedonosko:, james:, pnedonosko@yahoo.com:]
+      event.setParticipantStatus(partStatuses.toArray(new String[partStatuses.size()]));
+      // [pnedonosko@yahoo.com]
+      event.setInvitation(invitations.toArray(new String[invitations.size()]));
+
+      // use email reminder for the event if it is scheduled for more than a hour from now
+      Date now = java.util.Calendar.getInstance().getTime();
+      Date startTime = meet.getStartTime();
+      if (startTime.getTime() - now.getTime() >= MEET_EVENT_REMINDER_THRESHOLD) {
+        Reminder email = new Reminder();
+        email.setReminderType(Reminder.TYPE_EMAIL);
+        email.setReminderOwner(userId);
+
+        // email.setAlarmBefore(Long.parseLong(getEmailRemindBefore())) ;
+        StringBuffer sbAddress = new StringBuffer();
+        for (String s : reminded) {
+          if (sbAddress.length() > 0) {
+            sbAddress.append(COMMA);
+          }
+          sbAddress.append(s);
+        }
+        email.setEmailAddress(sbAddress.toString());
+        email.setRepeate(false);
+        // email.setRepeatInterval(Long.parseLong(getEmailRepeatInterVal()));
+        email.setFromDateTime(startTime);
+        event.setReminders(Collections.singletonList(email));
+      }
+      event.setFromDateTime(startTime);
+      event.setToDateTime(meet.getEndTime());
+
+      // create an event
+      calendar.savePublicEvent(calendarId, event, true);
+      try {
+        // create meet in Moxtra and then save in the event
+        Node eventNode = saveEvenMeet(userId, meet, event, null, null);
+
+        // TODO need any extras regarding the space context?
+        eventNode.save();
+
+        return event;
+      } catch (Exception e) {
+        removeMeetEvent(meet, userId, calendarId, event);
+        throw e;
+      } catch (Throwable t) {
+        removeMeetEvent(meet, userId, calendarId, event);
+        throw t;
+      }
+    } else {
+      throw new MoxtraCalendarException("Current user identity not found");
+    }
   }
-  
+
   /**
    * Confirm Meet for given Event or Task.
    * 
@@ -333,79 +441,9 @@ public class MoxtraCalendarService extends BaseMoxtraService {
             String calType = app.getCalendarType(); // use cal type set in event form
             // XXX we assume that calendar id match here for fired event and event of the
             // associated form in the app
-            Node eventNode = readEventNode(userName,
-                                           calType != null ? calType : event.getCalType(),
-                                           calendarId != null ? calendarId : event.getCalendarId(),
-                                           event.getId());
-            if (eventNode != null) {
-              MoxtraClient client = moxtra.getClient();
-              if (meet.hasDeleted()) {
-                // created new meet also can be marked as deleted (don't delete not created yet meet)
-                if (!meet.isNew()) {
-                  boolean cancelVideoDownload = meet.isAutoRecording() || meet.hasAutoRecordingChanged();
-                  client.deleteMeet(meet);
-                  JCR.removeServices(eventNode);
-                  if (cancelVideoDownload) {
-                    // remove scheduled meet video download
-                    removeDownloadJob(event, meet);
-                  }
-                } // else, meet was enabled and then disabled (marked deleted)
-              } else {
-                // init meet fields from the event
-                initEventMeet(meet, event);
-                Node meetNode;
-                if (meet.isNew()) {
-                  // schedule the meet in Moxtra (invite participants if required)
-                  if (!JCR.isServices(eventNode)) {
-                    JCR.addServices(eventNode);
-                  } else if (JCR.hasMeet(eventNode)) {
-                    // meet already created for this event
-                    throw new MoxtraCalendarException("Meet already created for this event "
-                        + event.getSummary());
-                  }
-                  client.createMeet(meet);
-                  // save local node after creating remote meet but before adding meet (mixin should be saved)
-                  eventNode.save();
-                  meetNode = JCR.addMeet(eventNode);
-                  // save meet using local meet editor but get actual users from read remote Moxtra
-                  // XXX Here we getting only actual users, remote meet cannot be used for
-                  // other data (see method's Javadoc) - it is OK.
-                  MoxtraMeet remoteMeet = client.getMeet(meet.getSessionKey());
-                  writeMeet(meetNode, meet, remoteMeet.getUsers());
-                  if (meet.isAutoRecording()) {
-                    // schedule meet video download
-                    createDownloadJob(event, meet, meetNode, null);
-                  }
-                } else {
-                  // Update the meet in Moxtra
-                  if (!JCR.isServices(eventNode)) {
-                    // meet not created for this event
-                    throw new MoxtraCalendarException("Meet not enabled for this event " + event.getSummary());
-                  }
-                  // if auto-record enabled and end time changed
-                  boolean updateVideoDownload = meet.isAutoRecording() && meet.hasEndTimeChanged();
-                  // if auto-record was disabled
-                  boolean cancelVideoDownload = !meet.isAutoRecording() && meet.hasAutoRecordingChanged();
-                  client.updateMeet(meet);
-                  meetNode = JCR.getMeet(eventNode);
-                  // update meet using local meet editor
-                  writeMeet(meetNode, meet, null);
-                  if (updateVideoDownload) {
-                    // update scheduled meet video download (for time)
-                    updateDownloadJob(event, meet);
-                  }
-                  if (cancelVideoDownload) {
-                    // remove scheduled meet video download
-                    removeDownloadJob(event, meet);
-                  }
-                }
-              }
 
-              // save meet to the event node in Calendar storage
-              eventNode.save();
-            } else {
-              LOG.error("Event node cannot be found for user " + userName + " event " + event.getSummary());
-            }
+            Node eventNode = saveEvenMeet(userName, meet, event, calType, calendarId);
+            eventNode.save();
           } catch (MoxtraMeetNotFoundException e) {
             // we have no meet associated with this event
             if (LOG.isDebugEnabled()) {
@@ -749,7 +787,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
    * @param users actual users for a new meet (as in remote meet on Moxtra)
    * @throws RepositoryException
    */
-  protected void writeMeet(Node meetNode, MoxtraMeet meet, List<MoxtraUser> users) throws RepositoryException {
+  protected void writeMeet(Node meetNode, MoxtraMeet meet, boolean isNew) throws RepositoryException {
     // TODO move this method to common place
 
     // object fields
@@ -771,7 +809,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     JCR.setStartMeetUrl(meetNode, meet.getStartMeetUrl());
     JCR.setSessionKey(meetNode, meet.getSessionKey());
     // JCR.setSessionId(meetNode, meet.getSessionId());
-    if (meet.isNew()) {
+    if (isNew) {
       JCR.setAutoRecording(meetNode, meet.isAutoRecording()); // using "is" for new meet
       // create local users
       Node usersNode = JCR.addUsers(meetNode);
@@ -779,7 +817,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       // XXX if meet already started (what is almost not possible - we just scheduled it), its
       // users will be empty, thus if such crap happened, we'll use local users (host user email
       // may differ in this case)
-      for (MoxtraUser participant : users.size() > 0 ? users : meet.getUsers()) {
+      for (MoxtraUser participant : meet.getUsers()) {
         Node pnode = usersNode.addNode(participant.getEmail());
         JCR.setId(pnode, participant.getId());
         JCR.setUniqueId(pnode, participant.getUniqueId());
@@ -945,7 +983,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       // the Moxtra API. Saved local meet will be shown to not authorized users.
       // Saved locally meet could be good as for caching purpose, otherwise need save only reference data such
       // as binder id and session key.
-      writeMeet(meetNode, localMeet, localMeet.getUsers());
+      writeMeet(meetNode, localMeet, false);
     }
     return localMeet;
   }
@@ -1123,4 +1161,104 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     }
     return null;
   }
+
+  protected Node saveEvenMeet(String userName,
+                              MoxtraMeet meet,
+                              CalendarEvent event,
+                              String calType,
+                              String calendarId) throws Exception {
+    Node eventNode = readEventNode(userName,
+                                   calType != null ? calType : event.getCalType(),
+                                   calendarId != null ? calendarId : event.getCalendarId(),
+                                   event.getId());
+    if (eventNode != null) {
+      MoxtraClient client = moxtra.getClient();
+      if (meet.hasDeleted()) {
+        // created new meet also can be marked as deleted (don't delete not created yet meet)
+        if (!meet.isNew()) {
+          boolean cancelVideoDownload = meet.isAutoRecording() || meet.hasAutoRecordingChanged();
+          client.deleteMeet(meet);
+          JCR.removeServices(eventNode);
+          if (cancelVideoDownload) {
+            // remove scheduled meet video download
+            removeDownloadJob(event, meet);
+          }
+        } // else, meet was enabled and then disabled (marked deleted)
+      } else {
+        // init meet fields from the event
+        initEventMeet(meet, event);
+        Node meetNode;
+        if (meet.isNew()) {
+          // schedule the meet in Moxtra (invite participants if required)
+          if (!JCR.isServices(eventNode)) {
+            JCR.addServices(eventNode);
+          } else if (JCR.hasMeet(eventNode)) {
+            // meet already created for this event
+            throw new MoxtraCalendarException("Meet already created for this event " + event.getSummary());
+          }
+          client.createMeet(meet);
+          // save local node after creating remote meet but before adding meet (mixin should be saved)
+          eventNode.save();
+          meetNode = JCR.addMeet(eventNode);
+          // save meet using local meet editor but get actual users from read remote Moxtra
+          // refresh meet object to latest data (new status will be reset!)
+          client.refreshMeet(meet);
+          writeMeet(meetNode, meet, true);
+          if (meet.isAutoRecording()) {
+            // schedule meet video download
+            createDownloadJob(event, meet, meetNode, null);
+          }
+        } else {
+          // Update the meet in Moxtra
+          if (!JCR.isServices(eventNode)) {
+            // meet not created for this event
+            throw new MoxtraCalendarException("Meet not enabled for this event " + event.getSummary());
+          }
+          // if auto-record enabled and end time changed
+          boolean updateVideoDownload = meet.isAutoRecording() && meet.hasEndTimeChanged();
+          // if auto-record was disabled
+          boolean cancelVideoDownload = !meet.isAutoRecording() && meet.hasAutoRecordingChanged();
+          client.updateMeet(meet);
+          meetNode = JCR.getMeet(eventNode);
+          // update meet using local meet editor
+          writeMeet(meetNode, meet, false);
+          if (updateVideoDownload) {
+            // update scheduled meet video download (for time)
+            updateDownloadJob(event, meet);
+          }
+          if (cancelVideoDownload) {
+            // remove scheduled meet video download
+            removeDownloadJob(event, meet);
+          }
+        }
+      }
+
+      // we don't save meet node here, the caller code have to do this!s
+      return eventNode;
+    } else {
+      throw new MoxtraCalendarException("Event node cannot be found for user " + userName + " event "
+          + event.getSummary());
+    }
+  }
+
+  protected void removeMeetEvent(MoxtraMeet meet, String userId, String calendarId, CalendarEvent event) {
+    // no need to refresh
+    // try {
+    // moxtra.getClient().refreshMeet(meet);
+    // } catch (NotFoundException e) {
+    // // ok, meet not found
+    // } catch (Throwable re) {
+    // LOG.error("Error refreshing meet with creation error. " + re.getMessage(), re);
+    // }
+    // TODO meet could be created but error during users invitation
+    if (meet.getSessionKey() == null) {
+      // if no meet created remove the event
+      try {
+        calendar.removePublicEvent(calendarId, event.getId());
+      } catch (Throwable re) {
+        LOG.error("Error removing an event of failed to create meet. " + re.getMessage(), re);
+      }
+    }
+  }
+
 }

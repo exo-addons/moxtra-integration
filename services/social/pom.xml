@@ -45,6 +45,12 @@
       <scope>compile</scope>
       <type>jar</type>
     </dependency>
+    <dependency>
+      <groupId>org.exoplatform.addons</groupId>
+      <artifactId>exo-moxtra-services-calendar</artifactId>
+      <scope>compile</scope>
+      <type>jar</type>
+    </dependency>
 
     <!-- eXo Social -->
     <dependency>
@@ -58,6 +64,20 @@
       <artifactId>social-component-webui</artifactId>
       <scope>provided</scope>
       <type>jar</type>
+    </dependency>
+    
+    <!-- eXo Calendar -->
+    <dependency>
+      <groupId>org.exoplatform.calendar</groupId>
+      <artifactId>calendar-service</artifactId>
+      <scope>provided</scope>
+      <type>jar</type>
+      <exclusions>
+        <exclusion>
+          <groupId>commons-httpclient</groupId>
+          <artifactId>commons-httpclient</artifactId>
+        </exclusion>
+      </exclusions>
     </dependency>
 
     <!-- eXo ECMS (to access document folders for user/space) -->

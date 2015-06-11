@@ -2,9 +2,11 @@ package org.exoplatform.moxtra.social;
 
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.exoplatform.calendar.service.CalendarEvent;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
+import org.exoplatform.moxtra.calendar.MoxtraCalendarService;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.client.MoxtraClient;
@@ -16,6 +18,8 @@ import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
 import org.exoplatform.moxtra.utils.MoxtraUtils;
+import org.exoplatform.portal.application.PortalRequestContext;
+import org.exoplatform.portal.webui.util.Util;
 import org.exoplatform.services.cms.BasePath;
 import org.exoplatform.services.cms.drives.ManageDriveService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
@@ -37,7 +41,6 @@ import org.picocontainer.Startable;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Calendar;
-import java.util.Collection;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -76,6 +79,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
   protected static final Log LOG                    = ExoLogger.getLogger(MoxtraSocialService.class);
 
+  public static final String INVITATION_DETAIL      = "/invitation/detail/";
+
   /**
    * Binder associated with Social space.
    */
@@ -92,17 +97,13 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     protected MoxtraBinderSpace(Space space, MoxtraBinder binder, boolean isNew) throws Exception {
       this.space = space;
       this.binder = binder.editor();
-      this.binder.editName(space.getDisplayName());
-      // add also space users
-      Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
-      for (String userId : space.getManagers()) {
-        users.add(findUser(userId));
-      }
-      for (String userId : space.getMembers()) {
-        users.add(findUser(userId));
-      }
-      for (MoxtraUser user : users) {
-        this.binder.addUser(user);
+      if (isNew) {
+        if (this.binder.isNew()) {
+          // set binder name to the space name only for newly creating binder
+          this.binder.editName(space.getDisplayName());
+        }
+        // add also space users
+        joinMembers();
       }
       this.isNew = isNew;
     }
@@ -204,12 +205,14 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
      * @throws MoxtraException
      * @throws RepositoryException
      */
+    @Deprecated
     public boolean ensureMember() throws MoxtraClientException, MoxtraException, RepositoryException {
+      // TODO such check not crear where can be used: NOT USED currently!
       ConversationState currentConvo = ConversationState.getCurrent();
       if (currentConvo != null) {
         String userId = currentConvo.getIdentity().getUserId();
 
-        // 1. check space membership
+        // check space membership
         Space space = getSpace();
         Set<String> spaceUsers = new HashSet<String>();
         for (String mid : space.getManagers()) {
@@ -233,59 +236,153 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             // if open space an user will become a member immediately
             spaceService.addPendingUser(space, userId);
           }
-        }
-        if (spaceService.hasAccessPermission(space, userId)) {
-          // 2. if user has an access to the space, check binder membership
-          String userEmail;
-          String userName;
-          try {
-            User user = orgService.getUserHandler().findUserByName(userId);
-            if (user != null) {
-              userEmail = user.getEmail();
-              userName = MoxtraUtils.fullName(user);
-            } else {
-              userEmail = userName = null;
-            }
-          } catch (Exception e) {
-            LOG.error("Error reading organization user " + userId, e);
-            userEmail = userName = null;
-          }
-          if (userEmail != null) {
-            MoxtraBinder binder = getBinder();
-            MoxtraUser moxtraUser = null;
-            for (MoxtraUser user : binder.getUsers()) {
-              if (userEmail.equals(user.getEmail())) {
-                moxtraUser = user;
-              }
-            }
-            if (moxtraUser == null) {
-              // add user to the binder editor
-              moxtraUser = new MoxtraUser(userId, moxtra.getClient().getMoxtraOrgId(), userName, userEmail);
-              binder = binder.editor();
-              binder.addUser(moxtraUser);
-              try {
-                MoxtraClient client = moxtra.getClient();
-                client.inviteUsers(binder);
-                client.refreshBinder(this.binder);
-                Node spaceNode = spaceNode();
-                Node binderNode = JCR.getBinder(spaceNode);
-                writeBinder(binderNode, this.binder);
-                binderNode.save();
-                return true;
-              } catch (OAuthProblemException e) {
-                throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
-                    + " (" + userEmail + "). " + e.getMessage(), e);
-              } catch (OAuthSystemException e) {
-                throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
-                    + " (" + userEmail + "). " + e.getMessage(), e);
-              }
-            }
+          if (spaceService.hasAccessPermission(space, userId)) {
+            ensureBinderMember();
           }
         }
       } else {
         LOG.warn("Current conversation state not found for binder space " + binder.getName());
       }
       return false;
+    }
+
+    /**
+     * Ensure current eXo user is a member of this space. If user isn't a member of the space,
+     * then it will be added via pending request (if space is open then it will be added immediately,
+     * otherwise it will require a validation by the space manager).
+     * 
+     * @return <code>true</code> if current user is a member of the space, <code>false</code> otherwise (user
+     *         was be added to pending list and space membership requires validation)
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public boolean ensureSpaceMember() throws MoxtraClientException, MoxtraException, RepositoryException {
+      // FYI this method can work for non-portal access to the binder space (e.g. REST services)
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+
+        // check space membership
+        Space space = getSpace();
+        Set<String> spaceUsers = new HashSet<String>();
+        for (String mid : space.getManagers()) {
+          spaceUsers.add(mid);
+        }
+        for (String mid : space.getMembers()) {
+          spaceUsers.add(mid);
+        }
+        boolean joinSpace = true;
+        for (String uid : spaceUsers) {
+          if (userId.equals(uid)) {
+            joinSpace = false;
+            break;
+          }
+        }
+        if (joinSpace) {
+          SpaceService spaceService = spaceService();
+          if (!spaceService.isPendingUser(space, userId)) {
+            // here we request user access to the space:
+            // if space private it will require an acceptance by the managers
+            // if open space an user will become a member immediately
+            spaceService.addPendingUser(space, userId);
+            return spaceService.hasAccessPermission(space, userId);
+          }
+        } else {
+          return true;
+        }
+      } else {
+        LOG.warn("Current conversation state not found for binder space " + binder.getName());
+      }
+      return false;
+    }
+
+    /**
+     * Ensure current eXo user is a member of this binder.
+     * 
+     * @return <code>true</code> if current user is a member of the binder, <code>false</code> otherwise (user
+     *         needto be invited by the manager)
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public boolean ensureBinderMember() throws MoxtraClientException, MoxtraException, RepositoryException {
+      ConversationState currentConvo = ConversationState.getCurrent();
+      if (currentConvo != null) {
+        String userId = currentConvo.getIdentity().getUserId();
+
+        String userEmail;
+        String fullName;
+        String firstName;
+        String lastName;
+        try {
+          User user = orgService.getUserHandler().findUserByName(userId);
+          if (user != null) {
+            userEmail = user.getEmail();
+            fullName = MoxtraUtils.fullName(user);
+            firstName = user.getFirstName();
+            lastName = user.getLastName();
+          } else {
+            userEmail = fullName = firstName = lastName = null;
+          }
+        } catch (Exception e) {
+          LOG.error("Error reading organization user " + userId, e);
+          userEmail = fullName = firstName = lastName = null;
+        }
+        if (userEmail != null) {
+          MoxtraBinder binder = getBinder();
+          MoxtraUser moxtraUser = null;
+          for (MoxtraUser user : binder.getUsers()) {
+            if (userEmail.equals(user.getEmail())) {
+              moxtraUser = user;
+            }
+          }
+          if (moxtraUser == null) {
+            // add user to the binder editor
+            moxtraUser = new MoxtraUser(userId,
+                                        moxtra.getClient().getMoxtraOrgId(),
+                                        fullName,
+                                        userEmail,
+                                        firstName,
+                                        lastName);
+            binder = binder.editor();
+            binder.addUser(moxtraUser);
+            try {
+              saveBinder();
+            } catch (OAuthProblemException e) {
+              throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
+                  + " (" + userEmail + "). " + e.getMessage(), e);
+            } catch (OAuthSystemException e) {
+              throw new MoxtraSocialException("Error inviting space user to page conversation " + userId
+                  + " (" + userEmail + "). " + e.getMessage(), e);
+            }
+            return true;
+          }
+        }
+      } else {
+        LOG.warn("Current conversation state not found for binder space " + binder.getName());
+      }
+      return false;
+    }
+
+    /**
+     * Force current user or all new space members join to the binder in Moxtra.
+     * 
+     */
+    public void autojoin() {
+      try {
+        if (moxtra.getClient().isMoxtraSSOAuth() || isSpaceManager(getSpace())) {
+          joinMembers();
+        } else {
+          // if not SSO or space manager, then try join user by itself
+          ensureBinderMember();
+        }
+      } catch (Throwable t) {
+        // auto-join should not be harmful for the original operation
+        LOG.error("Error auo-joining new members to space binder " + getBinder().getName() + ". "
+                      + t.getMessage(),
+                  t);
+      }
     }
 
     /**
@@ -320,7 +417,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
      * @throws MoxtraClientException
      */
     public boolean hasPage(Node document) throws RepositoryException, MoxtraClientException, MoxtraException {
-      ensureMember();
+      ensureBinderMember();
       return isPageNode(document, true);
     }
 
@@ -399,13 +496,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             if (pageName.equals(page.getOriginalFileName())) {
               // TODO do we need check page type or other things?
               // we could ensure it was just created by created_time
-
-              // TODO add page node in local binder node
-
-              // TODO update page document with references
-
-              // return document.isNodeType("moxtra:pageDocument");
-
               return page;
             }
           }
@@ -418,23 +508,41 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       return null;
     }
 
-    public Collection<MoxtraUser> getSpaceUsers(boolean includeMe) throws Exception {
-      ConversationState currentConvo = ConversationState.getCurrent();
-      String myId = currentConvo.getIdentity().getUserId();
-      Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
-      for (String userId : space.getManagers()) {
-        if (userId.equals(myId) && !includeMe) {
-          continue;
+    public List<MoxtraUser> getMembers(boolean includeMe) throws Exception {
+      // firce autojoin here also
+      autojoin();
+
+      List<MoxtraUser> binderUsers = binder.getUsers();
+      if (!includeMe) {
+        MoxtraUser me = moxtra.getClient().getCurrentUser();
+        List<MoxtraUser> users = new ArrayList<MoxtraUser>();
+        for (MoxtraUser user : binderUsers) {
+          if (!me.equals(user)) {
+            users.add(user);
+          }
         }
-        users.add(findUser(userId));
+        return users;
+      } else {
+        return binderUsers;
       }
-      for (String userId : space.getMembers()) {
-        if (userId.equals(myId) && !includeMe) {
-          continue;
-        }
-        users.add(findUser(userId));
-      }
-      return users;
+
+      // TODO cleanup
+      // ConversationState currentConvo = ConversationState.getCurrent();
+      // String myId = currentConvo.getIdentity().getUserId();
+      // Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
+      // for (String userId : space.getManagers()) {
+      // if (userId.equals(myId) && !includeMe) {
+      // continue;
+      // }
+      // users.add(findUser(userId));
+      // }
+      // for (String userId : space.getMembers()) {
+      // if (userId.equals(myId) && !includeMe) {
+      // continue;
+      // }
+      // users.add(findUser(userId));
+      // }
+      // return users;
     }
 
     // ******* internals ******
@@ -526,7 +634,80 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
       return pageNode;
     }
+
+    protected void saveBinder() throws MoxtraClientException,
+                               OAuthSystemException,
+                               OAuthProblemException,
+                               MoxtraException,
+                               RepositoryException {
+      MoxtraClient client = moxtra.getClient();
+      client.inviteUsers(binder);
+      client.refreshBinder(this.binder);
+      Node spaceNode = spaceNode();
+      Node binderNode = JCR.getBinder(spaceNode);
+      writeBinder(binderNode, this.binder);
+      binderNode.save();
+    }
+
+    /**
+     * Add space users to binder if some of them not yet members there.
+     * 
+     * @return boolean <code>true</code> if at least one new member was added to the binder,
+     *         <code>false</code> otherwise
+     * @throws Exception
+     */
+    protected boolean joinMembers() throws Exception {
+      Set<MoxtraUser> users = new LinkedHashSet<MoxtraUser>();
+      for (String userId : space.getManagers()) {
+        users.add(findUser(userId));
+      }
+      for (String userId : space.getMembers()) {
+        users.add(findUser(userId));
+      }
+      boolean added = false;
+      for (MoxtraUser user : users) {
+        if (binder.addUser(user)) {
+          added = true;
+        }
+      }
+      if (added) {
+        try {
+          saveBinder();
+        } catch (OAuthProblemException e) {
+          throw new MoxtraSocialException("Error inviting space users binder " + binder.getName() + ". "
+              + e.getMessage(), e);
+        } catch (OAuthSystemException e) {
+          throw new MoxtraSocialException("Error inviting space users binder " + binder.getName() + ". "
+              + e.getMessage(), e);
+        }
+      }
+      return added;
+    }
   }
+
+  public class MeetEvent {
+    protected final CalendarEvent event;
+
+    protected MeetEvent(CalendarEvent event) {
+      this.event = event;
+    }
+
+    public String getEventId() {
+      return this.event.getId();
+    }
+
+    /**
+     * Event invitation link to open inside port, this method will work only within a portal request, NPE will
+     * be otherwise.
+     * 
+     * @return event invitation link.
+     */
+    public String getEventActivityLink() {
+      return makeEventLink(Util.getPortalRequestContext().getRemoteUser(), event);
+    }
+  }
+
+  protected final MoxtraCalendarService   moxtraCalendar;
 
   protected final SessionProviderService  sessionsProvider;
 
@@ -552,12 +733,14 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
    * 
    */
   public MoxtraSocialService(MoxtraService moxtra,
+                             MoxtraCalendarService moxtraCalendar,
                              SessionProviderService sessionProviderService,
                              NodeHierarchyCreator hierarchyCreator,
                              OrganizationService orgService,
                              JobSchedulerServiceImpl schedulerService,
                              ManageDriveService driveService) {
     super(moxtra);
+    this.moxtraCalendar = moxtraCalendar;
     this.sessionsProvider = sessionProviderService;
     this.hierarchyCreator = hierarchyCreator;
     this.orgService = orgService;
@@ -863,8 +1046,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
   /**
    * Return Moxtra binder space if it is enabled for the current space (in the request) or <code>null</code>
-   * if not
-   * enabled.
+   * if not enabled.
    * 
    * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
    * @throws MoxtraSocialException
@@ -872,7 +1054,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   public MoxtraBinderSpace getBinderSpace() throws MoxtraSocialException {
     Space space = contextSpace();
     if (space != null) {
-      return binderSpace(space);
+      MoxtraBinderSpace binderSpace = binderSpace(space);
+      return binderSpace;
     } else {
       throw new MoxtraSocialException("No space found in the context");
     }
@@ -996,23 +1179,41 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
-  public MoxtraMeet createMeet(MoxtraBinderSpace binderSpace,
-                               String topic,
-                               String agenda,
-                               Date startTime,
-                               Date endTime,
-                               boolean autoRecording,
-                               Set<MoxtraUser> userSet) throws MoxtraClientException,
-                                                       MoxtraSocialException,
-                                                       RepositoryException,
-                                                       MoxtraException {
-    
-    
+  public MeetEvent createMeet(MoxtraBinderSpace binderSpace, MoxtraMeet meet) throws MoxtraClientException,
+                                                                             MoxtraSocialException,
+                                                                             RepositoryException,
+                                                                             MoxtraException {
 
-    return null;
+    try {
+      CalendarEvent event = moxtraCalendar.scheduleMeet(binderSpace.getSpace().getGroupId(), meet);
+      MeetEvent meetEvent = new MeetEvent(event);
+      return meetEvent;
+    } catch (Exception e) {
+      throw new MoxtraSocialException("Error creating binder meet", e);
+    }
   }
 
   // ********* internals *********
+
+  /**
+   * Method copied from PLF integ with social CalendarSpaceActivityPublisher.
+   * 
+   * @param event
+   * @return
+   */
+  protected String makeEventLink(String userId, CalendarEvent event) {
+    StringBuffer sb = new StringBuffer("");
+    PortalRequestContext requestContext = Util.getPortalRequestContext();
+    sb.append(requestContext.getPortalURI())
+      .append(requestContext.getNodePath().replace("/moxtra/", "/calendar/")) // TODO find better way
+      .append(INVITATION_DETAIL)
+      .append(userId)
+      .append("/")
+      .append(event.getId())
+      .append("/")
+      .append(event.getCalType());
+    return sb.toString();
+  }
 
   /**
    * Current space in the request (will work only for portal requests to space portlets).
@@ -1431,4 +1632,5 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       }
     }
   }
+
 }

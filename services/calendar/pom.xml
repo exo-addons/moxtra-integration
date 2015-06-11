@@ -59,12 +59,12 @@
         </exclusion>
       </exclusions>
     </dependency>
-    <dependency>
+    <!-- dependency>
       <groupId>org.exoplatform.calendar</groupId>
       <artifactId>calendar-webapp</artifactId>
       <scope>provided</scope>
-      <type>war</type><!-- TODO remove WAR dependency -->
-    </dependency>
+      <type>war</type>
+    </dependency -->
 
     <!-- eXo ECMS (to access document folders for user/space) -->
     <dependency>

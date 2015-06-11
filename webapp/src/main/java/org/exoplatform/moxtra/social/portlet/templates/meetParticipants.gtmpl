@@ -13,10 +13,10 @@
 			  for(u in users) {
           def user = "${u.email}"
           if (u.uniqueId) {
-            user << "+${u.uniqueId}"
+            user <<= "+${u.uniqueId}"
           }
           if (u.orgId) {
-            user << "+${u.orgId}"
+            user <<= "+${u.orgId}"
           }
 			%>
 			<option value="${user}">${u.name ? u.name : u.email}</option>

@@ -22,6 +22,7 @@ import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
 
 import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
+import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraPage;
@@ -111,6 +112,43 @@ public class BinderSpaceService implements ResourceContainer {
       return Response.serverError().entity(ErrorInfo.serverError("Error getting binder page")).build();
     } catch (RepositoryException e) {
       LOG.error("Error reading binder page " + spaceName + " " + pageNodeUUID, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error reading binder page")).build();
+    }
+  }
+
+  @POST
+  @RolesAllowed("users")
+  @Path("/pages/{binderId}/{pageId}")
+  public Response savePage(@Context UriInfo uriInfo,
+                           @PathParam("binderId") String binderId,
+                           @PathParam("pageId") String pageId) {
+    try {
+      MoxtraBinder binder = moxtra.getBinder(binderId);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
+      if (binderSpace != null) {
+        if (binderSpace.ensureSpaceMember()) {
+          MoxtraPage page = binderSpace.findPageById(pageId);
+          if (page != null) {
+            // TODO save page here
+            return Response.ok().entity(page).build();
+          }
+        } else {
+          return Response.status(Status.FORBIDDEN)
+                         .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
+                             + binderId + "'"))
+                         .build();
+        }
+      }
+      return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error saving binder page " + binderId + "/" + pageId))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error getting binder page " + binderId + "/" + pageId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error getting binder page")).build();
+    } catch (RepositoryException e) {
+      LOG.error("Error reading binder page " + binderId + "/" + pageId, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error reading binder page")).build();
     }
   }

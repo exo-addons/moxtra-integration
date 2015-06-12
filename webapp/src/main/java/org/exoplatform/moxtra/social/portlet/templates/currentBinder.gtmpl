@@ -1,7 +1,12 @@
+#{param name=binderId/}
 #{param name=binderName/}
-<label class="control-label" for="currentBinder">&{MoxtraBinderSpaceController.selectBinder}</label>
-<div class="controls">
-	<input type="text" name="currentBinder" disabled value="${binderName}" class="form-control">
+<label class="control-label" for="currentBinderName">&{MoxtraBinderSpaceController.selectBinder}</label>
+<div class="controls currentBinder" data-binderid="${binderId}">
+	<input type="text" name="currentBinderName" disabled value="${binderName}" class="form-control">
+	<span class="binderViewButton" style="display: none;"> 
+		<a class="btn" rel="tooltip" data-placement="bottom" data-trigger="hover" data-toggle="tooltip" 
+				title="&{MoxtraBinderSpaceController.openBinder}" href="javascript:void(0);">&{MoxtraBinderSpaceController.openBinder}</a>
+	</span>
 </div>
 
 

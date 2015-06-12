@@ -85,6 +85,9 @@
         	<%	}
            		if (uicomponent.canStartMeet) { %>
         <span class="meetStartAction" rel="tooltip" data-placement="bottom" 
+        			data-meet-binderid="$uicomponent.meetBinderId" 
+        			data-meet-sessionkey="$uicomponent.meetSessionKey"
+        			data-meet-join=${uicomponent.meetStarted || !uicomponent.hostUser} 
         		title="<%= uiForm.getLabel(uicomponent.meetStarted ? uicomponent.MESSAGE_STARTED_MEET_HINT : (uicomponent.hostUser ? uicomponent.MESSAGE_START_MEET_HINT : uicomponent.MESSAGE_JOIN_MEET_HINT)) %>">
         		<% // onclick "=uicomponent.event(uicomponent.ACTION_START_MEET)" %>
 					<a class="btn" href="$uicomponent.startMeetLink" target="_blank">

@@ -75,6 +75,26 @@
 				$form.submit();
 			});
 
+			function enableBinderView(binderId, $target) {
+				if (binderId) {
+					var $viewButton = $target.find(".binderViewButton");
+					$viewButton.find("a").click(function() {
+						// open using MoxtraJS : showBinder
+						moxtra.moxtrajs().showTimeline(binderId, null, {
+							start_chat : function(event) {
+								// TODO
+							},
+							error : function(event) {
+								showError(event.error_message + " (" + event.error_code + ")", $message);
+							}
+						});
+					});
+					$viewButton.show("fade");
+				} else {
+					$viewButton.hide("fade");
+				}
+			}
+
 			// enable change action
 			$enable.change(function(ev) {
 				if (!$enable.data("moxtra-binder-enabling")) {
@@ -86,18 +106,36 @@
 								if ($msg.length > 0) {
 									showError($msg);
 								} else {
+									// for new binder
 									$editor.find("input[value='_existing']").click(function() {
 										var $binderSelector = $editor.find(".binderSelector");
-										if ($binderSelector.children().size() == 0) {
-											$binderSelector.jzLoad("MoxtraBinderSpaceController.bindersList()", function(response, status, jqXHR) {
-												var $msg = $editor.find(".messageText");
-												if ($msg.length > 0) {
-													showError($msg);
+
+										function enableSelectedBinderView() {
+											// enable binder view button for selected existing binder
+											var $select = $binderSelector.find("select");
+											$select.change(function(sev) {
+												var $selected = $select.find(":selected");
+												if ($selected.size() > 0) {
+													enableBinderView($selected.val(), $binderSelector);
 												}
 											});
 										}
+
+										if ($binderSelector.children().size() == 0) {
+											$binderSelector.jzLoad("MoxtraBinderSpaceController.bindersList()", function(response) {
+												var $msg = $editor.find(".messageText");
+												if ($msg.length > 0) {
+													showError($msg);
+												} else {
+													enableSelectedBinderView();
+												}
+											});
+										} else {
+											enableSelectedBinderView();
+										}
 									});
-									$form.find(".binderConfig").removeClass("disabled");
+
+									$editor.removeClass("disabled");
 								}
 							});
 						} else {
@@ -107,7 +145,7 @@
 							showError("Moxtra authorization required");
 						}
 					} else {
-						$form.find(".binderConfig").addClass("disabled");
+						$editor.addClass("disabled");
 					}
 				}
 			});
@@ -119,10 +157,16 @@
 						var $msg = $editor.find(".messageText");
 						if ($msg.length > 0) {
 							showError($msg);
+						} else {
+							// for already assigned binder
+							var $current = $editor.find(".currentBinder");
+							if ($current.size() > 0) {
+								var binderId = $current.data("binderid");
+								enableBinderView(binderId, $current);
+							}
 						}
 					});
 				}
-
 				$("#moxtra-binder-settings").modal({
 					show : true,
 					backdrop : false
@@ -212,9 +256,6 @@
 								var newEndTime = new Date(startTime.getTime());
 								newEndTime.setMinutes(newEndTime.getMinutes() + (timeStep * 2));
 								endPicker.setDate(newEndTime);
-								//$endPicker.datetimepicker({
-								//	initialDate : newEndTime,
-								//});
 								log("meetEndTime fixed: " + e.date.toString() + " -> " + newEndTime.toString());
 							}
 						});
@@ -225,9 +266,6 @@
 								var newStartTime = new Date(endTime.getTime());
 								newStartTime.setMinutes(newStartTime.getMinutes() - timeStep);
 								startPicker.setDate(newStartTime);
-								//$startPicker.datetimepicker({
-								//	initialDate : newStartTime,
-								//});
 								log("meetStartTime fixed: " + e.date.toString() + " -> " + newStartTime.toString());
 							}
 						});
@@ -245,19 +283,12 @@
 
 							// dates
 							//if ($startPicker.is(":visible")) {
-								var startTime = new Date();
-								startTime.setMinutes(startTime.getMinutes() + 5);
-								startPicker.setDate(startTime);
-								/*$startPicker.parent().datetimepicker({
-									initialDate : startTime,
-								});*/
-								var endTime = new Date();
-								endTime.setMinutes(startTime.getMinutes() + 35);
-								endPicker.setDate(endTime);
-								/*$endPicker.parent().datetimepicker({
-									initialDate : endTime,
-								});*/
-							//}
+							var startTime = new Date();
+							startTime.setMinutes(startTime.getMinutes() + 5);
+							startPicker.setDate(startTime);
+							var endTime = new Date();
+							endTime.setMinutes(startTime.getMinutes() + 35);
+							endPicker.setDate(endTime);
 						}
 
 						// show and process a meet
@@ -343,11 +374,10 @@
 										// use Moxtra JS to open the meet immediately
 										moxtra.moxtrajs().startMeet(meet.binderId, {
 											end_meet : function(event) {
-												log("end_meet: " + event);
+												// TODO
 											},
 											save_meet : function(event) {
-												//session_key, session_id, binder_id
-												log("save_meet: " + event.session_key);
+												// TODO
 											},
 											error : function(event) {
 												showError(event.error_message + " (" + event.error_code + ")", $message);
@@ -456,7 +486,7 @@
 									$meetSchedule.click(function(ev) {
 										ev.preventDefault();
 										hideError($message);
-										openMeet();
+										openMeet(true);
 									});
 								});
 							});

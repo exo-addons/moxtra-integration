@@ -42,6 +42,7 @@ import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
 import org.exoplatform.moxtra.utils.MoxtraUtils;
+import org.exoplatform.moxtra.webui.MoxtraNotActivatedException;
 import org.exoplatform.services.cms.drives.DriveData;
 import org.exoplatform.services.cms.drives.ManageDriveService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
@@ -444,6 +445,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
             Node eventNode = saveEvenMeet(userName, meet, event, calType, calendarId);
             eventNode.save();
+          } catch (MoxtraNotActivatedException e) {
+            // XXX webui app not activated for this event, this shouldn't happen but does when saving an event
+            // from space's Moxtra app
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("<<< " + e.getMessage());
+            }
           } catch (MoxtraMeetNotFoundException e) {
             // we have no meet associated with this event
             if (LOG.isDebugEnabled()) {
@@ -1035,7 +1042,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       java.util.Calendar downloadTime = Moxtra.getCalendar();
       downloadTime.setTime(meet.getEndTime());
       // TODO add 20 to be sure video is ready on Moxtra: more robust algo to do not wait too much
-      downloadTime.add(java.util.Calendar.MINUTE, 7);
+      downloadTime.add(java.util.Calendar.MINUTE, 3);
       trigger.setStartTime(downloadTime.getTime());
     }
 

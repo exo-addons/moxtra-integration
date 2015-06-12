@@ -497,16 +497,20 @@ public class UIEmeetingTab extends UIFormInputWithActions {
     return "javascript:void(0);";
   }
 
-  // TODO cleanup
-  // /**
-  // * {@inheritDoc}
-  // */
-  // @Override
-  // @Deprecated
-  // public void setActionField(String fieldName, List<ActionData> actions) {
-  // moxtraActions.put(fieldName, actions);
-  // }
-
+  public String getMeetSessionKey() throws MoxtraCalendarException {
+    if (isMeetEnabled()) {
+      return meet.getSessionKey();
+    }
+    return "";
+  }
+  
+  public String getMeetBinderId() throws MoxtraCalendarException {
+    if (isMeetEnabled()) {
+      return meet.getBinderId();
+    }
+    return "";
+  }
+  
   @Deprecated
   // TODO NOT USED, but mentioned in the template
   public List<ActionData> getActionField(String fieldName) {
@@ -515,11 +519,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public void initMoxtra(MoxtraCalendarApplication moxtra) throws Exception {
     this.moxtra = moxtra;
-
-    // TODO show complete meet participants (in non editable grid)
-    // UIGrid participantsList = addChild(UIGrid.class, null, LIST_MEET_PARTICIPANTS);
-    // participantsList.getUIPageIterator().setId("MeetUsersIterator");
-    // String[] participantAction;
 
     if (moxtra.hasMeet()) {
       user = moxtra.getUser();

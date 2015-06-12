@@ -191,7 +191,7 @@
 
 			return initRequest(request);
 		};
-		
+
 		var postBinderSpaceMeet = function(spaceName, name, agenda, startTime, endTime, autoRecording, users, async) {
 			var request = $.ajax({
 				async : async ? true : false,
@@ -473,6 +473,12 @@
 							start_page : function(event) {
 								$progress.hide();
 								$editor.show();
+							},
+							publish_feed : function(event) {
+								log("publish_feed: " + JSON.stringify(event));
+							},
+							receive_feed : function(event) {
+								log("receive_feed: " + JSON.stringify(event));
 							}
 						};
 						if (target === window) {
@@ -633,8 +639,10 @@
 		};
 
 		this.initCalendar = function() {
+			var $meetTab = $("#UIEmeetingTab");
+
 			// init auth button for Calendar UI
-			var $authButton = $("a.moxtraAuthLink");
+			var $authButton = $meetTab.find("a.moxtraAuthLink");
 			if ($authButton.size() > 0) {
 				var url = $authButton.attr("href");
 				if (url) {
@@ -651,7 +659,7 @@
 
 			// if user not authorized, we force auth login on enable checkbox click immediately,
 			// then we'll proceed the enabler action.
-			var $enableMeet = $("input#enableMeet");
+			var $enableMeet = $meetTab.find("input#enableMeet");
 			$enableMeet.change(function(ev) {
 				if (!$enableMeet.data("moxtra-meet-enabling")) {
 					if ($enableMeet.is(":checked")) {
@@ -681,6 +689,46 @@
 					}
 				}
 			});
+
+			// meet start button using MoxtraJS
+			var $startButton = $meetTab.find(".meetStartAction");
+			if ($startButton.size() > 0) {
+				//$startButton.attr("href", "javascript:void(0);");
+				var binderId = $startButton.data("meet-binderid");
+				var sessionKey = $startButton.data("meet-sessionkey");
+				var join = $startButton.data("meet-join");
+				if (binderId || (sessionKey && join)) {
+					var moxtraReady = moxtrajs.preload();
+					moxtraReady.done(function() {
+						$startButton.find("a").click(function(ev) {
+							ev.preventDefault();
+							if (join) {
+								moxtrajs.joinMeet(sessionKey, {
+									error : function(event) {
+										// TODO show in event form?
+									}
+								});
+							} else {
+								moxtrajs.startMeet(binderId, {
+									end_meet : function(event) {
+										// TODO show in event form?
+									},
+									save_meet : function(event) {
+										// TODO show in event form?
+									},
+									error : function(event) {
+										// TODO show in event form?
+									}
+								});
+							}
+							return false;
+						});
+					});
+					moxtraReady.fail(function(e) {
+						log("Error preloading MoxtraJS " + e, e);
+					});
+				}
+			}
 		};
 
 		/**
@@ -906,7 +954,7 @@
 		this.createMeet = function(name, agenda, startTime, endTime, autoRecording, users) {
 			return createMeet(name, agenda, startTime, endTime, autoRecording, users);
 		};
-		
+
 		/**
 		 * Create a meet in binder space with given parameters.
 		 */
@@ -1118,6 +1166,151 @@
 			}
 		};
 
+		/**
+		 * Preload MoxtraJS to avoid popup blocker in event.
+		 */
+		this.preload = function() {
+			return load();
+		};
+
+		this.showBinder = function(binderId, elemId, callbacks) {
+			var process = $.Deferred();
+			var apiReady = load();
+			apiReady.done(function(api) {
+				var options = {
+					binder_id : binderId,
+					start_chat : function(event) {
+						log("ChatView started session Id: " + event.session_id);
+						invoke("start_chat", event, callbacks);
+					},
+					share : function(event) {
+						log("Share session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("share", event);
+					},
+					error : function(event) {
+						log("ChatView error code: " + event.error_code + " error message: " + event.error_message);
+						invoke("error", event, callbacks);
+					},
+					publish_feed : function(event) {
+						log("publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("publish_feed", event, callbacks);
+					},
+					receive_feed : function(event) {
+						log("receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("receive_feed", event, callbacks);
+					},
+					start_note : function(event) {
+						log("start_note session Id: " + event.session_id + " session key: " + event.session_key);
+						invoke("start_note", event, callbacks);
+					}
+				};
+				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
+					options.extension = {
+						"menus" : [{
+							"add_page" : [{
+								"menu_name" : "Add eXo Document",
+								"position" : "bottom"
+							}]
+						}]
+					};
+					options.add_page = function(event) {
+						if (event.action == "Add eXo Document") {
+							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
+							addExoDocument(event);
+						}
+					};
+				}
+				if (elemId) {
+					options.tagid4iframe = elemId;
+					options.iframe = true;
+				}
+				api.chat(options);
+				process.resolve(api);
+			});
+			apiReady.fail(function(error) {
+				process.reject(error);
+			});
+			return process.promise();
+		};
+
+		this.showTimeline = function(binderId, elemId, callbacks) {
+			var process = $.Deferred();
+			var apiReady = load();
+			apiReady.done(function(api) {
+				var options = {
+					binder_id : binderId,
+					autostart_meet : true,
+					autostart_note : true,
+					start_timeline : function(event) {
+						log("start_timeline started session Id: " + event.session_id + " binder id: " + event.binder_id);
+						invoke("start_timeline", event, callbacks);
+					},
+					view_binder : function(event) {
+						log("view_binder started session Id: " + event.session_id + " binder id: " + event.binder_id);
+						invoke("view_binder", event, callbacks);
+					},
+					invite_member : function(event) {
+						log("invite_member into binder Id: " + event.binder_id);
+						invoke("invite_member", event, callbacks);
+					},
+					remove_binder_user : function(event) {
+						log("remove_binder_user from binder Id: " + event.binder_id);
+						invoke("remove_binder_user", event, callbacks);
+					},
+					start_chat : function(event) {
+						log("ChatView started session Id: " + event.session_id);
+						invoke("start_chat", event, callbacks);
+					},
+					share : function(event) {
+						log("Share session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("share", event);
+					},
+					error : function(event) {
+						log("ChatView error code: " + event.error_code + " error message: " + event.error_message);
+						invoke("error", event, callbacks);
+					},
+					publish_feed : function(event) {
+						log("publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("publish_feed", event, callbacks);
+					},
+					receive_feed : function(event) {
+						log("receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						invoke("receive_feed", event, callbacks);
+					},
+					start_note : function(event) {
+						log("start_note session Id: " + event.session_id + " session key: " + event.session_key);
+						invoke("start_note", event, callbacks);
+					}
+				};
+				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
+					options.extension = {
+						"menus" : [{
+							"add_page" : [{
+								"menu_name" : "Add eXo Document",
+								"position" : "bottom"
+							}]
+						}]
+					};
+					options.add_page = function(event) {
+						if (event.action == "Add eXo Document") {
+							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
+							addExoDocument(event);
+						}
+					};
+				}
+				if (elemId) {
+					options.tagid4iframe = elemId;
+					options.iframe = true;
+				}
+				api.timeline(options);
+				process.resolve(api);
+			});
+			apiReady.fail(function(error) {
+				process.reject(error);
+			});
+			return process.promise();
+		};
+
 		this.showPages = function(binderId, pageId, elemId, callbacks) {
 			var process = $.Deferred();
 			var apiReady = load();
@@ -1226,6 +1419,59 @@
 					options.schedule_binder_id = binderId;
 				}
 				api.meet(options);
+				process.resolve(api);
+			});
+			apiReady.fail(function(error) {
+				process.reject(error);
+			});
+			return process.promise();
+		};
+
+		this.joinMeet = function(sessionKey, callbacks) {
+			var process = $.Deferred();
+			var apiReady = load();
+			apiReady.done(function(api) {
+				var options = {
+					iframe : false,
+					session_key : sessionKey,
+					start_meet : function(event) {
+						log("start_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
+						invoke("start_meet", event, callbacks);
+					},
+					error : function(event) {
+						log("error: error code: " + event.error_code + " message: " + event.error_message);
+						invoke("error", event, callbacks);
+					},
+					exit_meet : function(event) {
+						log("exit_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
+						invoke("exit_meet", event, callbacks);
+					},
+					end_meet : function(event) {
+						log("end_meet: Meet end event");
+						invoke("end_meet", event, callbacks);
+					}
+				};
+				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
+					options.extension = {
+						"show_dialogs" : {
+							"meet_invite" : true
+						},
+						"menus" : [{
+							"add_page" : [{
+								"menu_name" : "My eXo Document",
+								"position" : "bottom"
+							}]
+						}]
+					};
+					options.add_page = function(event) {
+						if (event.action == "My eXo Document") {
+							//alert("Clicked on eXo Document for Binder Id: " + event.binder_id);
+							//window.open(exoWindow.location.href + "#exo-document-selector", "_blank");
+							addExoDocument(event);
+						}
+					};
+				}
+				api.joinMeet(options);
 				process.resolve(api);
 			});
 			apiReady.fail(function(error) {

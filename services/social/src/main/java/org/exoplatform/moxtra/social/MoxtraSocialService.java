@@ -153,7 +153,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         throw new MoxtraSocialException("Document not found " + nodeUUID);
       }
     }
-
+    
     /**
      * Get existing page for conversation.
      * 
@@ -372,7 +372,20 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     public void autojoin() {
       try {
         if (moxtra.getClient().isMoxtraSSOAuth() || isSpaceManager(getSpace())) {
-          joinMembers();
+          if (joinMembers()) {
+            if (!binder.isNew()) {
+              // if new, it should be saved in assign/create method
+              try {
+                saveBinder();
+              } catch (OAuthProblemException e) {
+                throw new MoxtraSocialException("Error inviting space users into binder " + binder.getName()
+                    + ". " + e.getMessage(), e);
+              } catch (OAuthSystemException e) {
+                throw new MoxtraSocialException("Error inviting space users into binder " + binder.getName()
+                    + ". " + e.getMessage(), e);
+              }
+            }
+          }
         } else {
           // if not SSO or space manager, then try join user by itself
           ensureBinderMember();
@@ -503,6 +516,36 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
           throw new MoxtraSocialException("Error searching page conversation " + pageName, e);
         } catch (OAuthProblemException e) {
           throw new MoxtraSocialException("Error searching page conversation " + pageName, e);
+        }
+      }
+      return null;
+    }
+    
+    /**
+     * Find page conversation by its ID in context binder space.
+     * 
+     * @param pageId {@link String}
+     * @throws RepositoryException
+     * @throws MoxtraException
+     * @throws MoxtraClientException
+     */
+    public MoxtraPage findPageById(String pageId) throws RepositoryException,
+                                               MoxtraClientException,
+                                               MoxtraException {
+      if (!isNew()) {
+        try {
+          MoxtraBinder binder = moxtra.getClient().getBinder(getBinder().getBinderId());
+          for (MoxtraPage page : binder.getPages()) {
+            if (pageId.equals(page.getId())) {
+              // TODO do we need check page type or other things?
+              // we could ensure it was just created by created_time
+              return page;
+            }
+          }
+        } catch (OAuthSystemException e) {
+          throw new MoxtraSocialException("Error searching page conversation " + pageId, e);
+        } catch (OAuthProblemException e) {
+          throw new MoxtraSocialException("Error searching page conversation " + pageId, e);
         }
       }
       return null;
@@ -668,17 +711,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       for (MoxtraUser user : users) {
         if (binder.addUser(user)) {
           added = true;
-        }
-      }
-      if (added) {
-        try {
-          saveBinder();
-        } catch (OAuthProblemException e) {
-          throw new MoxtraSocialException("Error inviting space users binder " + binder.getName() + ". "
-              + e.getMessage(), e);
-        } catch (OAuthSystemException e) {
-          throw new MoxtraSocialException("Error inviting space users binder " + binder.getName() + ". "
-              + e.getMessage(), e);
         }
       }
       return added;
@@ -1205,7 +1237,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     StringBuffer sb = new StringBuffer("");
     PortalRequestContext requestContext = Util.getPortalRequestContext();
     sb.append(requestContext.getPortalURI())
-      .append(requestContext.getNodePath().replace("/moxtra/", "/calendar/")) // TODO find better way
+      .append(requestContext.getNodePath().replace("/moxtra", "/calendar"))
+      // TODO find better way
       .append(INVITATION_DETAIL)
       .append(userId)
       .append("/")

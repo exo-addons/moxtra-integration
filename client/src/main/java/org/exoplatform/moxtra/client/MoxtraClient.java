@@ -2924,7 +2924,7 @@ public class MoxtraClient {
       }
       startTime = parseDate(vstarts.getStringValue());
     } else {
-      startTime = new Date(vstarts.getLongValue());
+      startTime = parseDate(vstarts.getStringValue());
     }
     JsonValue vends = vmeet.getElement("ends");
     if (isNull(vends)) {
@@ -2940,7 +2940,7 @@ public class MoxtraClient {
         endTime = parseDate(vends.getStringValue());
       }
     } else {
-      endTime = new Date(vends.getLongValue());
+      endTime = parseDate(vends.getStringValue());
     }
 
     // read meet binder for other required fields below

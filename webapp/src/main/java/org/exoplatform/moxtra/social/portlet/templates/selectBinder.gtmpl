@@ -8,5 +8,9 @@
 	  }
 	%>
 </select>
+<span class="binderViewButton" style="display: none;"> 
+	<a class="btn" rel="tooltip" data-placement="bottom" data-trigger="hover" data-toggle="tooltip" 
+			title="&{MoxtraBinderSpaceController.openBinder}" href="javascript:void(0);">&{MoxtraBinderSpaceController.openBinder}</a>
+</span>
 
 

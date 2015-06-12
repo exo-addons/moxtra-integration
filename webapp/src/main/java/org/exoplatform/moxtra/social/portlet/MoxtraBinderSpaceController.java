@@ -31,6 +31,7 @@ import juzu.request.RequestContext;
 
 import org.exoplatform.commons.juzu.ajax.Ajax;
 import org.exoplatform.moxtra.Moxtra;
+import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
@@ -203,7 +204,8 @@ public class MoxtraBinderSpaceController {
       if (binderSpace == null) {
         return binderConfig.ok();
       } else {
-        return currentBinder.with().binderName(binderSpace.getBinder().getName()).ok();
+        MoxtraBinder binder = binderSpace.getBinder();
+        return currentBinder.with().binderId(binder.getBinderId()).binderName(binder.getName()).ok();
       }
     } catch (Exception e) {
       LOG.error("Error getting Moxtra Binder for space", e);

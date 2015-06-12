@@ -17,6 +17,7 @@
     <enableBinder>Enable Moxtra</enableBinder>
     <enableBinderHint>Enable Moxtra conversations for this space</enableBinderHint>
     <selectBinder>Moxtra Binder for conversations</selectBinder>
+    <openBinder>Open binder</openBinder>
     <newBinderHint>Create new Binder</newBinderHint>
     <selectBinderHint>Use existing Binder</selectBinderHint>
     <autocreateUsers>Create new users in Binder</autocreateUsers>

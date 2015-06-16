@@ -125,8 +125,8 @@ public class MoxtraBinderSpaceController {
           binderSpace = moxtra.getBinderSpace();
           if (binderSpace != null) {
             context.set(binderSpace);
-            // force users autojoin here (per-session)
-            binderSpace.autojoin();
+            // ensure the user is a member of the binder when this possible
+            binderSpace.ensureBinderMember();
           }
         }
 
@@ -168,7 +168,7 @@ public class MoxtraBinderSpaceController {
         }
       } catch (Throwable e) {
         LOG.error("Portlet error: " + e.getMessage(), e);
-        return MoxtraBinderSpaceController_.error("Moxtra error " + e.getMessage());
+        return MoxtraBinderSpaceController_.error(e.getMessage());
       }
     } else {
       LOG.warn("Portlet must run in a space for Moxtra Binder integration.");
@@ -309,14 +309,14 @@ public class MoxtraBinderSpaceController {
             }
 
             MeetEvent event = moxtra.createMeet(binderSpace, meet);
-            String eventLink = "";
             return meetData.with()
                            .binderId(meet.getBinderId())
                            .sessionKey(meet.getSessionKey())
                            .startLink(meet.getStartMeetUrl())
-                           .eventLink(event.getEventActivityLink())
                            .startTime(meet.getStartTime().getTime())
                            .endTime(meet.getEndTime().getTime())
+                           .eventLink(event.getEventActivityLink())
+                           .eventId(event.getEventId())
                            .ok();
           } else {
             return errorMessage("Meet time required");

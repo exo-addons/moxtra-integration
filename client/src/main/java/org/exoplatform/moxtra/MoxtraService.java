@@ -25,6 +25,7 @@ import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.services.organization.User;
 import org.exoplatform.services.security.ConversationState;
 import org.picocontainer.Startable;
 
@@ -90,17 +91,59 @@ public class MoxtraService implements Startable {
    * first. Best fit authentication model will be chosen for the client. <br>
    * 
    * @return {@link MoxtraClient}
-   * @throws MoxtraConfigurationException
+   * @throws ConversationStateNotFoundException
    */
   public MoxtraClient getClient() {
     // TODO clear pool on user logout or removal: use listeners to related services
-    String currentUser = ConversationState.getCurrent().getIdentity().getUserId();
-    MoxtraClient client = clients.get(currentUser);
+    ConversationState currentConvo = ConversationState.getCurrent();
+    if (currentConvo != null) {
+      String currentUser = currentConvo.getIdentity().getUserId();
+      MoxtraClient client = clients.get(currentUser);
+      if (client == null) {
+        synchronized (currentUser) {
+          client = clients.get(currentUser);
+          if (client == null) {
+            clients.put(currentUser, client = createOAuthClient());
+          }
+        }
+      }
+      return client;
+    } else {
+      throw new ConversationStateNotFoundException("Conversation state not found");
+    }
+  }
+
+  /**
+   * Get {@link MoxtraClient} for given eXo user in clients pool. If no client pooled it will be created and
+   * stored first. Best fit authentication model will be chosen for the client. If user doesn't exist in
+   * Organization service or no appropriate rights the current user has, then exception will be thrown.<br>
+   * 
+   * @return {@link MoxtraClient}
+   * @throws {@link UserNotFoundException} when eXo user cannot be found by given user name
+   */
+  public MoxtraClient getClient(String userName) throws UserNotFoundException {
+    try {
+      User exoUser = orgService.getUserHandler().findUserByName(userName);
+      if (exoUser == null) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("User not found in organization " + userName);
+        }
+        throw new UserNotFoundException("User not found in organization '" + userName + "'");
+      }
+    } catch (Exception e) {
+      if (LOG.isDebugEnabled()) {
+        LOG.debug("Error searching user " + userName + " in organization", e);
+      }
+      throw new UserNotFoundException("Error searching user '" + userName + "' in organization", e);
+    }
+
+    // TODO clear pool on user logout or removal: use listeners to related services
+    MoxtraClient client = clients.get(userName);
     if (client == null) {
-      synchronized (currentUser) {
-        client = clients.get(currentUser);
+      synchronized (userName) {
+        client = clients.get(userName);
         if (client == null) {
-          clients.put(currentUser, client = createOAuthClient());
+          clients.put(userName, client = createOAuthClient());
         }
       }
     }
@@ -117,15 +160,13 @@ public class MoxtraService implements Startable {
    */
   protected MoxtraClient createOAuthClient() {
     // TODO create clients per eXo user with single HTTP pool!!!
-    // TODO "exo" team for tests of SSO Unique ID + Sig + Org ID
-    String orgId = null; //"PD8LdFdvtdmBUvazMUMYnL5";
     MoxtraClient client = new MoxtraClient(oAuthConfig.getClientId(),
                                            oAuthConfig.getClientSecret(),
                                            oAuthConfig.getClientSchema(),
                                            oAuthConfig.getClientHost(),
-                                           orgService,
-                                           true,
-                                           orgId);
+                                           oAuthConfig.getClientAuthMethod(),
+                                           oAuthConfig.getClientOrgId(),
+                                           orgService);
     if (usersStore != null) {
       try {
         if (!usersStore.load(client)) {

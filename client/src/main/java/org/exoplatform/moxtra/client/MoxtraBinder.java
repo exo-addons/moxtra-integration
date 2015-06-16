@@ -475,6 +475,21 @@ public class MoxtraBinder {
     }
   }
 
+  /**
+   * User that created this binder.
+   * 
+   * @return {@link MoxtraUser}
+   * @throws MoxtraOwnerUndefinedException when owner cannot not defined
+   */
+  public MoxtraUser getOwnerUser() throws MoxtraOwnerUndefinedException {
+    for (MoxtraUser user : getUsers()) {
+      if (USER_TYPE_BOARD_OWNER.equals(user.getType())) {
+        return user;
+      }
+    }
+    throw new MoxtraOwnerUndefinedException("Cannot find binder owner in its users");
+  }
+
   // ******* internals *******
 
   /**

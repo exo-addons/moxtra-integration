@@ -20,6 +20,7 @@ package org.exoplatform.moxtra.calendar;
 
 import org.exoplatform.calendar.service.CalendarEvent;
 import org.exoplatform.calendar.service.CalendarService;
+import org.exoplatform.calendar.service.EventQuery;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.MoxtraException;
@@ -39,6 +40,7 @@ import org.quartz.impl.JobDetailImpl;
 import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.util.Calendar;
+import java.util.List;
 
 /**
  * Created by The eXo Platform SAS
@@ -51,7 +53,11 @@ public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
 
   public static final String DATA_USER_ID                 = "user_id";
 
+  public static final String DATA_GROUP_ID                = "group_id";
+
   public static final String DATA_CALENDAR_ID             = "calendar_id";
+
+  public static final String DATA_CALENDAR_TYPE           = "calendar_type";
 
   public static final String DATA_EVENT_ID                = "event_id";
 
@@ -101,46 +107,72 @@ public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
       moxtra.prepareJobEnvironment(job);
       try {
         String exoUserId = data.getString(DATA_USER_ID);
-        CalendarEvent event = calendar.getEvent(exoUserId, data.getString(DATA_EVENT_ID));
-        String status = moxtra.downloadMeetVideo(exoUserId, event);
-        if (status != null
-            && (status.equals(MoxtraMeet.SESSION_SCHEDULED) || status.equals(MoxtraMeet.SESSION_STARTED))) {
-          // TODO if no recordings available (or error requesting it) - wait for several minutes and
-          // try again for 30-40mins more, then fail with error.
-          JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerService.class);
+        String calType = data.getString(DATA_CALENDAR_TYPE);
+        String calId = data.getString(DATA_CALENDAR_ID);
+        String eventId = data.getString(DATA_EVENT_ID);
+        CalendarEvent event;
+        if (String.valueOf(org.exoplatform.calendar.service.Calendar.TYPE_PUBLIC).equals(calType)) {
+          // space calendar (public)
+          // TODO Search by query
+          // EventQuery eventQuery = new EventQuery();
+          // eventQuery.setCalendarId(new String[] { calId });
+          // List<CalendarEvent> events = calendar.getPublicEvents(eventQuery);
+          // if (events.size() > 0) {
+          // event = events.get(0); // XXX use first one
+          // } else {
+          // event = null;
+          // }
+          event = calendar.getGroupEvent(calId, eventId);
+        } else {
+          // user calendar
+          event = calendar.getEvent(exoUserId, eventId);
+        }
+        if (event != null) {
+          String status = moxtra.downloadMeetVideo(exoUserId, event);
+          if (status != null
+              && (status.equals(MoxtraMeet.SESSION_SCHEDULED) || status.equals(MoxtraMeet.SESSION_STARTED))) {
+            // TODO if no recordings available (or error requesting it) - wait for several minutes and
+            // try again for 30-40mins more, then fail with error.
+            JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerService.class);
 
-          String jobName = job.getKey().getName();
-          String jobGroup = job.getKey().getGroup();
+            String jobName = job.getKey().getName();
+            String jobGroup = job.getKey().getGroup();
 
-          // new job
-          JobDetailImpl newJob = new JobDetailImpl();
-          newJob.setName(jobName);
-          newJob.setGroup(jobGroup);
-          newJob.setJobClass(job.getJobClass());
-          newJob.setDescription(newJob.getDescription());
-          newJob.getJobDataMap().putAll(job.getJobDataMap());
+            // new job
+            JobDetailImpl newJob = new JobDetailImpl();
+            newJob.setName(jobName);
+            newJob.setGroup(jobGroup);
+            newJob.setJobClass(job.getJobClass());
+            newJob.setDescription(newJob.getDescription());
+            newJob.getJobDataMap().putAll(job.getJobDataMap());
 
-          // schedule the new job in 5 min
-          SimpleTriggerImpl trigger = new SimpleTriggerImpl();
-          trigger.setName(jobName);
-          trigger.setGroup(jobGroup);
-          // use default calendar as we don't rely on meet end time anymore
-          Calendar downloadTime = Calendar.getInstance();
-          downloadTime.add(Calendar.MINUTE, 5);
-          trigger.setStartTime(downloadTime.getTime());
+            // schedule the new job in 5 min
+            SimpleTriggerImpl trigger = new SimpleTriggerImpl();
+            trigger.setName(jobName);
+            trigger.setGroup(jobGroup);
+            // use default calendar as we don't rely on meet end time anymore
+            Calendar downloadTime = Calendar.getInstance();
+            downloadTime.add(Calendar.MINUTE, 5);
+            trigger.setStartTime(downloadTime.getTime());
 
-          schedulerService.addJob(job, trigger);
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("Meet recordings download for event " + event.getSummary()
-                + " not ready and rescheduled to " + downloadTime.getTime());
+            schedulerService.addJob(job, trigger);
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Meet recordings download for event " + event.getSummary()
+                  + " not ready and rescheduled to " + downloadTime.getTime());
+            }
+          } else if (MoxtraMeet.SESSION_DELETED.equals(status)) {
+            LOG.warn("Meet for event " + event.getSummary()
+                + " was deleted and video recordings cannot be download");
+          } else {
+            if (LOG.isDebugEnabled()) {
+              LOG.debug("Meet recordings download for event " + event.getSummary()
+                  + " canceled. See above log messages for a cause.");
+            }
           }
-        } else if (MoxtraMeet.SESSION_DELETED.equals(status)) {
-          LOG.warn("Meet for event " + event.getSummary()
-              + " was deleted and video recordings cannot be download");
         } else {
           if (LOG.isDebugEnabled()) {
-            LOG.debug("Meet recordings download for event " + event.getSummary()
-                + " canceled. See above log messages for a cause.");
+            LOG.debug("Meet event not found in " + calId
+                + ", job canceled. See above log messages for a cause.");
           }
         }
       } finally {
@@ -152,5 +184,4 @@ public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
       throw new JobExecutionException("Error processing Moxtra meet video download", e);
     }
   }
-
 }

@@ -42,15 +42,27 @@ import java.util.Map;
  */
 public class OAuthClientConfiguration extends BaseComponentPlugin {
 
-  public static final String          CONFIG_CLIENT_ID     = "client-id";
+  public static final String          CONFIG_CLIENT_ID            = "client-id";
 
-  public static final String          CONFIG_CLIENT_SECRET = "client-secret";
+  public static final String          CONFIG_CLIENT_SECRET        = "client-secret";
 
-  public static final String          CONFIG_CLIENT_HOST   = "client-host";
+  public static final String          CONFIG_CLIENT_HOST          = "client-host";
 
-  public static final String          CONFIG_CLIENT_SCHEMA = "client-schema";
+  public static final String          CONFIG_CLIENT_SCHEMA        = "client-schema";
 
-  protected static final Log          LOG                  = ExoLogger.getLogger(OAuthClientConfiguration.class);
+  public static final String          CONFIG_CLIENT_AUTH_METHOD   = "client-auth-method";
+
+  public static final String          CONFIG_CLIENT_ORGID         = "client-orgid";
+
+  public static final String          CLIENT_AUTH_METHOD_OAUTH2   = "OAUTH2";
+
+  public static final String          CLIENT_AUTH_METHOD_UNIQUEID = "SSO-UNIQUEID";
+
+  public static final String          CLIENT_AUTH_METHOD_SAML     = "SSO-SAML-BEARER";
+
+  public static final String          CLIENT_DEFAULT_ORGID        = "__eXo";
+
+  protected static final Log          LOG                         = ExoLogger.getLogger(OAuthClientConfiguration.class);
 
   protected final Map<String, String> config;
 
@@ -61,6 +73,10 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
   protected final String              clientHost;
 
   protected final String              clientSchema;
+
+  protected final String              clientAuthMethod;
+
+  protected final String              clientOrgId;
 
   /**
    * 
@@ -85,6 +101,33 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
       throw new ConfigurationException("Property parameter " + CONFIG_CLIENT_SECRET + " required.");
     }
     this.clientSecret = clientSecret;
+
+    String clientAuthMethod = config.get(CONFIG_CLIENT_AUTH_METHOD);
+    String clientOrgId;
+    if (clientAuthMethod == null || (clientAuthMethod = clientAuthMethod.trim()).length() == 0) {
+      clientAuthMethod = CLIENT_AUTH_METHOD_OAUTH2;
+      clientOrgId = null;
+      LOG.info("Using default authentication method for Moxtra clients: " + clientAuthMethod);
+    } else if (clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)
+        || clientAuthMethod.equals(CLIENT_AUTH_METHOD_SAML)) {
+      clientOrgId = config.get(CONFIG_CLIENT_ORGID);
+      if (clientOrgId == null || (clientOrgId = clientOrgId.trim()).length() == 0) {
+        clientOrgId = CLIENT_DEFAULT_ORGID;
+        LOG.info("Using SSO for Moxtra clients: " + clientAuthMethod + " with single organization team.");
+      } else {
+        LOG.info("Using SSO for Moxtra clients: " + clientAuthMethod + " with " + clientOrgId
+            + " organization team.");
+      }
+    } else {
+      if (!clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)) {
+        LOG.info("Unknown authentication method configured for Moxtra clients: " + clientAuthMethod
+            + ". Will use default one: " + CLIENT_AUTH_METHOD_OAUTH2);
+        clientAuthMethod = CLIENT_AUTH_METHOD_OAUTH2;
+      }
+      clientOrgId = null;
+    }
+    this.clientAuthMethod = clientAuthMethod;
+    this.clientOrgId = clientOrgId;
 
     String schema = config.get(CONFIG_CLIENT_SCHEMA);
     if (schema == null || (schema = schema.trim()).length() == 0) {
@@ -137,6 +180,20 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
    */
   public String getClientSecret() {
     return clientSecret;
+  }
+
+  /**
+   * @return the clientAuthMethod
+   */
+  public String getClientAuthMethod() {
+    return clientAuthMethod;
+  }
+
+  /**
+   * @return the clientOrgId
+   */
+  public String getClientOrgId() {
+    return clientOrgId;
   }
 
   /**

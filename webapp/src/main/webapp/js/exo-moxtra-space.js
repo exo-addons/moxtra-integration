@@ -374,7 +374,11 @@
 										// use Moxtra JS to open the meet immediately
 										moxtra.moxtrajs().startMeet(meet.binderId, {
 											end_meet : function(event) {
-												// TODO
+												// TODO update event in eXo
+												var update = moxtra.updateBinderMeet(spaceName, meet.eventId);
+												update.fail(function(e) {
+													log("Error updating meet: " + e);
+												});
 											},
 											save_meet : function(event) {
 												// TODO
@@ -445,7 +449,8 @@
 											sessionKey : $meetInfo.data("meet-sessionkey"),
 											startLink : $meetInfo.data("meet-startlink"),
 											startTime : new Date($meetInfo.data("meet-starttime")),
-											endTime : new Date($meetInfo.data("meet-endtime"))
+											endTime : new Date($meetInfo.data("meet-endtime")),
+											eventId : $meetInfo.data("meet-eventid")
 										};
 										$meetPopup.data(topic, meet);
 										showMeet(meet);

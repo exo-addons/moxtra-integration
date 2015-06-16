@@ -211,6 +211,17 @@
 			return initRequest(request);
 		};
 
+		var postBinderSpaceMeetUpdate = function(spaceName, eventId, async) {
+			var request = $.ajax({
+				async : async ? true : false,
+				type : "POST",
+				url : serverUrl + "/portal/rest/moxtra/binder/space/" + spaceName + "/meet/event/" + eventId,
+				dataType : "json"
+			});
+
+			return initRequest(request);
+		};
+
 		var getMeet = function(sessionKey, async) {
 			var request = $.ajax({
 				async : async ? true : false,
@@ -966,6 +977,21 @@
 			create.fail(function(error) {
 				// TODO notif user about an error
 				log("ERROR: Error creating binder meet " + name + ". " + (error.message ? error.message : error), error);
+			});
+			return create;
+		};
+
+		/**
+		 * Update meet in binder space with given parameters.
+		 */
+		this.updateBinderMeet = function(spaceName, eventId) {
+			var create = postBinderSpaceMeetUpdate(spaceName, eventId, true);
+			create.done(function(meet) {
+				// TODO nothing here?
+			});
+			create.fail(function(error) {
+				// TODO notif user about an error
+				log("ERROR: Error updating binder meet " + spaceName + "/" + eventId + ". " + (error.message ? error.message : error), error);
 			});
 			return create;
 		};

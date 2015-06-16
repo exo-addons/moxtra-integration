@@ -120,7 +120,7 @@ public class MoxtraMeet extends MoxtraBinder {
 
   protected String                   status;
 
-  private transient MoxtraUser               hostUser;
+  protected MoxtraUser               hostUser;
 
   /**
    * Original meet in editor instance. In other cases it is <code>null</code>.
@@ -332,23 +332,19 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * User that hosts this meet.
+   * User that hosts this meet. Host user pointed explicitly, otherwise it will be defined by user type among
+   * the meet binder users.
    * 
    * @return {@link MoxtraUser}
-   * @throws MoxtraException when owner cannot not defined
+   * @throws MoxtraOwnerUndefinedException when owner cannot not defined
    */
   public MoxtraUser getHostUser() throws MoxtraException {
     if (hostUser != null) {
       return hostUser;
     }
-    for (MoxtraUser user : getUsers()) {
-      if (USER_TYPE_BOARD_OWNER.equals(user.getType())) {
-        return user;
-      }
-    }
-    throw new MoxtraException("Cannot find meet owner in participants");
+    return getOwnerUser();
   }
-  
+
   /**
    * Tells if given user is invited in this meet.
    * 
@@ -512,12 +508,13 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * @return {@link Boolean} the auto-recording flag for the meet, can be <code>null</code> when reading from Moxtra
+   * @return {@link Boolean} the auto-recording flag for the meet, can be <code>null</code> when reading from
+   *         Moxtra
    */
   public Boolean getAutoRecording() {
     return autoRecording != null ? autoRecording : (isEditor() ? original.getAutoRecording() : null);
   }
-  
+
   /**
    * Tells if auto-recording enabled for the meet.
    */
@@ -546,7 +543,7 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * Set new start time. 
+   * Set new start time.
    *
    * 
    * @param newStartTime the startTime to set
@@ -568,7 +565,7 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * Set new end time. 
+   * Set new end time.
    *
    * 
    * @param newEndTime the endTime to set

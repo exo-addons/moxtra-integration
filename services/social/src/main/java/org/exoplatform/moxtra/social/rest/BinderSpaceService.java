@@ -29,6 +29,7 @@ import org.exoplatform.moxtra.client.MoxtraPage;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.rest.ErrorInfo;
 import org.exoplatform.moxtra.social.MoxtraSocialService;
+import org.exoplatform.moxtra.social.MoxtraSocialService.MeetEvent;
 import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -155,6 +156,39 @@ public class BinderSpaceService implements ResourceContainer {
 
   @POST
   @RolesAllowed("users")
+  @Path("/{spaceName}/meet/event/{eventId}")
+  public Response updateMeet(@Context UriInfo uriInfo,
+                           @PathParam("spaceName") String spaceName,
+                           @PathParam("eventId") String eventId) {
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      if (binderSpace != null) {
+        if (binderSpace.ensureSpaceMember()) {
+          moxtra.updateMeet(binderSpace, eventId);
+        } else {
+          return Response.status(Status.FORBIDDEN)
+                         .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
+                             + spaceName + "'"))
+                         .build();
+        }
+      }
+      return Response.status(Status.NOT_FOUND).entity("{\"code\":\"event_not_found\"}").build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error updating meet " + spaceName + "/" + eventId))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error updating meet " + spaceName + "/" + eventId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error updating meet event")).build();
+    } catch (RepositoryException e) {
+      LOG.error("Error updating meet " + spaceName + "/" + eventId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error updating meet event")).build();
+    }
+  }
+
+  
+  @POST
+  @RolesAllowed("users")
   @Path("/{spaceName}/meets")
   public Response createMeet(@Context UriInfo uriInfo,
                              @PathParam("spaceName") String spaceName,
@@ -213,7 +247,7 @@ public class BinderSpaceService implements ResourceContainer {
               meet.addUser(user);
             }
 
-            moxtra.createMeet(binderSpace, meet);
+            MeetEvent event = moxtra.createMeet(binderSpace, meet);
             return Response.ok().entity(meet).build();
           } else {
             return Response.status(Status.BAD_REQUEST)

@@ -1,19 +1,23 @@
 #{param name=binderId/} 
 #{param name=sessionKey/} 
 #{param name=startLink/} 
-#{param name=eventLink/}
 #{param name=startTime/}
 #{param name=endTime/}
+#{param name=eventId/}
+#{param name=eventLink/}
 <!-- Meet data -->
 <div class="control-group">
 	<div>&{MoxtraBinderSpaceController.meetCreated}</div>
 	<div class="meetStartButton" rel="tooltip" data-placement="bottom" title="" style="display: none;">
 		<a class="btn" href="javascript:void(0);" target="_blank">&{MoxtraBinderSpaceController.meetStart}</a>
 	</div>
-	<div class="meetInfo offset2 span8" data-meet-binderid="${binderId}" data-meet-sessionkey="${sessionKey}"
+	<div class="meetInfo offset2 span8" 
+						data-meet-binderid="${binderId}" 
+						data-meet-sessionkey="${sessionKey}"
 						data-meet-startlink="${startLink}"
 						data-meet-starttime=${startTime}
-						data-meet-endtime=${endTime}>
+						data-meet-endtime=${endTime}
+						data-meet-eventid="${eventId}">
 		<div>&{MoxtraBinderSpaceController.meetLink}</div>
 		<div class="controls meetLink">
 			<a href="${startLink}" data-placement="bottom" title="" target="_blank">${startLink}</a>

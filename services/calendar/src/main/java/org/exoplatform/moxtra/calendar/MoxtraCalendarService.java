@@ -33,11 +33,14 @@ import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
+import org.exoplatform.moxtra.UserNotFoundException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
+import org.exoplatform.moxtra.client.MoxtraForbiddenException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraMeetRecording;
+import org.exoplatform.moxtra.client.MoxtraOwnerUndefinedException;
 import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
@@ -65,6 +68,7 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
 import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -196,6 +200,8 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   protected final ManageDriveService                     driveService;
 
+  protected final Set<MoxtraCalendarStateListener>       stateListeners   = new LinkedHashSet<MoxtraCalendarStateListener>();
+
   /**
    * @throws MoxtraConfigurationException
    * 
@@ -214,6 +220,14 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     this.orgService = orgService;
     this.schedulerService = schedulerService;
     this.driveService = driveService;
+  }
+
+  public void addListener(MoxtraCalendarStateListener listener) {
+    stateListeners.add(listener);
+  }
+
+  public void removeListener(MoxtraCalendarStateListener listener) {
+    stateListeners.remove(listener);
   }
 
   public CalendarEvent getEvent(String eventId) throws Exception {
@@ -262,17 +276,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
           Node meetNode = JCR.getMeet(eventNode);
           // read locally stored meet
           existing = readMeet(meetNode);
-          // TODO merge local and remote meet data (as local has fields not available when reading from
-          // Moxtra)
-          // MoxtraClient moxtra = moxtra.getClient();
-          // if (moxtra.isAuthorized()) {
-          // existing = moxtra.getClient().getMeet(existing.getBinderId());
-          // }
+          // TODO auto-join current user to the meet binder in case of space calendar? what for personals?
+          fireMeetRead(existing, event.getCalendarId(), event);
         } catch (PathNotFoundException e) {
           if (LOG.isDebugEnabled()) {
             LOG.debug("Meet not found or not complete for event " + event.getSummary() + " in "
                 + eventNode.getName() + ". " + e.getMessage());
-            // e.printStackTrace();
           }
           existing = null;
         }
@@ -296,31 +305,31 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     return new MoxtraMeet().editor();
   }
 
-  /**
-   * Add given app to the context.
-   */
-  void initContext(MoxtraCalendarApplication app) {
-    contextApp.set(app);
+  public String getGroupIdFromCalendarId(String calendarId) {
+    if (calendarId != null && calendarId.indexOf(Utils.SPACE_CALENDAR_ID_SUFFIX) > 0) {
+      return Utils.getSpaceGroupIdFromCalendarId(calendarId);
+    }
+    return null;
+  }
+
+  public String getCalendarIdFromGroupId(String groupId) {
+    return Utils.getCalendarIdFromSpace(groupId);
   }
 
   /**
-   * Remove given app from the context.
-   */
-  void cleanContext(MoxtraCalendarApplication app) {
-    contextApp.remove();
-  }
-
-  /**
-   * Create scheduled Meet in a new Event.
+   * Create scheduled Meet in a new Event. This method can be used from external services (e.g. social) to
+   * manage group meets.
    * 
+   * @param groupId {@link String}
+   * @param meet {@link MoxtraMeet}
+   * @return {@link CalendarEvent}
    * @throws Exception
    */
-  public CalendarEvent scheduleMeet(String groupId, MoxtraMeet meet) throws Exception {
+  public CalendarEvent createMeet(String calendarId, MoxtraMeet meet) throws Exception {
     ConversationState conversation = ConversationState.getCurrent();
     String userId;
     if (conversation != null && (userId = conversation.getIdentity().getUserId()) != null) {
       // create event first
-      String calendarId = Utils.getCalendarIdFromSpace(groupId);
       CalendarSetting userSettings = calendar.getCalendarSetting(userId);
 
       // long spaghetti to init the event :)
@@ -423,6 +432,60 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   }
 
   /**
+   * Save scheduled Meet in a its Event.
+   * 
+   * @throws Exception
+   */
+  public CalendarEvent updateMeet(String calendarId, String eventId) throws Exception {
+    ConversationState conversation = ConversationState.getCurrent();
+    String userId;
+    if (conversation != null && (userId = conversation.getIdentity().getUserId()) != null) {
+
+      // find event first
+      CalendarEvent event = calendar.getGroupEvent(calendarId, eventId);
+      if (event != null) {
+        // meet will be already refreshed to remote state
+        // MoxtraMeet meet = getMeet(event);
+        Node eventNode = readEventNode(userId,
+                                       String.valueOf(Calendar.TYPE_PUBLIC),
+                                       calendarId,
+                                       event.getId());
+        if (eventNode != null && JCR.isServices(eventNode)) {
+          try {
+            // read meet from eventNode, if meet exists:
+            Node meetNode = JCR.getMeet(eventNode);
+            // read-update locally stored meet
+            MoxtraMeet meet = readMeet(meetNode);
+            eventNode.save();
+
+            updateDownloadJob(event, meet);
+
+            // update event in calendar
+            event.setFromDateTime(meet.getStartTime());
+            event.setToDateTime(meet.getEndTime());
+            event.setSummary(meet.getName());
+            event.setDescription(meet.getAgenda());
+            // TODO need update perticipants?
+
+            // save the event
+            calendar.savePublicEvent(calendarId, event, false);
+
+            return event;
+          } catch (PathNotFoundException e) {
+            throw new MoxtraCalendarException("Error reading meet event node " + event.getSummary(), e);
+          }
+        } else {
+          throw new MoxtraCalendarException("Cannot find meet event node " + event.getSummary());
+        }
+      } else {
+        throw new MoxtraCalendarException("Cannot find meet event in " + calendarId);
+      }
+    } else {
+      throw new MoxtraCalendarException("Current user identity not found");
+    }
+  }
+
+  /**
    * Confirm Meet for given Event or Task.
    * 
    * @throws MoxtraCalendarException
@@ -443,8 +506,17 @@ public class MoxtraCalendarService extends BaseMoxtraService {
             // XXX we assume that calendar id match here for fired event and event of the
             // associated form in the app
 
+            boolean fireDeleted = meet.hasDeleted() && !meet.isNew();
+
             Node eventNode = saveEvenMeet(userName, meet, event, calType, calendarId);
             eventNode.save();
+
+            // we have two type of meet ops here
+            if (fireDeleted) {
+              fireMeetDelete(meet, calendarId, event);
+            } else {
+              fireMeetWrite(meet, calendarId, event);
+            }
           } catch (MoxtraNotActivatedException e) {
             // XXX webui app not activated for this event, this shouldn't happen but does when saving an event
             // from space's Moxtra app
@@ -483,45 +555,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   }
 
   /**
-   * Delete Meet for given Event or Task. This method doesn't use context app and its meet, instead it assumes
-   * that given event exists and meet object can be read from it. In any case context app will be reset on the
-   * end.<br>
-   * 
-   * @param calendarId
-   * @param event
-   */
-  @Deprecated
-  // NOT USED
-  public void deleteMeet(String calendarId, CalendarEvent event) {
-    MoxtraCalendarApplication app = contextApp.get();
-    if (app != null) {
-      contextApp.remove();
-      try {
-        // here we handle event deletion with existing meet
-        MoxtraMeet meet = getMeet(event);
-        if (meet != null) {
-          moxtra.getClient().deleteMeet(meet);
-        } else {
-          LOG.error("Cannot delete event meet " + event.getSummary() + ", it is not found in calendar "
-              + calendarId);
-        }
-      } catch (MoxtraCalendarException e) {
-        LOG.error("Error deleting event meet", e);
-      } catch (MoxtraClientException e) {
-        LOG.error("Error deleting event meet", e);
-      } catch (MoxtraException e) {
-        LOG.error("Error deleting event meet", e);
-      } catch (OAuthSystemException e) {
-        LOG.error("Cannot delete event meet due to authorization error", e);
-      } catch (OAuthProblemException e) {
-        LOG.error("Cannot delete event meet due to authorization failure", e);
-      } finally {
-        app.reset(); // reset the app
-      }
-    }
-  }
-
-  /**
    * Delete Meet from context app. An app should be initialized for some WebUI component, otherwise this
    * method will delete nothing. An app will be reset on the end.<br>
    * This method designed for use after event deletion when its node cannot be found to read a meet.
@@ -534,7 +567,9 @@ public class MoxtraCalendarService extends BaseMoxtraService {
         try {
           // here we handle event deletion with existing meet
           if (app.hasMeet()) {
-            moxtra.getClient().deleteMeet(app.getMeet());
+            MoxtraMeet meet = app.getMeet();
+            moxtra.getClient().deleteMeet(meet);
+            fireMeetDelete(meet, app.getEventCalendarId(), null);
           }
         } catch (MoxtraCalendarException e) {
           LOG.error("Error deleting context meet", e);
@@ -595,6 +630,9 @@ public class MoxtraCalendarService extends BaseMoxtraService {
                     // calendar and others
                     try {
                       Calendar spaceCal = calendar.getGroupCalendar(event.getCalendarId());
+                      if (spaceCal == null) {
+                        throw new Exception("No space calendar"); // TODO
+                      }
                       // spaceCal.getCalendarPath(); // TODO can use it?
                       Node documents = getSpaceDocumentsNode(userName, spaceCal.getCalendarOwner());
                       if (documents != null) {
@@ -701,6 +739,20 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   // ******* internals *******
 
+  /**
+   * Add given app to the context.
+   */
+  void initContext(MoxtraCalendarApplication app) {
+    contextApp.set(app);
+  }
+
+  /**
+   * Remove given app from the context.
+   */
+  void cleanContext(MoxtraCalendarApplication app) {
+    contextApp.remove();
+  }
+
   protected Node readEventNode(String userName, String calType, String calId, String eventId) throws MoxtraCalendarException {
     try {
       return calendar.getDataStorage().getCalendarEventNode(userName, calType, calId, eventId);
@@ -751,7 +803,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
         continue next;
       }
       if (userId != null) {
-        newUsers.add(new MoxtraUser(userId, moxtra.getClient().getMoxtraOrgId(), name, email));
+        newUsers.add(new MoxtraUser(userId, moxtra.getClient().getOrgId(), name, email));
       } else {
         newUsers.add(new MoxtraUser(email));
       }
@@ -952,7 +1004,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       // can be null if such value was read from Moxtra
       autorec = null;
     }
-    // JCR.setSessionId(meetNode, meet.getSessionId());
     // meet users
     List<MoxtraUser> users = new ArrayList<MoxtraUser>();
     Node usersNode = JCR.getUsers(meetNode);
@@ -983,14 +1034,40 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
     MoxtraClient client = moxtra.getClient();
     if (client.isAuthorized()) {
-      client.refreshMeet(localMeet);
+      try {
+        if (client.isSSOAuth()) {
+          // use meet owner user for refresh
+          try {
+            MoxtraUser meetOwner = localMeet.getOwnerUser();
+            MoxtraClient ownerClient;
+            if (!meetOwner.isSameIdentity(meetNode.getSession().getUserID(), client.getOrgId())) {
+              ownerClient = moxtra.getClient(meetOwner.getUniqueId());
+            } else {
+              ownerClient = client;
+            }
+            ownerClient.refreshMeet(localMeet);
+          } catch (MoxtraOwnerUndefinedException e) {
+            LOG.warn("Cannot find meet owner: " + e.getMessage(), e);
+          } catch (UserNotFoundException e) {
+            LOG.warn("Error reading meet owner: " + e.getMessage(), e);
+          }
+        } else {
+          // use current user for refreshing the meet, this may fail with MoxtraForbiddenException
+          client.refreshMeet(localMeet);
+        }
 
-      // Save back to the local node
-      // FIXME with this logic that saved data never used for authorized users as always read from
-      // the Moxtra API. Saved local meet will be shown to not authorized users.
-      // Saved locally meet could be good as for caching purpose, otherwise need save only reference data such
-      // as binder id and session key.
-      writeMeet(meetNode, localMeet, false);
+        // Save back to the local node under current user
+        // FIXME with this logic that saved data never used for authorized users as always read from
+        // the Moxtra API. Saved local meet will be shown to not authorized users.
+        // Saved locally meet could be good as for caching purpose, otherwise need save only reference data
+        // such as binder id and session key.
+        writeMeet(meetNode, localMeet, false);
+      } catch (MoxtraForbiddenException e) {
+        // user has no access to this meet - we cannot refresh
+        if (LOG.isDebugEnabled()) {
+          LOG.warn("Meet refresh not possible: " + e.getMessage());
+        }
+      }
     }
     return localMeet;
   }
@@ -1014,6 +1091,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     String userName = ConversationState.getCurrent().getIdentity().getUserId();
 
     job.getJobDataMap().put(MoxtraMeetDownloadJob.DATA_USER_ID, userName);
+    job.getJobDataMap().put(MoxtraMeetDownloadJob.DATA_CALENDAR_TYPE, event.getCalType());
     job.getJobDataMap().put(MoxtraMeetDownloadJob.DATA_CALENDAR_ID, event.getCalendarId());
     job.getJobDataMap().put(MoxtraMeetDownloadJob.DATA_EVENT_ID, event.getId());
 
@@ -1139,23 +1217,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     return meetings;
   }
 
-  /**
-   * TODO NOT USED. Java {@link java.util.Calendar} instance with Moxtra timezone and other user settings from
-   * eXo Calendar.
-   * 
-   * @return {@link java.util.Calendar}
-   * @throws Exception
-   */
-  @Deprecated
-  protected java.util.Calendar getUserMoxtraCalendar() throws Exception {
-    CalendarSetting setting = getCalendarSetting();
-    java.util.Calendar calendar = Moxtra.getCalendar();
-    calendar.setLenient(false);
-    calendar.setFirstDayOfWeek(Integer.parseInt(setting.getWeekStartOn()));
-    calendar.setMinimalDaysInFirstWeek(4);
-    return calendar;
-  }
-
   protected MoxtraUser getHostUser(MoxtraMeet meet) {
     if (!meet.isNew()) {
       try {
@@ -1174,6 +1235,10 @@ public class MoxtraCalendarService extends BaseMoxtraService {
                               CalendarEvent event,
                               String calType,
                               String calendarId) throws Exception {
+    // TODO is it correct?
+    if (calType != null) {
+      event.setCalType(calType);
+    }
     Node eventNode = readEventNode(userName,
                                    calType != null ? calType : event.getCalType(),
                                    calendarId != null ? calendarId : event.getCalendarId(),
@@ -1249,14 +1314,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   }
 
   protected void removeMeetEvent(MoxtraMeet meet, String userId, String calendarId, CalendarEvent event) {
-    // no need to refresh
-    // try {
-    // moxtra.getClient().refreshMeet(meet);
-    // } catch (NotFoundException e) {
-    // // ok, meet not found
-    // } catch (Throwable re) {
-    // LOG.error("Error refreshing meet with creation error. " + re.getMessage(), re);
-    // }
     // TODO meet could be created but error during users invitation
     if (meet.getSessionKey() == null) {
       // if no meet created remove the event
@@ -1268,4 +1325,21 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     }
   }
 
+  protected void fireMeetRead(MoxtraMeet meet, String calendarId, CalendarEvent event) {
+    for (MoxtraCalendarStateListener listener : stateListeners) {
+      listener.onMeetRead(meet, calendarId, event);
+    }
+  }
+
+  protected void fireMeetWrite(MoxtraMeet meet, String calendarId, CalendarEvent event) {
+    for (MoxtraCalendarStateListener listener : stateListeners) {
+      listener.onMeetWrite(meet, calendarId, event);
+    }
+  }
+
+  protected void fireMeetDelete(MoxtraMeet meet, String calendarId, CalendarEvent event) {
+    for (MoxtraCalendarStateListener listener : stateListeners) {
+      listener.onMeetDelete(meet, calendarId, event);
+    }
+  }
 }

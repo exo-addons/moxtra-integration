@@ -19,6 +19,7 @@
 package org.exoplatform.moxtra.jcr;
 
 import org.exoplatform.container.component.BaseComponentPlugin;
+import org.exoplatform.moxtra.ConversationStateNotFoundException;
 import org.exoplatform.moxtra.MoxtraClientStore;
 import org.exoplatform.moxtra.MoxtraStoreException;
 import org.exoplatform.moxtra.client.MoxtraClient;
@@ -39,14 +40,10 @@ import org.exoplatform.services.security.ConversationState;
 import java.util.Calendar;
 import java.util.Date;
 
-import javax.jcr.ItemExistsException;
 import javax.jcr.Node;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
-import javax.jcr.lock.LockException;
-import javax.jcr.nodetype.ConstraintViolationException;
-import javax.jcr.version.VersionException;
 
 /**
  * Created by The eXo Platform SAS
@@ -111,6 +108,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    * {@inheritDoc}
    */
   @Override
+  @Deprecated
   public void saveUser(MoxtraClient client, MoxtraUser user) throws MoxtraStoreException {
     // TODO Auto-generated method stub
 
@@ -120,6 +118,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    * {@inheritDoc}
    */
   @Override
+  @Deprecated
   public MoxtraUser readUser(MoxtraClient client) throws MoxtraStoreException {
     // TODO Auto-generated method stub
     return null;
@@ -132,6 +131,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    */
   @Override
   // TODO NOT USED
+  @Deprecated
   public void saveMeet(MoxtraClient client, MoxtraMeet meet) throws MoxtraStoreException {
     try {
       //
@@ -210,6 +210,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    * {@inheritDoc}
    */
   @Override
+  @Deprecated
   public MoxtraMeet readMeet(MoxtraClient client) throws MoxtraStoreException {
     // TODO Auto-generated method stub
     return null;
@@ -256,14 +257,38 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
     }
   }
 
+  /**
+   * {@inheritDoc}
+   * 
+   */
+  @Override
+  public boolean load(String userName, MoxtraClient client) throws MoxtraStoreException {
+    try {
+      Node userNode = userNode(userName);
+      if (JCR.isUserStore(userNode)) {
+        return loadListenToken(userNode, client);
+      } else {
+        return false;
+      }
+    } catch (Exception e) {
+      throw new MoxtraStoreException("Error loading Moxtra client for user " + userName, e);
+    }
+  }
+
   // ************** internals **************
 
   protected Node userNode() throws Exception {
-    // TODO cleanup
-    // String workspaceName = event.getRequestContext().getRequestParameter("workspaceName");
+    ConversationState currentConvo = ConversationState.getCurrent();
+    if (currentConvo != null) {
+      String currentUser = currentConvo.getIdentity().getUserId();
+      return userNode(currentUser);
+    } else {
+      throw new ConversationStateNotFoundException("Conversation state not found");
+    }
+  }
 
-    String currentUser = ConversationState.getCurrent().getIdentity().getUserId();
-    return nodeCreator.getUserNode(jcrSessions.getSystemSessionProvider(null), currentUser);
+  protected Node userNode(String userName) throws Exception {
+    return nodeCreator.getUserNode(jcrSessions.getSystemSessionProvider(null), userName);
   }
 
   /**

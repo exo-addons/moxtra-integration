@@ -607,7 +607,11 @@ public class MoxtraMeet extends MoxtraBinder {
    * @param recordings the recordings to set
    */
   public void setRecordings(List<String> recordings) {
-    this.recordings = recordings;
+    if (isEditor()) {
+      this.original.setRecordings(recordings);
+    } else {
+      this.recordings = recordings;
+    }
   }
 
 
@@ -615,10 +619,16 @@ public class MoxtraMeet extends MoxtraBinder {
    * @return the recordings, can be <code>null</code>
    */
   public List<String> getRecordings() {
-    return recordings;
+    return recordings != null ? recordings : (isEditor() ? original.getRecordings() : null);
   }
   
+  /**
+   * Check if meet has recordings an they aren't empty.
+   * 
+   * @return boolean <code>true</code> if recordings not empty, <code>false</code> otherwise
+   */
   public boolean hasRecordings() {
+    List<String> recordings = getRecordings();
     return recordings != null && recordings.size() > 0;
   }
 

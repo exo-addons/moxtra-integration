@@ -23,7 +23,9 @@ import org.exoplatform.commons.utils.ListAccessImpl;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.calendar.MoxtraCalendarApplication;
 import org.exoplatform.moxtra.calendar.MoxtraCalendarException;
+import org.exoplatform.moxtra.calendar.webui.UIEmeetingTab.CloseRecordingActionListener;
 import org.exoplatform.moxtra.calendar.webui.UIEmeetingTab.RefreshMeetActionListener;
+import org.exoplatform.moxtra.calendar.webui.UIEmeetingTab.ViewRecordingActionListener;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraUser;
@@ -31,19 +33,24 @@ import org.exoplatform.moxtra.webui.MoxtraAction;
 import org.exoplatform.moxtra.webui.MoxtraNotInitializedException;
 import org.exoplatform.moxtra.webui.component.UIActionCheckBoxInput;
 import org.exoplatform.portal.application.PortalRequestContext;
+import org.exoplatform.services.jcr.core.ManageableRepository;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.plugin.doc.UIDocViewer;
 import org.exoplatform.web.application.ApplicationMessage;
 import org.exoplatform.web.application.JavascriptManager;
+import org.exoplatform.web.application.Parameter;
 import org.exoplatform.web.application.RequestContext;
 import org.exoplatform.web.application.RequireJS;
 import org.exoplatform.webui.application.WebuiRequestContext;
 import org.exoplatform.webui.config.annotation.ComponentConfig;
 import org.exoplatform.webui.config.annotation.ComponentConfigs;
 import org.exoplatform.webui.config.annotation.EventConfig;
+import org.exoplatform.webui.core.UIApplication;
 import org.exoplatform.webui.core.UIContainer;
 import org.exoplatform.webui.core.UIGrid;
 import org.exoplatform.webui.core.UIPopupContainer;
+import org.exoplatform.webui.core.UIPopupWindow;
 import org.exoplatform.webui.event.Event;
 import org.exoplatform.webui.event.Event.Phase;
 import org.exoplatform.webui.event.EventListener;
@@ -64,6 +71,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 import javax.jcr.Node;
+import javax.jcr.Session;
 
 /**
  * Event tab with Moxtra settings.<br>
@@ -73,13 +81,14 @@ import javax.jcr.Node;
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
  * @version $Id: UIEmeetingTab.java 00000 Mar 10, 2015 pnedonosko $
  */
-@ComponentConfigs({ @ComponentConfig(
-                                     template = "classpath:templates/calendar/webui/UIPopup/UIEmeetingTab.gtmpl",
-                                     events = { @EventConfig(listeners = RefreshMeetActionListener.class,
-                                                             phase = Phase.PROCESS)
-                                     // @EventConfig(listeners = DeleteActionListener.class, phase =
-                                     // Phase.DECODE)
-                                     }), })
+@ComponentConfigs({
+    @ComponentConfig(template = "classpath:templates/calendar/webui/UIPopup/UIEmeetingTab.gtmpl", events = {
+        @EventConfig(listeners = RefreshMeetActionListener.class, phase = Phase.PROCESS),
+        @EventConfig(listeners = ViewRecordingActionListener.class)
+    // @EventConfig(listeners = DeleteActionListener.class, phase = Phase.DECODE)
+                     }),
+    @ComponentConfig(id = UIEmeetingTab.CONTAINER_MOXTRA_RECORDING_VIEW, type = MoxtraPopupContainer.class,
+                     events = { @EventConfig(listeners = CloseRecordingActionListener.class) }) })
 public class UIEmeetingTab extends UIFormInputWithActions {
 
   public static final String    FIELD_ENABLE_MEET               = "enableMeet".intern();
@@ -138,6 +147,10 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public static final String    CONTAINER_MOXTRA_USER_SELECTOR  = "UIMoxtraUserSelectorPopupContainer";
 
+  public static final String    CONTAINER_MOXTRA_RECORDING_VIEW = "UIMoxtraRecordingViewPopupContainer";
+
+  public static final String    PARAMETER_TARGET_NODE           = "targetNode";
+
   public static final String    DATE_FORMAT_PATTERN             = "yyyy-MM-dd HH:mm:ss";
 
   protected static final String TAB_EVENTDETAIL                 = "eventDetail".intern();
@@ -149,24 +162,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
   protected static final String COMMA                           = ",".intern();
 
   private static final Log      LOG                             = ExoLogger.getExoLogger(UIEmeetingTab.class);
-
-  /**
-   * Triggers this action when user clicks on popup's close button.
-   */
-  @Deprecated
-  public static class CloseActionListener extends EventListener<MoxtraUserSelector> {
-
-    public void execute(Event<MoxtraUserSelector> event) throws Exception {
-      MoxtraUserSelector usersSelector = event.getSource();
-      UIContainer formContainer = usersSelector.getComponent().getParent().getParent().getParent();
-
-      // deactivate users selector popup
-      UIPopupContainer popupContainer = formContainer.getChild(UIPopupContainer.class);
-      if (popupContainer != null) {
-        popupContainer.cancelPopupAction();
-      }
-    }
-  }
 
   @Deprecated
   public static class EnableAutorecordingActionListener extends EventListener<UIEmeetingTab> {
@@ -316,6 +311,77 @@ public class UIEmeetingTab extends UIFormInputWithActions {
       UIEmeetingTab moxtraTab = event.getSource();
       moxtraTab.moxtra.refreshMeet();
       ((PortalRequestContext) event.getRequestContext().getParentAppRequestContext()).ignoreAJAXUpdateOnPortlets(true);
+    }
+  }
+
+  public static class ViewRecordingActionListener extends EventListener<UIEmeetingTab> {
+    @Override
+    public void execute(Event<UIEmeetingTab> event) throws Exception {
+      UIEmeetingTab moxtraTab = event.getSource();
+
+      UIApplication uiApp = moxtraTab.getAncestorOfType(UIApplication.class);
+
+      String recordingUUID = event.getRequestContext().getRequestParameter(PARAMETER_TARGET_NODE);
+      if (recordingUUID != null) {
+        final Node docNode = moxtraTab.moxtra.getNodeByUUID(recordingUUID);
+        if (docNode != null) {
+          UIContainer formContainer = moxtraTab.getParentForm().getParent();
+          UIPopupContainer popupContainer = formContainer.getChild(UIPopupContainer.class);
+          if (popupContainer == null) {
+            popupContainer = formContainer.addChild(MoxtraPopupContainer.class,
+                                                    CONTAINER_MOXTRA_RECORDING_VIEW,
+                                                    CONTAINER_MOXTRA_RECORDING_VIEW);
+          } else {
+            popupContainer.deActivate();
+          }
+
+          UIDocViewer docViewer = popupContainer.createUIComponent(UIDocViewer.class, null, "DocViewer");
+          docViewer.docPath = docNode.getPath();
+          Session docSession = docNode.getSession();
+          docViewer.repository = ((ManageableRepository) docSession.getRepository()).getConfiguration()
+                                                                                    .getName();
+          docViewer.workspace = docSession.getWorkspace().getName();
+
+          docViewer.setOriginalNode(docNode);
+          docViewer.setNode(docNode);
+          popupContainer.activate(docViewer, 800, 600, true);
+
+          event.getRequestContext().addUIComponentToUpdateByAjax(formContainer);
+        } else {
+          uiApp.addMessage(new ApplicationMessage("UIEmeetingTab.message.ErrorRecordingFileNotFound",
+                                                  null,
+                                                  ApplicationMessage.ERROR));
+        }
+      } else {
+        uiApp.addMessage(new ApplicationMessage("UIEmeetingTab.message.ErrorRecordingFileNotDefined",
+                                                null,
+                                                ApplicationMessage.ERROR));
+      }
+    }
+  }
+
+  /**
+   * Triggers this action when user clicks on popup's close button.
+   */
+  public static class CloseRecordingActionListener extends EventListener<UIPopupWindow> {
+
+    public void execute(Event<UIPopupWindow> event) throws Exception {
+      UIPopupWindow uiPopupWindow = event.getSource();
+      if (!uiPopupWindow.isShow())
+        return;
+      uiPopupWindow.setShow(false);
+      uiPopupWindow.setUIComponent(null);
+      UIPopupContainer popupContainer = uiPopupWindow.getAncestorOfType(UIPopupContainer.class);
+      event.getRequestContext().addUIComponentToUpdateByAjax(popupContainer);
+
+      // TODO cleanup
+      // UIContainer formContainer = usersSelector.getComponent().getParent().getParent().getParent();
+      //
+      // // deactivate users selector popup
+      // UIPopupContainer popupContainer = formContainer.getChild(UIPopupContainer.class);
+      // if (popupContainer != null) {
+      // popupContainer.cancelPopupAction();
+      // }
     }
   }
 
@@ -577,7 +643,9 @@ public class UIEmeetingTab extends UIFormInputWithActions {
         Node recNode = moxtra.getNodeByUUID(nodeUUID);
         if (recNode != null) {
           try {
-            link = org.exoplatform.wcm.webui.Utils.getActivityEditLink(recNode);
+            // link = org.exoplatform.wcm.webui.Utils.getActivityEditLink(recNode);
+            Parameter[] params = new Parameter[] { new Parameter(PARAMETER_TARGET_NODE, nodeUUID) };
+            link = event("ViewRecording", "aaa", params);
             title = recNode.getProperty("exo:title").getString();
           } catch (Exception e) {
             title = null;

@@ -58,11 +58,6 @@ public class UIEventForm extends UIForm {
     @Override
     public void execute(Event<UIForm> event) throws Exception {
       UIForm uiForm = event.getSource();
-      // TODO cleanup
-      // UIFormInputWithActions tabAttender = uiForm.getChildById(TAB_EVENTATTENDER);
-      // String values = uiForm.getParticipantValues();
-      // tabAttender.updateParticipants(values);
-      // event.getRequestContext().addUIComponentToUpdateByAjax(tabAttender);
 
       // UIPopupContainer
       UIContainer formContainer = uiForm.getParent();

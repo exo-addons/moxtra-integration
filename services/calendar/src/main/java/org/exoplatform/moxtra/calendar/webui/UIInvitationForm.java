@@ -123,6 +123,7 @@ public class UIInvitationForm extends UIForm {
   /**
    * Hide {@link UIMoxtraUserSelector} form.
    */
+  @Deprecated
   public static class CloseMoxtraUsersActionListener extends EventListener<UIMoxtraUserSelector> {
     /**
      * {@inheritDoc}

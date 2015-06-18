@@ -1352,28 +1352,44 @@
 					iframe : true,
 					tagid4iframe : elemId,
 					start_page : function(event) {
-						log("PageView started session Id: " + event.session_id);
+						log("pageView: start_page session_id: " + event.session_id);
 						invoke("start_page", event, callbacks);
 					},
 					share : function(event) {
-						log("Share session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						log("pageView: share session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_id: " + event.page_id);
 						invoke("share", event);
 					},
 					error : function(event) {
-						log("PageView error code: " + event.error_code + " error message: " + event.error_message);
+						log("pageView: error error_code: " + event.error_code + " error message: " + event.error_message);
 						invoke("error", event, callbacks);
 					},
 					publish_feed : function(event) {
-						log("publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						log("pageView: publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
 						invoke("publish_feed", event, callbacks);
 					},
 					receive_feed : function(event) {
-						log("receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						log("pageView: receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
 						invoke("receive_feed", event, callbacks);
 					},
 					start_note : function(event) {
-						log("start_note session Id: " + event.session_id + " session key: " + event.session_key);
+						log("pageView: start_note session Id: " + event.session_id + " session key: " + event.session_key);
 						invoke("start_note", event, callbacks);
+					},
+					request_note : function(event) {
+						log("pageView: request_note session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Index: " + event.page_index);
+						invoke("request_note", event, callbacks);
+					},
+					save_note : function(event) {
+						log("pageView: save_note destination_binder_id: " + event.destination_binder_id + " share_url:" + event.share_url + " download_url:" + event.download_url);
+						invoke("save_note", event, callbacks);
+					},
+					start_annotate : function(event) {
+						log("pageView: start_annotate session_id: " + event.session_id + " binder_id:" + event.binder_id);
+						invoke("start_annotate", event, callbacks);
+					},
+					stop_annotate : function(event) {
+						log("pageView: stop_annotate binder_id: " + event.binder_id + " share_url:" + event.share_url + " download_url:" + event.download_url);
+						invoke("stop_annotate", event, callbacks);
 					}
 				};
 				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {

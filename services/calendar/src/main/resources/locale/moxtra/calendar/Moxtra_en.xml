@@ -54,6 +54,8 @@
       <ErrorEnablingMeetAutorecording>Error enabling meeting video auto-recording. Refer to administrator for a
         help.</ErrorEnablingMeetAutorecording>
       <ErrorSavingMeet>Error saving meeting: {0}</ErrorSavingMeet>
+      <ErrorRecordingFileNotDefined>Meet recording not selected</ErrorRecordingFileNotDefined>
+      <ErrorRecordingFileNotFound>Meet recording not found</ErrorRecordingFileNotFound>
     </message>
   </UIEmeetingTab>
   <UIInvitationForm>

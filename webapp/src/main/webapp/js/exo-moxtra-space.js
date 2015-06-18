@@ -368,6 +368,20 @@
 								//}
 								//$meetEvent.attr("href", calendarLink);
 
+								function refreshMeet() {
+									var $updated = $created.find(".meetUpdated");
+									$updated.jzLoad("MoxtraBinderSpaceController.refreshMeet()", {
+										eventId : meet.eventId
+									}, function(response) {
+										var $msg = $updated.find(".messageText");
+										if ($msg.length > 0) {
+											showError($msg, $message);
+										} else {
+											// TODO show updated info somewhere?
+										}
+									});
+								}
+
 								if (startNow) {
 									var $startButton = $created.find(".meetStartButton");
 									$startButton.find("a").click(function() {
@@ -375,13 +389,11 @@
 										moxtra.moxtrajs().startMeet(meet.binderId, {
 											end_meet : function(event) {
 												// TODO update event in eXo
-												var update = moxtra.updateBinderMeet(spaceName, meet.eventId);
-												update.fail(function(e) {
-													log("Error updating meet: " + e);
-												});
+												refreshMeet();
 											},
 											save_meet : function(event) {
 												// TODO
+												refreshMeet();
 											},
 											error : function(event) {
 												showError(event.error_message + " (" + event.error_code + ")", $message);
@@ -425,7 +437,6 @@
 
 								// XXX Juzu 0.6.2 doesn't work correctly with list/arrays params: concat participants into string
 								$created.jzLoad("MoxtraBinderSpaceController.createMeet()", {
-									spaceName : spaceName,
 									name : topic,
 									agenda : agenda,
 									startTime : startTime.getTime(),

@@ -1,4 +1,3 @@
-
 /*
  * Copyright (C) 2003-2015 eXo Platform SAS.
  *
@@ -17,34 +16,39 @@
  * Software Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA
  * 02110-1301 USA, or see the FSF site: http://www.fsf.org.
  */
-package org.exoplatform.moxtra.webui;
+package org.exoplatform.moxtra.client;
 
-import org.exoplatform.webui.event.EventListener;
+import java.util.List;
 
 /**
- * Action body that should executed in particular action listener {@link EventListener}.<br>
+ * Meet video recordings.<br>
  * 
  * Created by The eXo Platform SAS
  * 
  * @author <a href="mailto:pnedonosko@exoplatform.com">Peter Nedonosko</a>
- * @version $Id: MoxtraAction.java 00000 Apr 2, 2015 pnedonosko $
+ * @version $Id: MoxtraMeetRecordings.java 00000 Apr 8, 2015 pnedonosko $
  * 
  */
-public interface MoxtraAction<I, O> {
+public class MoxtraMeetRecordings {
+
+  protected final int                       count;
+
+  protected final List<MoxtraMeetRecording> recordings;
+
+  protected MoxtraMeetRecordings(int count, List<MoxtraMeetRecording> recordings) {
+    this.count = count;
+    this.recordings = recordings;
+  }
+
+  public int getCount() {
+    return count;
+  }
 
   /**
-   * Execute an action with given input and producing an output object.
-   * 
-   * @param input
-   * @return
+   * @return the recordings
    */
-  O execute(I input);
-  
-  /**
-   * Actual label for the action.
-   * 
-   * @return String can be <code>null</code>
-   */
-  String getLabel();
-  
+  public List<MoxtraMeetRecording> getRecordings() {
+    return recordings;
+  }
+
 }

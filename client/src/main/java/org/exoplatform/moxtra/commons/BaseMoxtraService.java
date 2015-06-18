@@ -40,6 +40,8 @@ import java.util.List;
  */
 public abstract class BaseMoxtraService {
 
+  public static final String MOXTRA_DOWNLOAD_JOB_GROUP_NAME = "moxtra_download";
+  
   public static final String    MOXTRA_CURRENT_USER = "moxtra.currentUser";
 
   protected final MoxtraService moxtra;

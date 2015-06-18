@@ -66,6 +66,8 @@ public class MoxtraMeet extends MoxtraBinder {
    * @param startTime
    * @param endTime
    * @param autoRecording
+   * @param status
+   * @param users
    * @return
    */
   public static MoxtraMeet create(String sessionKey,
@@ -80,6 +82,7 @@ public class MoxtraMeet extends MoxtraBinder {
                                   Date startTime,
                                   Date endTime,
                                   Boolean autoRecording,
+                                  String status,
                                   List<MoxtraUser> users) {
     MoxtraMeet meet = new MoxtraMeet(sessionKey,
                                      sessionId,
@@ -93,7 +96,7 @@ public class MoxtraMeet extends MoxtraBinder {
                                      startTime,
                                      endTime,
                                      autoRecording,
-                                     null);
+                                     status);
     meet.setUsers(users);
     return meet;
   }
@@ -133,14 +136,9 @@ public class MoxtraMeet extends MoxtraBinder {
   private transient MoxtraMeet       editor;
 
   /**
-   * JCR workspace used to save (auto) recorded video.
+   * Recordings saved in local JCR.
    */
-  private transient String           videoWorkspace;
-
-  /**
-   * JCR path used to save (auto) recorded video.
-   */
-  private transient String           videoPath;
+  private transient List<String>           recordings;
 
   protected MoxtraMeet(String sessionKey,
                        String sessionId,
@@ -606,31 +604,22 @@ public class MoxtraMeet extends MoxtraBinder {
   }
 
   /**
-   * @param videoWorkspace the videoWorkspace to set
+   * @param recordings the recordings to set
    */
-  public void setVideoWorkspace(String videoWorkspace) {
-    this.videoWorkspace = videoWorkspace;
+  public void setRecordings(List<String> recordings) {
+    this.recordings = recordings;
   }
 
-  /**
-   * @param videoPath the videoPath to set
-   */
-  public void setVideoPath(String videoPath) {
-    this.videoPath = videoPath;
-  }
 
   /**
-   * @return the videoWorkspace, can be <code>null</code>
+   * @return the recordings, can be <code>null</code>
    */
-  public String getVideoWorkspace() {
-    return videoWorkspace;
+  public List<String> getRecordings() {
+    return recordings;
   }
-
-  /**
-   * @return the videoPath, can be <code>null</code>
-   */
-  public String getVideoPath() {
-    return videoPath;
+  
+  public boolean hasRecordings() {
+    return recordings != null && recordings.size() > 0;
   }
 
   // ******* internals *******

@@ -708,6 +708,7 @@
 				var binderId = $startButton.data("meet-binderid");
 				var sessionKey = $startButton.data("meet-sessionkey");
 				var join = $startButton.data("meet-join");
+				var refreshLink = $startButton.data("meet-refresh");
 				if (binderId || (sessionKey && join)) {
 					var moxtraReady = moxtrajs.preload();
 					moxtraReady.done(function() {
@@ -720,12 +721,17 @@
 									}
 								});
 							} else {
+								function refreshMeet() {
+									eval(refreshLink);
+								}
+
 								moxtrajs.startMeet(binderId, {
 									end_meet : function(event) {
-										// TODO show in event form?
+										// cause meet save in eXo
+										refreshMeet();
 									},
 									save_meet : function(event) {
-										// TODO show in event form?
+										refreshMeet();
 									},
 									error : function(event) {
 										// TODO show in event form?
@@ -1404,6 +1410,7 @@
 			apiReady.done(function(api) {
 				var options = {
 					iframe : false,
+					video : true,
 					start_meet : function(event) {
 						log("start_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
 						invoke("start_meet", event, callbacks);

@@ -19,7 +19,7 @@
 package org.exoplatform.moxtra.jcr;
 
 import org.exoplatform.container.component.BaseComponentPlugin;
-import org.exoplatform.moxtra.ConversationStateNotFoundException;
+import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraClientStore;
 import org.exoplatform.moxtra.MoxtraStoreException;
 import org.exoplatform.moxtra.client.MoxtraClient;
@@ -35,7 +35,6 @@ import org.exoplatform.services.jcr.ext.common.SessionProvider;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.services.security.ConversationState;
 
 import java.util.Calendar;
 import java.util.Date;
@@ -135,7 +134,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
   public void saveMeet(MoxtraClient client, MoxtraMeet meet) throws MoxtraStoreException {
     try {
       //
-      Node userNode = userNode();
+      Node userNode = userNode(Moxtra.currentUserName());
 
       Node meetsNode;
       try {
@@ -220,20 +219,14 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    * {@inheritDoc}
    */
   @Override
-  public void save(MoxtraClient client) throws MoxtraStoreException {
+  public void save(MoxtraClient client, String userName) throws MoxtraStoreException {
     try {
-      Node userNode = userNode();
+      Node userNode = userNode(userName);
       if (!JCR.isUserStore(userNode)) {
-        JCR.addUserStore(userNode);
-        // TODO save moxtra:profile node with user info if it authorized
-        // otherwise, need do that on refresh token... other event?
+        JCR.addUserStore(userNode, userName);
         userNode.save();
       }
-
       saveListenToken(userNode, client);
-
-      // TODO save other user data (if required it locally)
-      // MoxtraUser user = client.getCurrentUser();
     } catch (Exception e) {
       throw new MoxtraStoreException("Error saving Moxtra client", e);
     }
@@ -244,9 +237,9 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
    * 
    */
   @Override
-  public boolean load(MoxtraClient client) throws MoxtraStoreException {
+  public boolean load(MoxtraClient client, String userName) throws MoxtraStoreException {
     try {
-      Node userNode = userNode();
+      Node userNode = userNode(userName);
       if (JCR.isUserStore(userNode)) {
         return loadListenToken(userNode, client);
       } else {
@@ -257,35 +250,7 @@ public class JCRMoxtraClientStore extends BaseComponentPlugin implements MoxtraC
     }
   }
 
-  /**
-   * {@inheritDoc}
-   * 
-   */
-  @Override
-  public boolean load(String userName, MoxtraClient client) throws MoxtraStoreException {
-    try {
-      Node userNode = userNode(userName);
-      if (JCR.isUserStore(userNode)) {
-        return loadListenToken(userNode, client);
-      } else {
-        return false;
-      }
-    } catch (Exception e) {
-      throw new MoxtraStoreException("Error loading Moxtra client for user " + userName, e);
-    }
-  }
-
   // ************** internals **************
-
-  protected Node userNode() throws Exception {
-    ConversationState currentConvo = ConversationState.getCurrent();
-    if (currentConvo != null) {
-      String currentUser = currentConvo.getIdentity().getUserId();
-      return userNode(currentUser);
-    } else {
-      throw new ConversationStateNotFoundException("Conversation state not found");
-    }
-  }
 
   protected Node userNode(String userName) throws Exception {
     return nodeCreator.getUserNode(jcrSessions.getSystemSessionProvider(null), userName);

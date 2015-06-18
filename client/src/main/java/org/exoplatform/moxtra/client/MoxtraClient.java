@@ -19,6 +19,7 @@
 package org.exoplatform.moxtra.client;
 
 import static org.exoplatform.moxtra.Moxtra.formatDate;
+import static org.exoplatform.moxtra.Moxtra.fullName;
 import static org.exoplatform.moxtra.Moxtra.getCalendar;
 import static org.exoplatform.moxtra.Moxtra.getDate;
 import static org.exoplatform.moxtra.Moxtra.parseDate;
@@ -78,12 +79,11 @@ import org.apache.oltu.oauth2.common.utils.OAuthUtils;
 import org.apache.ws.commons.util.Base64;
 import org.exoplatform.commons.utils.ListAccess;
 import org.exoplatform.container.PortalContainer;
+import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.NotFoundException;
-import org.exoplatform.moxtra.OAuthClientConfiguration;
 import org.exoplatform.moxtra.oauth2.AccessToken;
 import org.exoplatform.moxtra.rest.OAuthCodeAuthenticator;
-import org.exoplatform.moxtra.utils.MoxtraUtils;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.OrganizationService;
@@ -153,9 +153,9 @@ public class MoxtraClient {
 
   public static final String     API_USER                           = API_V1 + "{user_id}";
 
-  public static final String     MOXTRA_CURRENT_USER                = API_V1 + MOXTRA_USER_ME;
+  public static final String     MOXTRA_CURRENT_USER                = API_V1 + MOXTRA_USER_ME + "#";
 
-  public static final String     MOXTRA_CURRENT_USER_EXPIRE         = MOXTRA_CURRENT_USER + "#expire";
+  public static final String     MOXTRA_CURRENT_USER_EXPIRE         = MOXTRA_CURRENT_USER + "#expire-";
 
   public static final long       MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT = 1000 * 60 * 10;                         // 10min
 
@@ -903,6 +903,28 @@ public class MoxtraClient {
     }
 
     /**
+     * Try authorize the client transparently (actual for SSO modes only).
+     * 
+     * @return boolean <code>true</code> if client authorized, <code>false</code> otherwise
+     */
+    public boolean tryAuthorize() {
+      AccessToken accessToken = getOAuthToken();
+      if (!accessToken.isInitialized() || accessToken.isExpired()) {
+        if (isSSOAuth() && userId != null) {
+          try {
+            // request new access token using stored user identifiers from previous call of authorizeOrg()
+            authorizeOrg(userId, firstName, lastName);
+          } catch (Throwable e) {
+            // we don't want stop the client work here
+            LOG.warn("Error trying to refresh client authorization: " + e.getMessage(), e);
+          }
+        } // else, we cannot something else without real user interaction (in UI)
+      }
+
+      return accessToken.isExpired();
+    }
+
+    /**
      * @return the redirectLink
      */
     public String getRedirectLink() {
@@ -916,6 +938,8 @@ public class MoxtraClient {
    * Org_ID in Moxtra notion. Can be <code>null</code> if single org should be used.
    */
   protected final String              orgId;
+
+  protected final String              exoUserName;
 
   protected final String              authMethod;
 
@@ -954,10 +978,12 @@ public class MoxtraClient {
                       String oauthClientHost,
                       String authMethod,
                       String orgId,
+                      String exoUserName,
                       OrganizationService orgService) {
     this.orgService = orgService;
     this.authMethod = authMethod;
     this.orgId = orgId;
+    this.exoUserName = exoUserName;
 
     // find auth flags
     this.ssoAuthUniqueId = CLIENT_AUTH_METHOD_UNIQUEID.equals(authMethod);
@@ -1035,19 +1061,16 @@ public class MoxtraClient {
         if (authorizer == null) {
           authorizer = new OAuth2Authorizer();
           if (isSSOAuth()) {
-            ConversationState currentConvo = ConversationState.getCurrent();
-            if (currentConvo != null) {
-              String userId = currentConvo.getIdentity().getUserId();
-              try {
-                User user = orgService.getUserHandler().findUserByName(userId);
-                if (user != null) {
-                  authorizer.authorizeOrg(userId, user.getFirstName(), user.getLastName());
-                } else {
-                  LOG.error("User not found in organization service " + userId + ". Moxtra SSO not possible.");
-                }
-              } catch (Exception e) {
-                LOG.error("Error searching user in organization service " + userId, e);
+            try {
+              User user = orgService.getUserHandler().findUserByName(exoUserName);
+              if (user != null) {
+                authorizer.authorizeOrg(exoUserName, user.getFirstName(), user.getLastName());
+              } else {
+                LOG.error("User not found in organization service " + exoUserName
+                    + ". Moxtra SSO not possible.");
               }
+            } catch (Exception e) {
+              LOG.error("Error searching user in organization service " + exoUserName, e);
             }
           }
         }
@@ -1064,25 +1087,35 @@ public class MoxtraClient {
    * @return <code>true</code> if client is authorized to access Moxtra services, <code>false</code> otherwise
    */
   public boolean isAuthorized() {
+    boolean tryRefresh;
     if (oAuthToken.isInitialized()) {
       if (oAuthToken.isExpired()) {
-        // try refresh the token causing call to Moxtra (not cached)
-        // if refresh token is valid, then access will be refreshed with new expiration time
-        try {
-          getCurrentUser(false);
-        } catch (MoxtraAuthorizationException e) {
-          if (LOG.isDebugEnabled()) {
-            LOG.debug("isAuthorized: " + e.getMessage());
-          }
-          // it means user have to re-authorize
-          return false;
-        } catch (MoxtraException e) {
-          LOG.warn("Error getting current user while checking authorization status", e);
-          // an error during auth* assumed as as not authorized
-          return false;
-        }
+        tryRefresh = true;
+      } else {
+        return true;
       }
-      return true;
+    } else if (isSSOAuth()) {
+      tryRefresh = true;
+    } else {
+      tryRefresh = false;
+    }
+
+    if (tryRefresh) {
+      // try refresh the token causing call to Moxtra (not cached)
+      // if refresh token is valid or SSO mode, then access will be refreshed with new expiration time
+      try {
+        authorizer();// .refresh();
+        getCurrentUser(false);
+        return true;
+      } catch (MoxtraAuthorizationException e) {
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("isAuthorized: " + e.getMessage());
+        }
+        // it means user have to re-authorize
+      } catch (MoxtraException e) {
+        LOG.warn("Error getting current user while checking authorization status", e);
+        // an error during auth* assumed as user not authorized
+      }
     }
 
     return false;
@@ -1115,21 +1148,22 @@ public class MoxtraClient {
    * @throws MoxtraException
    */
   public MoxtraUser getCurrentUser(boolean useCached) throws MoxtraAuthenticationException, MoxtraException {
+    String userKey = MOXTRA_CURRENT_USER + exoUserName;
+    String expireKey = MOXTRA_CURRENT_USER_EXPIRE + exoUserName;
     ConversationState currentConvo = ConversationState.getCurrent();
     if (currentConvo != null) {
       if (useCached) {
-        Object uobj = currentConvo.getAttribute(MOXTRA_CURRENT_USER);
+        Object uobj = currentConvo.getAttribute(userKey);
         if (uobj != null) {
-          Object tobj = currentConvo.getAttribute(MOXTRA_CURRENT_USER_EXPIRE);
+          Object tobj = currentConvo.getAttribute(expireKey);
           if (tobj != null && ((Long) tobj) < System.currentTimeMillis()) {
             return (MoxtraUser) uobj;
           }
         }
       }
       MoxtraUser user = getUser(MOXTRA_USER_ME);
-      currentConvo.setAttribute(MOXTRA_CURRENT_USER, user);
-      currentConvo.setAttribute(MOXTRA_CURRENT_USER_EXPIRE, System.currentTimeMillis()
-          + MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT);
+      currentConvo.setAttribute(userKey, user);
+      currentConvo.setAttribute(expireKey, System.currentTimeMillis() + MOXTRA_CURRENT_USER_EXPIRE_TIMEOUT);
       return user;
     } else {
       return getUser(MOXTRA_USER_ME);
@@ -1155,123 +1189,19 @@ public class MoxtraClient {
             type = vtype.getStringValue();
           }
           MoxtraUser user = readUser(dv, type);
-
-          // TODO cleanup
-          // JsonValue vid = dv.getElement("id");
-          // if (isNull(vid)) {
-          // throw new MoxtraException("User request doesn't return user id");
-          // }
-          // String name;
-          // JsonValue vname = dv.getElement("name");
-          // if (isNotNull(vname)) {
-          // name = vname.getStringValue();
-          // } else {
-          // name = null;
-          // }
-          // String email;
-          // JsonValue vemail = dv.getElement("email");
-          // if (isNotNull(vemail)) {
-          // // throw new MoxtraException("User request doesn't return user email");
-          // email = vemail.getStringValue();
-          // } else {
-          // email = null;
-          // }
-          // String firstName;
-          // JsonValue vFirstName = dv.getElement("first_name");
-          // if (isNotNull(vFirstName)) {
-          // firstName = vFirstName.getStringValue();
-          // } else {
-          // firstName = null;
-          // }
-          // String lastName;
-          // JsonValue vLastName = dv.getElement("last_name");
-          // if (isNotNull(vLastName)) {
-          // lastName = vLastName.getStringValue();
-          // } else {
-          // lastName = null;
-          // }
-          // String uniqueId;
-          // JsonValue vuid = dv.getElement("unique_id");
-          // if (isNotNull(vuid) && (uniqueId = vuid.getStringValue()).length() > 0) {
-          // // find user data in eXo organization and use it
-          // try {
-          // User user = orgService.getUserHandler().findUserByName(uniqueId);
-          // if (user == null && email != null && email.length() > 0) {
-          // // try by email if available
-          // Query query = new Query();
-          // query.setEmail(email);
-          // ListAccess<User> emailUsers = orgService.getUserHandler().findUsersByQuery(query);
-          // if (emailUsers.getSize() > 0) {
-          // // XXX use first occurrence
-          // user = emailUsers.load(0, 1)[0];
-          // }
-          // }
-          // if (user != null) {
-          // email = user.getEmail();
-          // firstName = user.getFirstName();
-          // lastName = user.getLastName();
-          // name = MoxtraUtils.fullName(user);
-          // } else {
-          // // LOG.warn("User not found in organization service " + uniqueId);
-          // throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
-          // }
-          // } catch (Exception e) {
-          // // LOG.warn("Error searching user in organization service " + uniqueId, e);
-          // throw new MoxtraClientException("Error searching user in organization service '" + uniqueId
-          // + "'", e);
-          // }
-          // } else {
-          // // check if names and email exist
-          // if (name == null) {
-          // throw new MoxtraException("User request doesn't return user name");
-          // }
-          // if (email == null) {
-          // throw new MoxtraException("User request doesn't return user email");
-          // }
-          // if (firstName == null) {
-          // throw new MoxtraException("User request doesn't return user first_name");
-          // }
-          // if (lastName == null) {
-          // throw new MoxtraException("User request doesn't return user last_name");
-          // }
-          // uniqueId = null;
-          // }
-          //
-          // String orgId;
-          // JsonValue vorgid = dv.getElement("org_id");
-          // if (isNotNull(vorgid)) {
-          // orgId = vorgid.getStringValue();
-          // } else {
-          // orgId = null;
-          // if (uniqueId != null && LOG.isDebugEnabled()) {
-          // LOG.debug("Moxtra org_id not provided for user with unique_id " + uniqueId);
-          // }
-          // }
-          //
-          // JsonValue vtype = dv.getElement("type");
-          // if (isNull(vtype)) {
-          // throw new MoxtraException("User request doesn't return user type");
-          // }
-          // JsonValue vCreatedTime = dv.getElement("created_time");
-          // if (isNull(vCreatedTime)) {
-          // throw new MoxtraException("User request doesn't return user created time");
-          // }
-          // JsonValue vUpdatedTime = dv.getElement("updated_time");
-          // if (isNull(vUpdatedTime)) {
-          // throw new MoxtraException("User request doesn't return user updated time");
-          // }
-          //
-          // MoxtraUser user = new MoxtraUser(vid.getStringValue(),
-          // uniqueId,
-          // orgId,
-          // name,
-          // email,
-          // firstName,
-          // lastName,
-          // vtype.getStringValue(),
-          // MoxtraUser.USER_TYPE_NORMAL,
-          // new Date(vCreatedTime.getLongValue()),
-          // new Date(vUpdatedTime.getLongValue()));
+          // TODO do we need strict check here?
+          if (user.getName() == null) {
+            throw new MoxtraException("Request doesn't return user name");
+          }
+          if (user.getEmail() == null) {
+            throw new MoxtraException("Request doesn't return user email");
+          }
+          if (user.getFirstName() == null) {
+            throw new MoxtraException("Request doesn't return user first_name");
+          }
+          if (user.getLastName() == null) {
+            throw new MoxtraException("Request doesn't return user last_name");
+          }
           return user;
         } else {
           throw new MoxtraException("User request doesn't return an expected body (data)");
@@ -1866,10 +1796,10 @@ public class MoxtraClient {
     }
   }
 
-  public List<MoxtraMeetRecording> getMeetRecordings(MoxtraMeet meet) throws OAuthSystemException,
-                                                                     OAuthProblemException,
-                                                                     MoxtraException,
-                                                                     MoxtraClientException {
+  public MoxtraMeetRecordings getMeetRecordings(MoxtraMeet meet) throws OAuthSystemException,
+                                                                OAuthProblemException,
+                                                                MoxtraException,
+                                                                MoxtraClientException {
 
     if (isInitialized()) {
       try {
@@ -1879,9 +1809,16 @@ public class MoxtraClient {
         JsonValue json = resp.getValue();
         JsonValue vd = json.getElement("data");
         if (!isNull(vd)) {
+          int count;
+          JsonValue vcounts = vd.getElement("count");
+          if (isNotNull(vcounts)) {
+            count = vcounts.getIntValue();
+          } else {
+            count = -1;
+          }
+          List<MoxtraMeetRecording> recs = new ArrayList<MoxtraMeetRecording>();
           JsonValue vrec = vd.getElement("recordings");
           if (!isNull(vrec) && vrec.isArray()) {
-            List<MoxtraMeetRecording> recs = new ArrayList<MoxtraMeetRecording>();
             for (Iterator<JsonValue> riter = vrec.getElements(); riter.hasNext();) {
               JsonValue vr = riter.next();
               JsonValue vlink = vr.getElement("download_url");
@@ -1906,7 +1843,7 @@ public class MoxtraClient {
                                                                 vlink.getStringValue());
               recs.add(rec);
             }
-            return recs;
+            return new MoxtraMeetRecordings(count, recs);
           } else {
             throw new MoxtraException("User request doesn't return an expected body (recordings)");
           }
@@ -3082,8 +3019,6 @@ public class MoxtraClient {
           // well just skip the user
           LOG.warn("Skipped meet participant without email and unique_id. " + vu);
           continue nextUser;
-          // throw new MoxtraException("Meet user has no email and user not found in binder: '" + uniqueId
-          // + "' " + userName);
         }
         user = new MoxtraUser(userEmail);
       } else {
@@ -3420,7 +3355,7 @@ public class MoxtraClient {
           userEmail = user.getEmail();
           firstName = user.getFirstName();
           lastName = user.getLastName();
-          name = MoxtraUtils.fullName(user);
+          name = fullName(user);
         } else {
           // LOG.warn("User not found in organization service " + uniqueId);
           throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
@@ -3430,18 +3365,9 @@ public class MoxtraClient {
         throw new MoxtraClientException("Error searching user in organization service '" + uniqueId + "'", e);
       }
     } else {
-      // check if names and email exist (for standard OAuth2 user, not SSO)
-      if (name == null) {
-        throw new MoxtraException("Request doesn't return user name");
-      }
+      // check if name and email exist (for standard OAuth2 user, not SSO)
       if (userEmail == null) {
         throw new MoxtraException("Request doesn't return user email");
-      }
-      if (firstName == null) {
-        throw new MoxtraException("Request doesn't return user first_name");
-      }
-      if (lastName == null) {
-        throw new MoxtraException("Request doesn't return user last_name");
       }
       uniqueId = null;
     }
@@ -3461,14 +3387,10 @@ public class MoxtraClient {
     }
     String userId;
     JsonValue vuid = vu.getElement("id");
-    if (isNull(vuid)) {
-      // XXX user email as an id if user has no id in current Moxtra context
-      if (userEmail == null) {
-        throw new MoxtraException("Request doesn't return user id nor email");
-      }
-      userId = userEmail;
-    } else {
+    if (isNotNull(vuid)) {
       userId = vuid.getStringValue();
+    } else {
+      userId = null;
     }
 
     MoxtraUser user = new MoxtraUser(userId,
@@ -3492,8 +3414,8 @@ public class MoxtraClient {
   protected void resetCurrentUser() {
     ConversationState currentConvo = ConversationState.getCurrent();
     if (currentConvo != null) {
-      currentConvo.removeAttribute(MOXTRA_CURRENT_USER);
-      currentConvo.removeAttribute(MOXTRA_CURRENT_USER_EXPIRE);
+      currentConvo.removeAttribute(MOXTRA_CURRENT_USER + exoUserName);
+      currentConvo.removeAttribute(MOXTRA_CURRENT_USER_EXPIRE + exoUserName);
     }
   }
 

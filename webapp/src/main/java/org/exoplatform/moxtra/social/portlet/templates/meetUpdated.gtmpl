@@ -1,0 +1,9 @@
+#{param name=startTime/}
+#{param name=endTime/}
+#{param name=eventId/}
+<!-- Meet updated data -->
+<div class="meetInfo" 
+	data-meet-eventid="${eventId}"
+	data-meet-starttime=${startTime}
+	data-meet-endtime=${endTime}>
+</div>

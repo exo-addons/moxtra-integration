@@ -20,16 +20,20 @@ package org.exoplatform.moxtra.jcr;
 
 import org.exoplatform.moxtra.client.MoxtraBinder;
 
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.List;
 
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
 import javax.jcr.PropertyIterator;
+import javax.jcr.PropertyType;
 import javax.jcr.RepositoryException;
-import javax.jcr.Session;
+import javax.jcr.Value;
+import javax.jcr.ValueFactory;
 import javax.jcr.nodetype.NodeType;
 import javax.jcr.query.Query;
 import javax.jcr.query.QueryManager;
@@ -73,20 +77,22 @@ public class JCR {
 
   public static final String NODETYPE_PAGE_CONTENT       = "moxtra:pageContent";
 
+  public static final String NODETYPE_MEET_CONTENT       = "moxtra:meetContent";
+
   public static final String NODETYPE_ACCESS_TOKEN_STORE = "moxtra:accessTokenStore";
 
   public static final String VALUE_CREATING_ID           = "_creating";
-  
-  public static final String VALUE_EMPTY   = "";
+
+  public static final String VALUE_EMPTY                 = "";
 
   public static boolean isUserStore(Node node) throws RepositoryException {
     return node.isNodeType(NODETYPE_USER_STORE);
   }
 
-  public static void addUserStore(Node node) throws RepositoryException {
+  public static void addUserStore(Node node, String userName) throws RepositoryException {
     node.addMixin(NODETYPE_USER_STORE);
     // owner and creation time for information purpose
-    node.setProperty("moxtra:creator", node.getSession().getUserID());
+    node.setProperty("moxtra:creator", userName);
     node.setProperty("moxtra:createdTime", Calendar.getInstance());
   }
 
@@ -115,27 +121,14 @@ public class JCR {
     return node.isNodeType(NODETYPE_SERVICES);
   }
 
-  public static void addServices(Node node) throws RepositoryException {
+  public static void addServices(Node node, String userName) throws RepositoryException {
     node.addMixin(NODETYPE_SERVICES);
     // owner and creation time for information purpose
-    node.setProperty("moxtra:creator", node.getSession().getUserID());
+    node.setProperty("moxtra:creator", userName);
     node.setProperty("moxtra:createdTime", Calendar.getInstance());
   }
 
   public static void removeServices(Node node) throws RepositoryException {
-    // TODO cleanup
-    // try {
-    // node.getProperty("moxtra:creator").remove();
-    // } catch (PathNotFoundException e) {
-    // // ignore it
-    // }
-    // try {
-    // node.getProperty("moxtra:createdTime").remove();
-    // } catch (PathNotFoundException e) {
-    // // ignore it
-    // }
-
-    // removeMoxtraItems(node);
     for (NodeIterator niter = node.getNodes(); niter.hasNext();) {
       cleanBaseNodeReferences(niter.nextNode());
     }
@@ -268,6 +261,62 @@ public class JCR {
 
   public static Node getMeets(Node userNode) throws RepositoryException {
     return userNode.getNode("moxtra:meets");
+  }
+
+  public static void addMeetContent(Node document) throws RepositoryException {
+    document.addMixin(NODETYPE_MEET_CONTENT);
+  }
+
+  public static boolean isMeetContent(Node document) throws RepositoryException {
+    return document.isNodeType(NODETYPE_MEET_CONTENT);
+  }
+
+  public static Property setMeetRef(Node document, String meetNodeUUID) throws RepositoryException {
+    return document.setProperty("moxtra:meet", meetNodeUUID);
+  }
+
+  public static Property getMeetRef(Node document) throws RepositoryException {
+    return document.getProperty("moxtra:meet");
+  }
+
+  public static Property setRecordingsRef(Node meetNode, List<Node> recordings) throws RepositoryException {
+    ValueFactory vf = meetNode.getSession().getValueFactory();
+    Value[] values = new Value[recordings.size()];
+    for (int i = 0; i < recordings.size(); i++) {
+      Node rn = recordings.get(i);
+      values[i] = vf.createValue(rn);
+    }
+    if (values.length == 0) {
+      return meetNode.setProperty("moxtra:recordings", (Value[]) null);
+    } else {
+      return meetNode.setProperty("moxtra:recordings", values);
+    }
+  }
+
+  public static List<Node> getRecordingsRef(Node meetNode) throws RepositoryException {
+    Value[] values = meetNode.getProperty("moxtra:recordings").getValues();
+    List<Node> recordings = new ArrayList<Node>(values.length);
+    for (Value v : values) {
+      if (v.getType() == PropertyType.REFERENCE) {
+        recordings.add(meetNode.getSession().getNodeByUUID(v.getString()));
+      }
+    }
+    return recordings;
+  }
+
+  public static List<String> getRecordings(Node meetNode) throws RepositoryException {
+    Value[] values = meetNode.getProperty("moxtra:recordings").getValues();
+    List<String> recordings = new ArrayList<String>(values.length);
+    for (Value v : values) {
+      if (v.getType() == PropertyType.REFERENCE) {
+        recordings.add(v.getString());
+      }
+    }
+    return recordings;
+  }
+
+  public static boolean hasRecordings(Node meetNode) throws RepositoryException {
+    return meetNode.hasProperty("moxtra:recordings");
   }
 
   public static Node addUsers(Node userNode) throws RepositoryException {
@@ -410,7 +459,7 @@ public class JCR {
   public static Property getId(Node node) throws RepositoryException {
     return node.getProperty("moxtra:id");
   }
-  
+
   public static String getIdString(Node node) throws RepositoryException {
     String id = node.getProperty("moxtra:id").getString();
     return id.equals(VALUE_EMPTY) ? null : id;
@@ -447,7 +496,7 @@ public class JCR {
   public static Property getOrgId(Node node) throws RepositoryException {
     return node.getProperty("moxtra:orgId");
   }
-  
+
   public static String getOrgIdString(Node node) throws RepositoryException {
     try {
       return node.getProperty("moxtra:orgId").getString();
@@ -463,11 +512,11 @@ public class JCR {
   public static Property setOrgId(Node node, String orgId) throws RepositoryException {
     return node.setProperty("moxtra:orgId", orgId);
   }
-  
+
   public static Property getPictureUri(Node node) throws RepositoryException {
     return node.getProperty("moxtra:pictureUri");
   }
-  
+
   public static String getPictureUriString(Node node) throws RepositoryException {
     try {
       return node.getProperty("moxtra:pictureUri").getString();
@@ -544,6 +593,21 @@ public class JCR {
       cal = null;
     }
     return node.setProperty("moxtra:updatedTime", cal);
+  }
+
+  public static Property getSavedTime(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:savedTime");
+  }
+
+  public static Property setSavedTime(Node node, Date time) throws RepositoryException {
+    Calendar cal;
+    if (time != null) {
+      cal = Calendar.getInstance();
+      cal.setTime(time);
+    } else {
+      cal = null;
+    }
+    return node.setProperty("moxtra:savedTime", cal);
   }
 
   public static Property getEmail(Node node) throws RepositoryException {
@@ -628,6 +692,14 @@ public class JCR {
     Calendar cal = Calendar.getInstance();
     cal.setTime(time);
     return node.setProperty("moxtra:endTime", cal);
+  }
+
+  public static Property setStatus(Node node, String status) throws RepositoryException {
+    return node.setProperty("moxtra:status", status);
+  }
+
+  public static Property getStatus(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:status");
   }
 
 }

@@ -96,6 +96,11 @@ public class MoxtraBinder {
   protected Date                       createdTime;
 
   protected Date                       updatedTime;
+  
+  /**
+   * Internal time when binder was saved in eXo storage.
+   */
+  protected Date                       savedTime;
 
   /**
    * Binder users. Should be initialized by {@link #setUsers(List)}.
@@ -305,6 +310,24 @@ public class MoxtraBinder {
    */
   public Date getUpdatedTime() {
     return updatedTime != null ? updatedTime : (isEditor() ? original.getUpdatedTime() : null);
+  }
+  
+  /**
+   * @return the savedTime
+   */
+  public Date getSavedTime() {
+    return savedTime != null ? savedTime : (isEditor() ? original.getSavedTime() : null);
+  }
+  
+  /**
+   * @param savedTime the savedTime to set
+   */
+  public void setSavedTime(Date savedTime) {
+    if (isEditor()) {
+      this.original.setSavedTime(savedTime);
+    } else {
+      this.savedTime = savedTime;
+    }
   }
 
   /**

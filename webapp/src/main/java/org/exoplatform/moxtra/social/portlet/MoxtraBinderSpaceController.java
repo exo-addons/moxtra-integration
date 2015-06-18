@@ -18,7 +18,7 @@
  */
 package org.exoplatform.moxtra.social.portlet;
 
-import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
+import static org.exoplatform.moxtra.Moxtra.cleanValue;
 
 import juzu.Action;
 import juzu.Path;
@@ -101,8 +101,12 @@ public class MoxtraBinderSpaceController {
   org.exoplatform.moxtra.social.portlet.templates.meetParticipants meetParticipants;
 
   @Inject
-  @Path("meetData.gtmpl")
-  org.exoplatform.moxtra.social.portlet.templates.meetData         meetData;
+  @Path("meetCreated.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.meetCreated      meetCreated;
+
+  @Inject
+  @Path("meetUpdated.gtmpl")
+  org.exoplatform.moxtra.social.portlet.templates.meetUpdated      meetUpdated;
 
   @Inject
   @Path("error.gtmpl")
@@ -256,16 +260,14 @@ public class MoxtraBinderSpaceController {
 
   @Ajax
   @Resource
-  public Response createMeet(String spaceName,
-                             String name,
+  public Response createMeet(String name,
                              String agenda,
                              String startTime,
                              String endTime,
                              String autoRecording,
                              String users) {
     try {
-
-      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
       if (binderSpace != null) {
         if (name != null && name.length() > 0) {
           if (startTime != null && endTime != null) {
@@ -309,15 +311,15 @@ public class MoxtraBinderSpaceController {
             }
 
             MeetEvent event = moxtra.createMeet(binderSpace, meet);
-            return meetData.with()
-                           .binderId(meet.getBinderId())
-                           .sessionKey(meet.getSessionKey())
-                           .startLink(meet.getStartMeetUrl())
-                           .startTime(meet.getStartTime().getTime())
-                           .endTime(meet.getEndTime().getTime())
-                           .eventLink(event.getEventActivityLink())
-                           .eventId(event.getEventId())
-                           .ok();
+            return meetCreated.with()
+                              .binderId(meet.getBinderId())
+                              .sessionKey(meet.getSessionKey())
+                              .startLink(meet.getStartMeetUrl())
+                              .startTime(meet.getStartTime().getTime())
+                              .endTime(meet.getEndTime().getTime())
+                              .eventLink(event.getEventActivityLink())
+                              .eventId(event.getEventId())
+                              .ok();
           } else {
             return errorMessage("Meet time required");
           }
@@ -325,7 +327,33 @@ public class MoxtraBinderSpaceController {
           return errorMessage("Meet name required");
         }
       } else {
-        LOG.warn("Space binder not found " + spaceName);
+        LOG.warn("Space binder not found " + moxtra.getContextSpace());
+        return errorMessage("Space binder not found");
+      }
+    } catch (Exception e) {
+      LOG.error("Error creating Moxtra meet", e);
+      return errorMessage("Error creating Moxtra meet " + e.getMessage());
+    }
+  }
+
+  @Ajax
+  @Resource
+  public Response refreshMeet(String eventId) {
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
+      if (binderSpace != null) {
+        if (binderSpace.ensureSpaceMember()) {
+          MeetEvent event = moxtra.updateMeet(binderSpace, eventId);
+          return meetUpdated.with()
+                            .startTime(event.getStartTime().getTime())
+                            .endTime(event.getEndTime().getTime())
+                            .eventId(event.getEventId())
+                            .ok();
+        } else {
+          return errorMessage("Not sufficient permissions to access the space");
+        }
+      } else {
+        LOG.warn("Space binder not found " + moxtra.getContextSpace());
         return errorMessage("Space binder not found");
       }
     } catch (Exception e) {
@@ -342,7 +370,6 @@ public class MoxtraBinderSpaceController {
                             Boolean syncComments) {
     try {
       if ("on".equals(enableBinder)) {
-        // TODO deal with autocreateUsers and syncComments
         if ("_new".equals(selectBinder)) {
           MoxtraBinderSpace binderSpace = moxtra.newBinderSpace();
           moxtra.createSpaceBinder(binderSpace);

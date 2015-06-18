@@ -18,10 +18,8 @@
  */
 package org.exoplatform.moxtra.social;
 
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
-import org.exoplatform.ecm.webui.component.explorer.UIWorkingArea;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.social.space.UIMoxtraBinderSpaceTools;
 import org.exoplatform.moxtra.webui.MoxtraApplication;
@@ -55,14 +53,6 @@ public class MoxtraSocialApplication implements MoxtraApplication {
   public void init() {
     ExoContainer container = ExoContainerContext.getCurrentContainer();
     this.moxtra = (MoxtraService) container.getComponentInstanceOfType(MoxtraService.class);
-  }
-
-  public boolean isAuthorized() {
-    return moxtra().getClient().isAuthorized();
-  }
-
-  public String getAuthorizationLink() throws OAuthSystemException {
-    return moxtra().getClient().authorizer().authorizationLink();
   }
 
   /**

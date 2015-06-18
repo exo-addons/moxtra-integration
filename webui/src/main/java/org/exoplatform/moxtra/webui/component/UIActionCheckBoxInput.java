@@ -22,7 +22,6 @@ import org.exoplatform.moxtra.webui.MoxtraAction;
 import org.exoplatform.moxtra.webui.component.UIActionCheckBoxInput.OnChangeActionListener;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
-import org.exoplatform.webui.application.WebuiRequestContext;
 import org.exoplatform.webui.config.annotation.ComponentConfig;
 import org.exoplatform.webui.config.annotation.EventConfig;
 import org.exoplatform.webui.event.Event;
@@ -89,16 +88,14 @@ public class UIActionCheckBoxInput extends UICheckBoxInput {
     // set objectid to next value should be set by the checkbox
     return event(ACTION_ON_CHANGE, String.valueOf(!isChecked()));
   }
-  
-  
 
   /**
    * {@inheritDoc}
    */
   @Override
-  public void processRender(WebuiRequestContext context) throws Exception {
-    // TODO Auto-generated method stub
-    super.processRender(context);
+  public String getLabel() {
+    String alabel = action.getLabel();
+    return alabel != null ? alabel : super.getLabel();
   }
 
   protected MoxtraAction<Event<UIActionCheckBoxInput>, Boolean> action() {

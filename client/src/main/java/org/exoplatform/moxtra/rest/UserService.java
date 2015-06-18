@@ -18,6 +18,7 @@
  */
 package org.exoplatform.moxtra.rest;
 
+import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.services.log.ExoLogger;
@@ -25,7 +26,6 @@ import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.organization.User;
 import org.exoplatform.services.rest.resource.ResourceContainer;
-import org.exoplatform.services.security.ConversationState;
 
 import javax.annotation.security.RolesAllowed;
 import javax.ws.rs.GET;
@@ -177,7 +177,7 @@ public class UserService implements ResourceContainer {
   @Path("/me")
   public Response getMoxtraCurrentUserAuth() {
     try {
-      String userName = ConversationState.getCurrent().getIdentity().getUserId();
+      String userName = Moxtra.currentUserName();
       MoxtraClient client = moxtra.getClient();
       boolean authorized = client.isAuthorized();
       String authLink;

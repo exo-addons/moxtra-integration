@@ -18,9 +18,12 @@
  */
 package org.exoplatform.moxtra;
 
+import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
+import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraClient;
+import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
@@ -95,22 +98,17 @@ public class MoxtraService implements Startable {
    */
   public MoxtraClient getClient() {
     // TODO clear pool on user logout or removal: use listeners to related services
-    ConversationState currentConvo = ConversationState.getCurrent();
-    if (currentConvo != null) {
-      String currentUser = currentConvo.getIdentity().getUserId();
-      MoxtraClient client = clients.get(currentUser);
-      if (client == null) {
-        synchronized (currentUser) {
-          client = clients.get(currentUser);
-          if (client == null) {
-            clients.put(currentUser, client = createOAuthClient());
-          }
+    String currentUser = Moxtra.currentUserName();
+    MoxtraClient client = clients.get(currentUser);
+    if (client == null) {
+      synchronized (currentUser) {
+        client = clients.get(currentUser);
+        if (client == null) {
+          clients.put(currentUser, client = createOAuthClient(currentUser));
         }
       }
-      return client;
-    } else {
-      throw new ConversationStateNotFoundException("Conversation state not found");
     }
+    return client;
   }
 
   /**
@@ -143,7 +141,7 @@ public class MoxtraService implements Startable {
       synchronized (userName) {
         client = clients.get(userName);
         if (client == null) {
-          clients.put(userName, client = createOAuthClient());
+          clients.put(userName, client = createOAuthClient(userName));
         }
       }
     }
@@ -154,11 +152,12 @@ public class MoxtraService implements Startable {
    * Create Moxtra client for OAuth2 authorization method. This client instance will not be stored in the
    * clients pool. <br>
    * 
-   * @return
+   * @param userName {@link String} eXo user name
+   * @return {@link MoxtraClient}
    * @throws MoxtraException
    * @throws MoxtraAuthenticationException
    */
-  protected MoxtraClient createOAuthClient() {
+  protected MoxtraClient createOAuthClient(String userName) {
     // TODO create clients per eXo user with single HTTP pool!!!
     MoxtraClient client = new MoxtraClient(oAuthConfig.getClientId(),
                                            oAuthConfig.getClientSecret(),
@@ -166,15 +165,19 @@ public class MoxtraService implements Startable {
                                            oAuthConfig.getClientHost(),
                                            oAuthConfig.getClientAuthMethod(),
                                            oAuthConfig.getClientOrgId(),
+                                           userName,
                                            orgService);
     if (usersStore != null) {
       try {
-        if (!usersStore.load(client)) {
-          usersStore.save(client);
+        if (!usersStore.load(client, userName)) {
+          client.authorizer().tryAuthorize();
+          usersStore.save(client, userName);
         }
       } catch (MoxtraStoreException e) {
         LOG.error("Error processing client store operation: " + e.getMessage(), e);
       }
+    } else {
+      client.authorizer().tryAuthorize();
     }
     return client;
   }

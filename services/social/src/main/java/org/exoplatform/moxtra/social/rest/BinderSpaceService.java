@@ -18,7 +18,7 @@
  */
 package org.exoplatform.moxtra.social.rest;
 
-import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
+import static org.exoplatform.moxtra.Moxtra.cleanValue;
 
 import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
@@ -157,9 +157,11 @@ public class BinderSpaceService implements ResourceContainer {
   @POST
   @RolesAllowed("users")
   @Path("/{spaceName}/meet/event/{eventId}")
+  @Deprecated
+  // TODO doesn't work as needs portal request
   public Response updateMeet(@Context UriInfo uriInfo,
-                           @PathParam("spaceName") String spaceName,
-                           @PathParam("eventId") String eventId) {
+                             @PathParam("spaceName") String spaceName,
+                             @PathParam("eventId") String eventId) {
     try {
       MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
       if (binderSpace != null) {
@@ -186,10 +188,11 @@ public class BinderSpaceService implements ResourceContainer {
     }
   }
 
-  
   @POST
   @RolesAllowed("users")
   @Path("/{spaceName}/meets")
+  @Deprecated
+  // TODO doesn't work as needs portal request
   public Response createMeet(@Context UriInfo uriInfo,
                              @PathParam("spaceName") String spaceName,
                              @FormParam("name") String name,

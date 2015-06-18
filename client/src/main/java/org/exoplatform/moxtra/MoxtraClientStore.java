@@ -40,9 +40,10 @@ public interface MoxtraClientStore {
    * store.
    * 
    * @param client {@link MoxtraClient}
+   * @param userName {@link String} user name in eXo
    * @throws MoxtraStoreException
    */
-  void save(MoxtraClient client) throws MoxtraStoreException;
+  void save(MoxtraClient client, String userName) throws MoxtraStoreException;
 
   /**
    * Load stored client data into given client instance. If client data found in the store this method return
@@ -50,24 +51,12 @@ public interface MoxtraClientStore {
    * store.
    * 
    * @param client {@link MoxtraClient}
+   * @param userName {@link String} user name in eXo
    * @return boolean <code>true</code> if client data found and loaded successfully, <code>false</code>
    *         otherwise
    * @throws MoxtraStoreException
    */
-  boolean load(MoxtraClient client) throws MoxtraStoreException;
-  
-  /**
-   * Load stored client data into given client instance. If client data found in the store this method return
-   * <code>true</code> and add required listeners to the client to track later updates and save them in the
-   * store.
-   * 
-   * @param userName user name in eXo container
-   * @param client {@link MoxtraClient}
-   * @return boolean <code>true</code> if client data found and loaded successfully, <code>false</code>
-   *         otherwise
-   * @throws MoxtraStoreException
-   */
-  boolean load(String userName, MoxtraClient client) throws MoxtraStoreException;
+  boolean load(MoxtraClient client, String userName) throws MoxtraStoreException;
   
   void saveUser(MoxtraClient client, MoxtraUser user) throws MoxtraStoreException;
   

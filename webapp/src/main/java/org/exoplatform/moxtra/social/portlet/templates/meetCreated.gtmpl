@@ -27,4 +27,6 @@
 			<a href="${eventLink}" data-placement="bottom" title="" target="_blank"><div>&{MoxtraBinderSpaceController.meetOpenEvent}</div></a>
 		</div>
 	</div>
+	<div class="meetUpdated">
+	</div>
 </div>

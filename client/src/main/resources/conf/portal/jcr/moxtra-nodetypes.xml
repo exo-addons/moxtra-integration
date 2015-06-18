@@ -214,6 +214,10 @@
         mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
         <valueConstraints />
       </propertyDefinition>
+      <propertyDefinition name="moxtra:recordings" requiredType="Reference" autoCreated="false" mandatory="false"
+        onParentVersion="COPY" protected="false" multiple="true">
+        <valueConstraints />
+      </propertyDefinition>
     </propertyDefinitions>
   </nodeType>
   
@@ -230,6 +234,20 @@
         </requiredPrimaryTypes>
       </childNodeDefinition>
     </childNodeDefinitions>
+  </nodeType>
+  
+  <!-- Mixin for Moxtra meet video downloaded to eXo -->
+  <nodeType name="moxtra:meetContent" isMixin="true" hasOrderableChildNodes="false" primaryItemName="moxtra:meet">
+    <supertypes>
+      <supertype>moxtra:base</supertype>
+      <supertype>moxtra:referenceable</supertype>
+    </supertypes>
+    <propertyDefinitions>
+      <propertyDefinition name="moxtra:meet" requiredType="String" autoCreated="false"
+        mandatory="false" onParentVersion="COPY" protected="false" multiple="false">
+        <valueConstraints />
+      </propertyDefinition>
+    </propertyDefinitions>
   </nodeType>
   
   <!-- Moxtra page -->

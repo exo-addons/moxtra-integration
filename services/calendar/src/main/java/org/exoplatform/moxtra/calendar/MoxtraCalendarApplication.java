@@ -61,6 +61,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
+import javax.jcr.Node;
+
 /**
  * Application a bridge between WebUI {@link UIApplication} associated with calendar event creation or update
  * and Moxtra service. This app instance exists together with the UI app (portlet) and has the same life span.<br>
@@ -676,6 +678,34 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
     }
   }
 
+  public void refreshMeet() throws Exception {
+    Set<String> eventIds = getEventIds();
+    if (eventIds.size() > 0) {
+      // this way we handle several events
+      // TODO ensure multiple selection supported in other places
+      for (String eventId : eventIds) {
+        String calendarId = getEventCalendarId(); // can be null, but saveMeet() can handle it
+        if (LOG.isDebugEnabled()) {
+          LOG.debug(">> refreshMeet: event " + eventId + " "
+              + (calendarId != null ? " in " + calendarId : ""));
+        }
+        moxtra().refreshMeet(calendarId, eventId);
+      }
+    } else {
+      LOG.error("Error refreshing meet: cannot find event id");
+      throw new MoxtraCalendarException("Error refreshing meet: cannot find event id");
+    }
+  }
+
+  public Node getNodeByUUID(String nodeUUID) throws MoxtraNotInitializedException, Exception {
+    return moxtra().getNodeByUUID(nodeUUID);
+  }
+
+  public CalendarEvent refreshEvent(String calendarId, String eventId) throws MoxtraNotInitializedException,
+                                                                      Exception {
+    return moxtra().refreshMeet(calendarId, eventId);
+  }
+
   // // ********* internals ***********
 
   /**
@@ -1002,6 +1032,18 @@ public class MoxtraCalendarApplication implements MoxtraApplication {
       }
     } else if (LOG.isDebugEnabled()) {
       LOG.debug("<<< requestViewContainer not set for " + this.requestForm.get());
+    }
+
+    UIForm form = this.requestForm.get();
+    if (form != null) {
+      try {
+        CalendarEvent event = (CalendarEvent) FieldUtils.readField(form, "calendarEvent_", true);
+        if (event != null) {
+          eventIds.add(event.getId());
+        }
+      } catch (IllegalAccessException e) {
+        LOG.warn("Cannot find calendar event in " + form, e);
+      }
     }
     return eventIds;
   }

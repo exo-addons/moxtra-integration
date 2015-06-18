@@ -56,40 +56,35 @@
 		<div class="control-group">
 	    <div class="control-label">${uicomponent.meetLabel}:</div>
 			<div class="controls">
+				<%	if (uicomponent.hostUser) { %>
 				<span class="meetField">
-				<%	if (uicomponent.hostUser) {
-      				uiForm.renderField(uicomponent.FIELD_ENABLE_MEET)
-						}	%>
+				<%		uiForm.renderField(uicomponent.FIELD_ENABLE_MEET) %>
 				</span>
-				<span>
-				<%	try {
+				<%	}
+						try {
 							if (!uicomponent.authorized) {
 	         			def authLinkLabel = uiForm.getLabel(uicomponent.ACTION_AUTH) 
 	         			def authLinkHint = uiForm.getLabel(uicomponent.ACTION_AUTH_HINT)
 	         			def authLink = uicomponent.authLink 
 				%>
+				<span>
 					<a class="actionIcon moxtraAuthLink" rel="tooltip" data-placement="bottom" title="$authLinkHint" href="$authLink" target="_blank">$authLinkLabel</a>
-					<%	} %>
 				</span>
+					<%	} %>
 					<%	if (uicomponent.meetNew) { %>
 				<div class="meetCreationInfo">
           <div class="alert" style="padding: 0 .7em; margin: 0;">
              <span><%=uiForm.getLabel(uicomponent.MESSAGE_MEET_CREATION_INFO)%></span>
           </div>
         </div>
-        <!-- div class="meetCreationInfo ui-widget">
-          <div class="ui-state-highlight ui-corner-all" style="padding: 0 .7em;">
-             <span class="ui-icon ui-icon-info" style="float: left; margin-right: .3em;"></span>
-          </div>
-        </div -->
         	<%	}
            		if (uicomponent.canStartMeet) { %>
         <span class="meetStartAction" rel="tooltip" data-placement="bottom" 
         			data-meet-binderid="$uicomponent.meetBinderId" 
         			data-meet-sessionkey="$uicomponent.meetSessionKey"
-        			data-meet-join=${uicomponent.meetStarted || !uicomponent.hostUser} 
+        			data-meet-join=${uicomponent.meetStarted || !uicomponent.hostUser}
+        			data-meet-refresh="<%= uicomponent.event(uicomponent.ACTION_REFRESH_MEET) %>" 
         		title="<%= uiForm.getLabel(uicomponent.meetStarted ? uicomponent.MESSAGE_STARTED_MEET_HINT : (uicomponent.hostUser ? uicomponent.MESSAGE_START_MEET_HINT : uicomponent.MESSAGE_JOIN_MEET_HINT)) %>">
-        		<% // onclick "=uicomponent.event(uicomponent.ACTION_START_MEET)" %>
 					<a class="btn" href="$uicomponent.startMeetLink" target="_blank">
 							<%= uiForm.getLabel(uicomponent.hostUser && !uicomponent.meetStarted ? uicomponent.ACTION_START_MEET : uicomponent.ACTION_JOIN_MEET)%></a>
 				</span>
@@ -106,10 +101,19 @@
 	  <div class="moxtraMeetConfig ${uicomponent.meetEnabled ? '' : 'disabled'} ${uicomponent.meetStarted ? 'meetStarted' : ''}">
 			<!-- Meet Autorecording status -->
 	  	<div class="control-group">
-		    <div class="control-label"><%=uiForm.getLabel(uicomponent.FIELD_ENABLE_MEET_AUTORECORDING) %>:</div>
+		    <div class="control-label"><%=uiForm.getLabel(uicomponent.autorecordingLabel) %>:</div>
 				<div class="controls">
 					<span class="meetField">
-					<% uiForm.renderField(uicomponent.FIELD_ENABLE_MEET_AUTORECORDING) %>
+					<% 	if (uicomponent.hasRecordings) { 
+								for (rec in uicomponent.recordings) { %>
+								<span class="meetLink">
+									<a href="$rec.link" data-placement="bottom" title="<%=uiForm.getLabel(uicomponent.FIELD_MEET_REC_LINK_HINT)%>" >$rec.title</a>
+								</span>
+        	<%		}
+							} else {
+        				uiForm.renderField(uicomponent.FIELD_ENABLE_MEET_AUTORECORDING) 
+							} 
+        	%>
 					</span>
 				</div>
 		  </div>

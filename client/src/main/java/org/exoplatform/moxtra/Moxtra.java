@@ -18,6 +18,9 @@
  */
 package org.exoplatform.moxtra;
 
+import org.exoplatform.services.organization.User;
+import org.exoplatform.services.security.ConversationState;
+
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
@@ -90,7 +93,7 @@ public class Moxtra {
   public static final Date getDate(Long timeInMillis) {
     return getCalendar(timeInMillis).getTime();
   }
-  
+
   /**
    * Java {@link Date} for given date but in UTC timezone as Moxtra requires.
    * 
@@ -119,6 +122,56 @@ public class Moxtra {
    */
   public static final Date parseDate(String dateStr) throws ParseException {
     return DATE_FORMAT.parse(dateStr);
+  }
+
+  /**
+   * Find most viable user's full name.
+   * 
+   * @param user {@link User} organization user
+   * @return
+   */
+  public static String fullName(User user) {
+    String name = user.getDisplayName();
+    if (name == null || name.trim().length() == 0) {
+      name = user.getFirstName() + " " + user.getLastName();
+      if (name.trim().length() == 0) {
+        name = user.getEmail();
+        if (name == null || name.trim().length() == 0) {
+          name = user.getUserName();
+        }
+      }
+    }
+    return name;
+  }
+
+  /**
+   * Return meaningful value of some text in the string. If string is empty then <code>null</code> will be
+   * returned.
+   * 
+   * @param value input {@link String}
+   * @return textual value or <code>null</code>
+   */
+  public static String cleanValue(String value) {
+    if (value != null && value.trim().length() == 0) {
+      return null;
+    }
+    return value;
+  }
+
+  /**
+   * Current eXo user name as set in identity of {@link ConversationState#getCurrent()}.
+   * 
+   * @return {@link String} with current eXo user name
+   * @throws ConversationStateNotFoundException when no current {@link ConversationState} set
+   */
+  public static String currentUserName() {
+    ConversationState currentConvo = ConversationState.getCurrent();
+    if (currentConvo != null) {
+      return currentConvo.getIdentity().getUserId();
+    } else {
+      throw new ConversationStateNotFoundException("Current conversation state not set in "
+          + Thread.currentThread());
+    }
   }
 
 }

@@ -18,7 +18,7 @@
  */
 package org.exoplatform.moxtra.rest;
 
-import static org.exoplatform.moxtra.utils.MoxtraUtils.cleanValue;
+import static org.exoplatform.moxtra.Moxtra.cleanValue;
 
 import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
@@ -30,7 +30,6 @@ import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraUser;
-import org.exoplatform.moxtra.utils.MoxtraUtils;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.rest.resource.ResourceContainer;
@@ -345,5 +344,5 @@ public class MeetService implements ResourceContainer {
     }
     return null;
   }
-  
+
 }

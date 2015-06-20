@@ -166,6 +166,7 @@ public class MoxtraService implements Startable {
                                            oAuthConfig.getClientAuthMethod(),
                                            oAuthConfig.getClientOrgId(),
                                            userName,
+                                           oAuthConfig.isAllowRemoteOrgUsers(),
                                            orgService);
     if (usersStore != null) {
       try {

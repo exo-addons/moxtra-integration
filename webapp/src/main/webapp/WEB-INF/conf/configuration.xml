@@ -82,7 +82,7 @@
           <property name="client-secret" value="${moxtra.client.secret}" />
           <property name="client-schema" value="${moxtra.client.schema:http}" />
           <property name="client-host" value="${moxtra.client.host:localhost:8080}" />
-          <property name="client-auth-method" value="${moxtra.client.auth.method:OAUTH2}" />
+          <property name="client-auth-method" value="${moxtra.client.auth.method:SSO-UNIQUEID}" />
           <!-- property name="client-orgid" value="${moxtra.client.orgid:}" / -->
         </properties-param>
       </init-params>

@@ -980,6 +980,8 @@ public class MoxtraClient {
 
   protected final boolean             ssoAuthUniqueId;
 
+  protected final boolean             allowRemoteOrgUsers;
+
   protected final HttpClient          httpClient;
 
   protected final OAuthClient         oAuthClient;
@@ -1010,11 +1012,13 @@ public class MoxtraClient {
                       String authMethod,
                       String orgId,
                       String exoUserName,
+                      boolean allowRemoteOrgUsers,
                       OrganizationService orgService) {
     this.orgService = orgService;
     this.authMethod = authMethod;
     this.orgId = orgId;
     this.exoUserName = exoUserName;
+    this.allowRemoteOrgUsers = allowRemoteOrgUsers;
 
     // find auth flags
     this.ssoAuthUniqueId = CLIENT_AUTH_METHOD_UNIQUEID.equals(authMethod);
@@ -1220,6 +1224,10 @@ public class MoxtraClient {
             type = vtype.getStringValue();
           }
           MoxtraUser user = readUser(dv, type);
+          if (user == null) {
+            LOG.warn("Cannot find Moxtra user " + userId + ": " + dv);
+            throw new MoxtraException("Cannot find Moxtra user " + userId);
+          }
           // TODO do we need strict check here?
           if (user.getName() == null) {
             throw new MoxtraException("Request doesn't return user name");
@@ -1275,7 +1283,9 @@ public class MoxtraClient {
                 type = vtype.getStringValue();
               }
               MoxtraUser contact = readUser(cv, type);
-              contacts.add(contact);
+              if (contact != null) {
+                contacts.add(contact);
+              }
             }
             return contacts;
           } else {
@@ -1877,9 +1887,9 @@ public class MoxtraClient {
   }
 
   public Content downloadBinderPage(String binderId, String pageId) throws OAuthSystemException,
-                                                                         OAuthProblemException,
-                                                                         MoxtraException,
-                                                                         MoxtraClientException {
+                                                                   OAuthProblemException,
+                                                                   MoxtraException,
+                                                                   MoxtraClientException {
     if (isInitialized()) {
       String url = API_BINDER_DOWNLOADPDF.replace("{binder_id}", binderId);
       url += ("?filter=" + pageId);
@@ -3383,7 +3393,10 @@ public class MoxtraClient {
     }
     List<MoxtraUser> users = new ArrayList<MoxtraUser>();
     for (Iterator<JsonValue> vuiter = vusers.getElements(); vuiter.hasNext();) {
-      users.add(readBinderUser(vuiter.next()));
+      MoxtraUser user = readBinderUser(vuiter.next());
+      if (user != null) {
+        users.add(user);
+      }
     }
 
     MoxtraBinder binder = new MoxtraBinder(vbid.getStringValue(),
@@ -3425,7 +3438,9 @@ public class MoxtraClient {
                                vutype.getStringValue(),
                                new Date(vucreated.getLongValue()),
                                new Date(vuupdated.getLongValue()));
-    user.setStatus(vustatus.getStringValue());
+    if (user != null) {
+      user.setStatus(vustatus.getStringValue());
+    }
     return user;
   }
 
@@ -3456,13 +3471,15 @@ public class MoxtraClient {
   }
 
   /**
-   * Read Moxtra user.
+   * Read Moxtra user. Can return <code>null</code> when remote only users allowed for SSO organization and
+   * user has no email.
    * 
    * @param vu {@link JsonValue}
    * @param type String or <code>null</code> if should be read from given JSON value
    * @param createdTime {@link Date} or <code>null</code> if should be read from given JSON value
    * @param updatedTime {@link Date} or <code>null</code> if should be read from given JSON value
-   * @return {@link MoxtraUser}
+   * @return {@link MoxtraUser} or <code>null</code> if user not recognized
+   * 
    * @throws MoxtraException
    * @throws MoxtraClientException
    */
@@ -3547,6 +3564,10 @@ public class MoxtraClient {
             // XXX use first occurrence
             user = emailUsers.load(0, 1)[0];
           }
+          if (allowRemoteOrgUsers) {
+            // we show this user with email
+            uniqueId = null;
+          }
         }
         if (user != null) {
           userEmail = user.getEmail();
@@ -3554,8 +3575,13 @@ public class MoxtraClient {
           lastName = user.getLastName();
           name = fullName(user);
         } else {
-          // LOG.warn("User not found in organization service " + uniqueId);
-          throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
+          if (allowRemoteOrgUsers) {
+            // ignore this user
+            LOG.warn("Ignoring user not found in organization service " + uniqueId + " and without email.");
+            return null;
+          } else {
+            throw new MoxtraClientException("User not found in organization service '" + uniqueId + "'");
+          }
         }
       } catch (Exception e) {
         // LOG.warn("Error searching user in organization service " + uniqueId, e);
@@ -3571,7 +3597,11 @@ public class MoxtraClient {
     String orgId;
     JsonValue vuorgid = vu.getElement("org_id");
     if (isNotNull(vuorgid)) {
-      orgId = vuorgid.getStringValue();
+      if (uniqueId != null) {
+        orgId = vuorgid.getStringValue();
+      } else {
+        orgId = null;
+      }
     } else {
       if (uniqueId != null && LOG.isDebugEnabled()) {
         LOG.debug("Moxtra org_id not provided for user with unique_id " + uniqueId);

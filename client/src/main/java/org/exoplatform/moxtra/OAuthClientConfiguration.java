@@ -42,27 +42,29 @@ import java.util.Map;
  */
 public class OAuthClientConfiguration extends BaseComponentPlugin {
 
-  public static final String          CONFIG_CLIENT_ID            = "client-id";
+  public static final String          CONFIG_CLIENT_ID              = "client-id";
 
-  public static final String          CONFIG_CLIENT_SECRET        = "client-secret";
+  public static final String          CONFIG_CLIENT_SECRET          = "client-secret";
 
-  public static final String          CONFIG_CLIENT_HOST          = "client-host";
+  public static final String          CONFIG_CLIENT_HOST            = "client-host";
 
-  public static final String          CONFIG_CLIENT_SCHEMA        = "client-schema";
+  public static final String          CONFIG_CLIENT_SCHEMA          = "client-schema";
 
-  public static final String          CONFIG_CLIENT_AUTH_METHOD   = "client-auth-method";
+  public static final String          CONFIG_CLIENT_AUTH_METHOD     = "client-auth-method";
 
-  public static final String          CONFIG_CLIENT_ORGID         = "client-orgid";
+  public static final String          CONFIG_CLIENT_ORGID           = "client-orgid";
 
-  public static final String          CLIENT_AUTH_METHOD_OAUTH2   = "OAUTH2";
+  public static final String          CONFIG_ALLOW_REMOTE_ORG_USERS = "client-allow-remote-org-users";
 
-  public static final String          CLIENT_AUTH_METHOD_UNIQUEID = "SSO-UNIQUEID";
+  public static final String          CLIENT_AUTH_METHOD_OAUTH2     = "OAUTH2";
 
-  public static final String          CLIENT_AUTH_METHOD_SAML     = "SSO-SAML-BEARER";
+  public static final String          CLIENT_AUTH_METHOD_UNIQUEID   = "SSO-UNIQUEID";
 
-  public static final String          CLIENT_DEFAULT_ORGID        = "__eXo";
+  public static final String          CLIENT_AUTH_METHOD_SAML       = "SSO-SAML-BEARER";
 
-  protected static final Log          LOG                         = ExoLogger.getLogger(OAuthClientConfiguration.class);
+  public static final String          CLIENT_DEFAULT_ORGID          = "__eXo";
+
+  protected static final Log          LOG                           = ExoLogger.getLogger(OAuthClientConfiguration.class);
 
   protected final Map<String, String> config;
 
@@ -77,6 +79,8 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
   protected final String              clientAuthMethod;
 
   protected final String              clientOrgId;
+
+  protected final boolean             allowRemoteOrgUsers;
 
   /**
    * 
@@ -103,13 +107,13 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
     this.clientSecret = clientSecret;
 
     String clientAuthMethod = config.get(CONFIG_CLIENT_AUTH_METHOD);
+    String arouStr = config.get(CONFIG_ALLOW_REMOTE_ORG_USERS);
+    boolean allowRemoteOrgUsers = arouStr == null || arouStr.trim().length() == 0 ? true
+                                                                                 : Boolean.valueOf(arouStr);
+
     String clientOrgId;
-    if (clientAuthMethod == null || (clientAuthMethod = clientAuthMethod.trim()).length() == 0) {
-      clientAuthMethod = CLIENT_AUTH_METHOD_UNIQUEID;
-      clientOrgId = null;
-      LOG.info("Using default authentication method for Moxtra clients: " + clientAuthMethod);
-    } else if (clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)
-        || clientAuthMethod.equals(CLIENT_AUTH_METHOD_SAML)) {
+    if (CLIENT_AUTH_METHOD_UNIQUEID.equals(clientAuthMethod)
+        || CLIENT_AUTH_METHOD_SAML.equals(clientAuthMethod)) {
       clientOrgId = config.get(CONFIG_CLIENT_ORGID);
       if (clientOrgId == null || (clientOrgId = clientOrgId.trim()).length() == 0) {
         clientOrgId = CLIENT_DEFAULT_ORGID;
@@ -118,14 +122,26 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
         LOG.info("Using SSO for Moxtra clients: " + clientAuthMethod + " with " + clientOrgId
             + " organization team.");
       }
+    } else if (CLIENT_AUTH_METHOD_OAUTH2.equals(clientAuthMethod)) {
+      LOG.info("Using basic authentication method for Moxtra clients: " + clientAuthMethod);
+      clientOrgId = null;
+      allowRemoteOrgUsers = false;
     } else {
-      if (!clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)) {
+      if (clientAuthMethod == null || (clientAuthMethod = clientAuthMethod.trim()).length() == 0) {
+        clientAuthMethod = CLIENT_AUTH_METHOD_UNIQUEID;
+        LOG.info("Using default authentication method for Moxtra clients: " + clientAuthMethod);
+      } else {
         LOG.info("Unknown authentication method configured for Moxtra clients: " + clientAuthMethod
             + ". Will use default one: " + CLIENT_AUTH_METHOD_UNIQUEID);
         clientAuthMethod = CLIENT_AUTH_METHOD_UNIQUEID;
       }
       clientOrgId = null;
     }
+
+    this.allowRemoteOrgUsers = allowRemoteOrgUsers;
+    LOG.info("Remote organization users " + (allowRemoteOrgUsers ? "" : "not")
+        + " allowed for Moxtra clients");
+
     this.clientAuthMethod = clientAuthMethod;
     this.clientOrgId = clientOrgId;
 
@@ -208,6 +224,13 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
    */
   public String getClientSchema() {
     return clientSchema;
+  }
+
+  /**
+   * @return the allowRemoteOrgUsers
+   */
+  public boolean isAllowRemoteOrgUsers() {
+    return allowRemoteOrgUsers;
   }
 
 }

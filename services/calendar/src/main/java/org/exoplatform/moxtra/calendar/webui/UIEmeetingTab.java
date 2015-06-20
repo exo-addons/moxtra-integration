@@ -117,7 +117,9 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public static final String    FIELD_ENABLE_MEET_AUTORECORDING = "meetAutorecording".intern();
 
-  public static final String    FIELD_MEET_RECORDING_LINK        = "meetRecordingLink".intern();
+  public static final String    FIELD_MEET_RECORDING_LINK       = "meetRecordingLink".intern();
+
+  public static final String    FIELD_MEET_RECORDING_LINK_HINT  = "meetRecordingLinkHint".intern();
 
   public static final String    MESSAGE_MEET_CREATION_INFO      = "meetCreationInfo".intern();
 

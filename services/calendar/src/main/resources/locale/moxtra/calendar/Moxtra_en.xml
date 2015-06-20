@@ -20,6 +20,7 @@
       <meetLink>Meeting link</meetLink>
       <meetLinkHint>Use this link to open your meet</meetLinkHint>
       <meetRecordingLink>Meet recorded</meetRecordingLink>
+      <meetRecordingLinkHint>Click to watch the recording video</meetRecordingLinkHint>
       <meetAgenda>Agenda</meetAgenda>
       <meetSchedule>Schedule</meetSchedule>
       <meetCreationInfo>Your meeting will be created with title, time and description of this event when it will be saved.</meetCreationInfo>

@@ -107,7 +107,7 @@
 					<% 	if (uicomponent.hasRecordings) { 
 								for (rec in uicomponent.recordings) { %>
 								<span class="meetLink">
-									<a href="$rec.link" data-placement="bottom" title="<%=uiForm.getLabel(uicomponent.FIELD_MEET_REC_LINK_HINT)%>" >$rec.name</a>
+									<a href="$rec.link" data-placement="bottom" title="<%=uiForm.getLabel(uicomponent.FIELD_MEET_RECORDING_LINK_HINT)%>" >$rec.name</a>
 								</span>
         	<%		}
 							} else {

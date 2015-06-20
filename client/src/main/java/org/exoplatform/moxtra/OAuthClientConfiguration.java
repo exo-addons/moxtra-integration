@@ -105,7 +105,7 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
     String clientAuthMethod = config.get(CONFIG_CLIENT_AUTH_METHOD);
     String clientOrgId;
     if (clientAuthMethod == null || (clientAuthMethod = clientAuthMethod.trim()).length() == 0) {
-      clientAuthMethod = CLIENT_AUTH_METHOD_OAUTH2;
+      clientAuthMethod = CLIENT_AUTH_METHOD_UNIQUEID;
       clientOrgId = null;
       LOG.info("Using default authentication method for Moxtra clients: " + clientAuthMethod);
     } else if (clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)

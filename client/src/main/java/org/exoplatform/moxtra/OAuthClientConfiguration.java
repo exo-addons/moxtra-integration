@@ -121,8 +121,8 @@ public class OAuthClientConfiguration extends BaseComponentPlugin {
     } else {
       if (!clientAuthMethod.equals(CLIENT_AUTH_METHOD_UNIQUEID)) {
         LOG.info("Unknown authentication method configured for Moxtra clients: " + clientAuthMethod
-            + ". Will use default one: " + CLIENT_AUTH_METHOD_OAUTH2);
-        clientAuthMethod = CLIENT_AUTH_METHOD_OAUTH2;
+            + ". Will use default one: " + CLIENT_AUTH_METHOD_UNIQUEID);
+        clientAuthMethod = CLIENT_AUTH_METHOD_UNIQUEID;
       }
       clientOrgId = null;
     }

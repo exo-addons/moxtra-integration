@@ -65,7 +65,7 @@ public class MoxtraMeetDownloadJob extends BaseMoxtraJob {
 
   public static final long   MEET_DOWNLOAD_ATTEMPTS_MAX          = 10;
 
-  public static final int    MEET_DOWNLOAD_DELAY_MINUTES         = 3;
+  public static final int    MEET_DOWNLOAD_DELAY_MINUTES         = 4;
 
   public static final int    MEET_DOWNLOAD_ATTEMPT_DELAY_MINUTES = 7;
 

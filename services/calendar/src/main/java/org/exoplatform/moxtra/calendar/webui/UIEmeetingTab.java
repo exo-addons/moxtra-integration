@@ -117,7 +117,7 @@ public class UIEmeetingTab extends UIFormInputWithActions {
 
   public static final String    FIELD_ENABLE_MEET_AUTORECORDING = "meetAutorecording".intern();
 
-  public static final String    FIELD_MEET_REC_LINK_HINT        = "meetRecordingHint".intern();
+  public static final String    FIELD_MEET_RECORDING_LINK        = "meetRecordingLink".intern();
 
   public static final String    MESSAGE_MEET_CREATION_INFO      = "meetCreationInfo".intern();
 
@@ -564,21 +564,8 @@ public class UIEmeetingTab extends UIFormInputWithActions {
   public String getAutorecordingLabel() throws Exception {
     UIForm eventForm = getParentForm();
     String label;
-    if (isMeetSaved() && meet.isEnded()) {
-      if (meet.isStarted()) {
-        label = eventForm.getLabel(FIELD_STARTED_MEET);
-      } else if (meet.isEnded()) {
-        label = eventForm.getLabel(FIELD_ENDED_MEET);
-      } else if (meet.isScheduled()) {
-        if (isHostUser()) {
-          label = eventForm.getLabel(FIELD_ENABLE_MEET);
-        } else {
-          label = eventForm.getLabel(FIELD_PLANED_MEET);
-        }
-      } else {
-        // else it can be only deleted (canceled)
-        label = eventForm.getLabel(FIELD_CANCELED_MEET);
-      }
+    if (isMeetSaved() && meet.isEnded() && meet.hasRecordings()) {
+      label = eventForm.getLabel(FIELD_MEET_RECORDING_LINK);
     } else {
       label = eventForm.getLabel(FIELD_ENABLE_MEET_AUTORECORDING);
     }

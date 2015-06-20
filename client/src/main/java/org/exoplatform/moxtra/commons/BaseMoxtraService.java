@@ -19,15 +19,26 @@
 package org.exoplatform.moxtra.commons;
 
 import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
+import org.exoplatform.commons.utils.MimeTypeResolver;
+import org.exoplatform.container.ExoContainer;
+import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraUser;
+import org.exoplatform.services.jcr.ext.app.SessionProviderService;
+import org.exoplatform.services.jcr.ext.common.SessionProvider;
+import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
+import org.exoplatform.services.organization.OrganizationService;
+import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
 import org.exoplatform.services.security.ConversationState;
+import org.quartz.JobDetail;
 
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * Base class for building container components and services used Moxtra client.<br>
@@ -40,17 +51,108 @@ import java.util.List;
  */
 public abstract class BaseMoxtraService {
 
-  public static final String MOXTRA_DOWNLOAD_JOB_GROUP_NAME = "moxtra_download";
-  
-  public static final String    MOXTRA_CURRENT_USER = "moxtra.currentUser";
+  public static final String MOXTRA_JOB_GROUP_NAME = "moxtra_sync";
 
-  protected final MoxtraService moxtra;
+  public static final String MOXTRA_CURRENT_USER            = "moxtra.currentUser";
+
+  protected class UserSettings {
+    final ConversationState conversation;
+
+    final ExoContainer      container;
+
+    ConversationState       prevConversation;
+
+    ExoContainer            prevContainer;
+
+    SessionProvider         prevSessions;
+
+    UserSettings(ConversationState conversation, ExoContainer container) {
+      this.conversation = conversation;
+      this.container = container;
+    }
+  }
+
+  /**
+   * Setup environment for jobs execution in eXo Container.
+   */
+  protected class Environment {
+
+    protected final Map<String, UserSettings> config = new ConcurrentHashMap<String, UserSettings>();
+
+    public void configure(String userName) throws MoxtraServiceException {
+      ConversationState conversation = ConversationState.getCurrent();
+      if (conversation == null) {
+        throw new MoxtraServiceException("Error configuring user environment for " + userName
+            + ". User identity not set.");
+      }
+      config.put(userName, new UserSettings(conversation, ExoContainerContext.getCurrentContainer()));
+    }
+
+    public void prepare(String userName) throws MoxtraServiceException {
+      UserSettings settings = config.get(userName);
+      if (settings != null) {
+        settings.prevConversation = ConversationState.getCurrent();
+        ConversationState.setCurrent(settings.conversation);
+
+        // set correct container
+        settings.prevContainer = ExoContainerContext.getCurrentContainerIfPresent();
+        ExoContainerContext.setCurrentContainer(settings.container);
+
+        // set correct SessionProvider
+        settings.prevSessions = sessionProviderService.getSessionProvider(null);
+        SessionProvider sp = new SessionProvider(settings.conversation);
+        sessionProviderService.setSessionProvider(null, sp);
+      } else {
+        throw new MoxtraServiceException("User setting not configured to prepare " + userName
+            + " environment.");
+      }
+    }
+
+    protected void cleanup(String userName) throws MoxtraServiceException {
+      UserSettings settings = config.get(userName);
+      if (settings != null) {
+        ConversationState.setCurrent(settings.prevConversation);
+        ExoContainerContext.setCurrentContainer(settings.prevContainer);
+        SessionProvider sp = sessionProviderService.getSessionProvider(null);
+        sessionProviderService.setSessionProvider(null, settings.prevSessions);
+        sp.close();
+      } else {
+        throw new MoxtraServiceException("User setting not configured to clean " + userName
+            + " environment.");
+      }
+    }
+  }
+
+  protected final MimeTypeResolver        mimetypeResolver = new MimeTypeResolver();
+
+  protected final Environment             jobEnvironment   = new Environment();
+
+  protected final MoxtraService           moxtra;
+
+  /**
+   * OrganizationService to find eXo users email.
+   */
+  protected final OrganizationService     orgService;
+
+  protected final JobSchedulerServiceImpl schedulerService;
+
+  protected final NodeHierarchyCreator    hierarchyCreator;
+
+  protected final SessionProviderService  sessionProviderService;
 
   /**
    * 
    */
-  public BaseMoxtraService(MoxtraService moxtraService) {
+  public BaseMoxtraService(MoxtraService moxtraService,
+                           SessionProviderService sessionProviderService,
+                           NodeHierarchyCreator hierarchyCreator,
+                           OrganizationService orgService,
+                           JobSchedulerServiceImpl schedulerService) {
     this.moxtra = moxtraService;
+    this.sessionProviderService = sessionProviderService;
+    this.hierarchyCreator = hierarchyCreator;
+    this.orgService = orgService;
+    this.schedulerService = schedulerService;
   }
 
   /**
@@ -88,6 +190,16 @@ public abstract class BaseMoxtraService {
    */
   public List<MoxtraUser> getContacts() throws MoxtraAuthenticationException, MoxtraException {
     return moxtra.getClient().getContacts(getUser());
+  }
+
+  public void prepareJobEnvironment(JobDetail job) throws MoxtraServiceException {
+    String exoUserId = job.getJobDataMap().getString(BaseMoxtraJob.DATA_USER_ID);
+    jobEnvironment.prepare(exoUserId);
+  }
+
+  public void cleanupJobEnvironment(JobDetail job) throws MoxtraServiceException {
+    String exoUserId = job.getJobDataMap().getString(BaseMoxtraJob.DATA_USER_ID);
+    jobEnvironment.cleanup(exoUserId);
   }
 
 }

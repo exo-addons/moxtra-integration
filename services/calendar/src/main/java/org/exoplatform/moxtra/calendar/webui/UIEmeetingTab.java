@@ -331,8 +331,10 @@ public class UIEmeetingTab extends UIFormInputWithActions {
             popupContainer = formContainer.addChild(MoxtraPopupContainer.class,
                                                     CONTAINER_MOXTRA_RECORDING_VIEW,
                                                     CONTAINER_MOXTRA_RECORDING_VIEW);
+            event.getRequestContext().addUIComponentToUpdateByAjax(formContainer);
           } else {
             popupContainer.deActivate();
+            event.getRequestContext().addUIComponentToUpdateByAjax(popupContainer);
           }
 
           UIDocViewer docViewer = popupContainer.createUIComponent(UIDocViewer.class, null, "DocViewer");
@@ -345,8 +347,6 @@ public class UIEmeetingTab extends UIFormInputWithActions {
           docViewer.setOriginalNode(docNode);
           docViewer.setNode(docNode);
           popupContainer.activate(docViewer, 800, 600, true);
-
-          event.getRequestContext().addUIComponentToUpdateByAjax(formContainer);
         } else {
           uiApp.addMessage(new ApplicationMessage("UIEmeetingTab.message.ErrorRecordingFileNotFound",
                                                   null,

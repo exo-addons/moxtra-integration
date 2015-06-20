@@ -25,12 +25,11 @@ import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.client.MoxtraMeet;
+import org.exoplatform.moxtra.commons.BaseMoxtraJob;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.scheduler.JobSchedulerService;
 import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
-import org.quartz.InterruptableJob;
-import org.quartz.Job;
 import org.quartz.JobDataMap;
 import org.quartz.JobDetail;
 import org.quartz.JobExecutionContext;
@@ -48,23 +47,13 @@ import java.util.Calendar;
  * @version $Id: MoxtraMeetDownloadJob.java 00000 Apr 7, 2015 pnedonosko $
  * 
  */
-public class MoxtraMeetDownloadJob implements Job, InterruptableJob {
-
-  public static final String DATA_USER_ID                        = "user_id";
-
-  public static final String DATA_GROUP_ID                       = "group_id";
+public class MoxtraMeetDownloadJob extends BaseMoxtraJob {
 
   public static final String DATA_CALENDAR_ID                    = "calendar_id";
 
   public static final String DATA_CALENDAR_TYPE                  = "calendar_type";
 
   public static final String DATA_EVENT_ID                       = "event_id";
-
-  public static final String DATA_MOXTRA_USER_ID                 = "moxtra_user_id";
-
-  public static final String DATA_MOXTRA_USER_EMAIL              = "moxtra_user_email";
-
-  public static final String DATA_MOXTRA_BINDER_ID               = "moxtra_binder_id";
 
   public static final String DATA_MOXTRA_MEET_SESSION_KEY        = "moxtra_meet_session_key";
 

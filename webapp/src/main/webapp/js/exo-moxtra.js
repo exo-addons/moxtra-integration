@@ -192,6 +192,17 @@
 			return initRequest(request);
 		};
 
+		var syncBinder = function(binderId, async) {
+			var request = $.ajax({
+				async : async ? true : false,
+				type : "POST",
+				url : serverUrl + "/portal/rest/moxtra/binder/space/sync/" + binderId,
+				dataType : "json"
+			});
+
+			return initRequest(request);
+		};
+
 		var postBinderSpaceMeet = function(spaceName, name, agenda, startTime, endTime, autoRecording, users, async) {
 			var request = $.ajax({
 				async : async ? true : false,
@@ -486,10 +497,10 @@
 								$editor.show();
 							},
 							publish_feed : function(event) {
-								log("publish_feed: " + JSON.stringify(event));
+								// TODO initiate page sync
 							},
 							receive_feed : function(event) {
-								log("receive_feed: " + JSON.stringify(event));
+								// seems nothing here? or sync also?
 							}
 						};
 						if (target === window) {
@@ -724,6 +735,7 @@
 								function refreshMeet() {
 									eval(refreshLink);
 								}
+
 
 								moxtrajs.startMeet(binderId, {
 									end_meet : function(event) {
@@ -1000,6 +1012,19 @@
 				log("ERROR: Error updating binder meet " + spaceName + "/" + eventId + ". " + (error.message ? error.message : error), error);
 			});
 			return create;
+		};
+		
+		
+		/**
+		 * Sync binder by id.
+		 */
+		this.synchronizeBinder = function(binderId) {
+			var sync = syncBinder(binderId, true);
+			sync.fail(function(error) {
+				// TODO notif user about an error
+				log("ERROR: Error synchronizing binder " + binderId + ". " + (error.message ? error.message : error), error);
+			});
+			return sync;
 		};
 
 		/**
@@ -1352,43 +1377,59 @@
 					iframe : true,
 					tagid4iframe : elemId,
 					start_page : function(event) {
-						log("pageView: start_page session_id: " + event.session_id);
+						log("pageView: start_page " + JSON.stringify(event));
 						invoke("start_page", event, callbacks);
 					},
 					share : function(event) {
-						log("pageView: share session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_id: " + event.page_id);
+						//log("pageView: share session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_id: " +
+						// event.page_id);
+						log("pageView: share " + JSON.stringify(event));
 						invoke("share", event);
 					},
 					error : function(event) {
-						log("pageView: error error_code: " + event.error_code + " error message: " + event.error_message);
+						//log("pageView: error error_code: " + event.error_code + " error_message: " + event.error_message);
+						log("pageView: error " + JSON.stringify(event));
 						invoke("error", event, callbacks);
 					},
 					publish_feed : function(event) {
-						log("pageView: publish_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						//log("pageView: publish_feed session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_id: " +
+						// event.page_id);
+						log("pageView: publish_feed " + JSON.stringify(event));
+						client.synchronizeBinder(event.binder_id);
 						invoke("publish_feed", event, callbacks);
 					},
 					receive_feed : function(event) {
-						log("pageView: receive_feed session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Ids: " + event.page_id);
+						//log("pageView: receive_feed session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_id: " +
+						// event.page_id);
+						log("pageView: receive_feed " + JSON.stringify(event));
 						invoke("receive_feed", event, callbacks);
 					},
 					start_note : function(event) {
-						log("pageView: start_note session Id: " + event.session_id + " session key: " + event.session_key);
+						//log("pageView: start_note session_id: " + event.session_id + " session_key: " + event.session_key);
+						log("pageView: start_note " + JSON.stringify(event));
 						invoke("start_note", event, callbacks);
 					},
 					request_note : function(event) {
-						log("pageView: request_note session Id: " + event.session_id + " binder Id: " + event.binder_id + " page Index: " + event.page_index);
+						//log("pageView: request_note session_id: " + event.session_id + " binder_id: " + event.binder_id + " page_index: " +
+						// event.page_index);
+						log("pageView: request_note " + JSON.stringify(event));
 						invoke("request_note", event, callbacks);
 					},
 					save_note : function(event) {
-						log("pageView: save_note destination_binder_id: " + event.destination_binder_id + " share_url:" + event.share_url + " download_url:" + event.download_url);
+						//log("pageView: save_note destination_binder_id: " + event.destination_binder_id + " share_url:" + event.share_url + "
+						// download_url:" + event.download_url);
+						log("pageView: save_note " + JSON.stringify(event));
 						invoke("save_note", event, callbacks);
 					},
 					start_annotate : function(event) {
-						log("pageView: start_annotate session_id: " + event.session_id + " binder_id:" + event.binder_id);
+						//log("pageView: start_annotate session_id: " + event.session_id + " binder_id:" + event.binder_id);
+						log("pageView: start_annotate " + JSON.stringify(event));
 						invoke("start_annotate", event, callbacks);
 					},
 					stop_annotate : function(event) {
-						log("pageView: stop_annotate binder_id: " + event.binder_id + " share_url:" + event.share_url + " download_url:" + event.download_url);
+						//log("pageView: stop_annotate binder_id: " + event.binder_id + " share_url:" + event.share_url + " download_url:" +
+						// event.download_url);
+						log("pageView: stop_annotate " + JSON.stringify(event));
 						invoke("stop_annotate", event, callbacks);
 					}
 				};
@@ -1428,20 +1469,37 @@
 					iframe : false,
 					video : true,
 					start_meet : function(event) {
-						log("start_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
+						//log("start_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " +
+						// event.binder_id);
+						log("meet: start_meet " + JSON.stringify(event));
 						invoke("start_meet", event, callbacks);
 					},
 					error : function(event) {
-						log("error: error code: " + event.error_code + " message: " + event.error_message);
+						//log("error: error code: " + event.error_code + " message: " + event.error_message);
+						log("meet: error " + JSON.stringify(event));
 						invoke("error", event, callbacks);
 					},
 					resume_meet : function(event) {
-						log("resume_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
+						//log("resume_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " +
+						// event.binder_id);
+						log("meet: resume_meet " + JSON.stringify(event));
 						invoke("resume_meet", event, callbacks);
 					},
+					save_meet : function(event) {
+						log("meet: save_meet " + JSON.stringify(event));
+						invoke("save_meet", event, callbacks);
+					},
 					end_meet : function(event) {
-						log("end_meet: Meet end event");
+						log("meet: end_meet " + JSON.stringify(event));
 						invoke("end_meet", event, callbacks);
+					},
+					exit_meet : function(event) {
+						log("meet: exit_meet " + JSON.stringify(event));
+						invoke("exit_meet", event, callbacks);
+					},
+					invite_meet : function(event) {
+						log("meet: invite_meet " + JSON.stringify(event));
+						invoke("invite_meet", event, callbacks);
 					}
 				};
 				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {
@@ -1484,20 +1542,28 @@
 					iframe : false,
 					session_key : sessionKey,
 					start_meet : function(event) {
-						log("start_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
+						log("meet: start_meet " + JSON.stringify(event));
 						invoke("start_meet", event, callbacks);
 					},
 					error : function(event) {
-						log("error: error code: " + event.error_code + " message: " + event.error_message);
+						log("meet: error " + JSON.stringify(event));
 						invoke("error", event, callbacks);
 					},
-					exit_meet : function(event) {
-						log("exit_meet: session key: " + event.session_key + " session id: " + event.session_id + " binder id: " + event.binder_id);
-						invoke("exit_meet", event, callbacks);
+					save_meet : function(event) {
+						log("meet: save_meet " + JSON.stringify(event));
+						invoke("save_meet", event, callbacks);
 					},
 					end_meet : function(event) {
-						log("end_meet: Meet end event");
+						log("meet: end_meet " + JSON.stringify(event));
 						invoke("end_meet", event, callbacks);
+					},
+					exit_meet : function(event) {
+						log("meet: exit_meet " + JSON.stringify(event));
+						invoke("exit_meet", event, callbacks);
+					},
+					invite_meet : function(event) {
+						log("meet: invite_meet " + JSON.stringify(event));
+						invoke("invite_meet", event, callbacks);
 					}
 				};
 				if ($("#UIMoxtraBinderSpaceTools").size() > 0) {

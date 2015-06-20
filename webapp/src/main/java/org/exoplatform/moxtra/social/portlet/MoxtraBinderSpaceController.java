@@ -130,7 +130,7 @@ public class MoxtraBinderSpaceController {
           if (binderSpace != null) {
             context.set(binderSpace);
             // ensure the user is a member of the binder when this possible
-            binderSpace.ensureBinderMember();
+            binderSpace.touch();
           }
         }
 

@@ -23,7 +23,9 @@ import org.exoplatform.moxtra.client.MoxtraBinder;
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Set;
 
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
@@ -355,17 +357,16 @@ public class JCR {
     return binderNode.hasNode("moxtra:pages");
   }
 
-  public static Node addPage(Node binderNode, String nodeName, String pageName) throws RepositoryException {
+  public static Node addPage(Node binderNode, String pageNodeName) throws RepositoryException {
     Node pagesNode;
     try {
       pagesNode = getPages(binderNode);
     } catch (PathNotFoundException e) {
       pagesNode = addPages(binderNode);
     }
-    Node pageNode = pagesNode.addNode(nodeName);
+    Node pageNode = pagesNode.addNode(pageNodeName);
     // set initial fake page ID
     setId(pageNode, VALUE_CREATING_ID);
-    setName(pageNode, pageName);
     return pageNode;
   }
 
@@ -377,7 +378,7 @@ public class JCR {
     return binderNode.getNode("moxtra:pages/" + nodeName);
   }
 
-  public static Property addPageRef(Node document, Node pageNode) throws RepositoryException {
+  public static Property setPageRef(Node document, Node pageNode) throws RepositoryException {
     return document.setProperty("moxtra:page", pageNode);
   }
 
@@ -389,6 +390,45 @@ public class JCR {
     return document.getProperty("moxtra:page");
   }
 
+  public static Property setContentRef(Node document, Node content) throws RepositoryException {
+    return document.setProperty("moxtra:content", content);
+  }
+
+  public static Property getContentRef(Node document) throws RepositoryException {
+    return document.getProperty("moxtra:content");
+  }
+
+  public static boolean hasContentRef(Node document) throws RepositoryException {
+    return document.hasProperty("moxtra:content");
+  }
+
+  public static Property setRefreshing(Node binderNode, long period) throws RepositoryException {
+    return binderNode.setProperty("moxtra:refreshing", period);
+  }
+  
+  public static Property markRefreshing(Node binderNode) throws RepositoryException {
+    return binderNode.setProperty("moxtra:refreshing", System.currentTimeMillis());
+  }
+  
+  public static Property markNotRefreshing(Node binderNode) throws RepositoryException {
+    return binderNode.setProperty("moxtra:refreshing", (String) null);
+  }
+
+  public static boolean isRefreshing(Node binderNode) throws RepositoryException {
+    try {
+      return System.currentTimeMillis() - binderNode.getProperty("moxtra:refreshing").getLong() <= 5000;
+    } catch (PathNotFoundException e) {
+      return false;
+    }
+  }
+
+  public static NodeIterator findPageDocuments(Node spaceNode) throws RepositoryException {
+    QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE "
+        + " jcr:path LIKE '" + spaceNode.getPath() + "/%'", Query.SQL);
+    return q.execute().getNodes();
+  }
+  
   public static NodeIterator findPageDocument(Node spaceNode, String pageName) throws RepositoryException {
     QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
     Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE exo:title='" + pageName
@@ -411,6 +451,14 @@ public class JCR {
 
   public static boolean isPageDocument(Node document) throws RepositoryException {
     return document.isNodeType(NODETYPE_PAGE_DOCUMENT);
+  }
+
+  public static void addPageContent(Node document) throws RepositoryException {
+    document.addMixin(NODETYPE_PAGE_CONTENT);
+  }
+
+  public static boolean isPageContent(Node document) throws RepositoryException {
+    return document.isNodeType(NODETYPE_PAGE_CONTENT);
   }
 
   public static NodeIterator findBinder(Node node, MoxtraBinder binder) throws RepositoryException {
@@ -557,16 +605,31 @@ public class JCR {
     return node.setProperty("moxtra:lastName", name);
   }
 
-  public static Property getCreatedTime(Node node) throws RepositoryException {
-    return node.getProperty("moxtra:createdTime");
-  }
-
   public static Property getType(Node node) throws RepositoryException {
     return node.getProperty("moxtra:type");
   }
 
   public static Property setType(Node node, String name) throws RepositoryException {
     return node.setProperty("moxtra:type", name);
+  }
+
+  public static Property getRefreshedTime(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:refreshedTime");
+  }
+
+  public static Property setRefreshedTime(Node node, Date time) throws RepositoryException {
+    Calendar cal;
+    if (time != null) {
+      cal = Calendar.getInstance();
+      cal.setTime(time);
+    } else {
+      cal = null;
+    }
+    return node.setProperty("moxtra:refreshedTime", cal);
+  }
+
+  public static Property getCreatedTime(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:createdTime");
   }
 
   public static Property setCreatedTime(Node node, Date time) throws RepositoryException {

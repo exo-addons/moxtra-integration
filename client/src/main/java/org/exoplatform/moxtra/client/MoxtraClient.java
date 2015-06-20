@@ -186,6 +186,10 @@ public class MoxtraClient {
 
   public static final String     API_BINDER_VIEWONLYLINK            = API_BINDER + "/viewonlylink";
 
+  public static final String     API_BINDER_CONVERSATIONS           = API_BINDER + "/conversations";
+
+  public static final String     API_BINDER_DOWNLOADPDF             = API_BINDER + "/downloadpdf";
+
   public static final String     API_BINDERS                        = API_V1 + "{user_id}/binders";
 
   public static final String     RESPONSE_SUCCESS                   = "RESPONSE_SUCCESS";
@@ -929,6 +933,33 @@ public class MoxtraClient {
      */
     public String getRedirectLink() {
       return redirectLink;
+    }
+  }
+
+  public class Content {
+
+    protected final InputStream content;
+
+    protected final String      contentType;
+
+    protected Content(InputStream content, String contentType) {
+      super();
+      this.content = content;
+      this.contentType = contentType;
+    }
+
+    /**
+     * @return the content
+     */
+    public InputStream getContent() {
+      return content;
+    }
+
+    /**
+     * @return the contentType
+     */
+    public String getContentType() {
+      return contentType;
     }
   }
 
@@ -1696,6 +1727,169 @@ public class MoxtraClient {
         }
       } catch (JsonException e) {
         throw new MoxtraClientException("Error creating JSON request from binder creation", e);
+      }
+    } else {
+      throw new MoxtraAuthorizationException("Authorization required");
+    }
+  }
+
+  public List<MoxtraFeed> getBinderConversations(String binderId, long timestamp) throws OAuthSystemException,
+                                                                                 OAuthProblemException,
+                                                                                 MoxtraException,
+                                                                                 MoxtraClientException {
+    if (isInitialized()) {
+      String url = API_BINDER_CONVERSATIONS.replace("{binder_id}", binderId);
+      if (timestamp > 0) {
+        url = url + "?timestamp=" + timestamp;
+      }
+
+      RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
+
+      JsonValue json = resp.getValue();
+      JsonValue vd = json.getElement("data");
+      if (!isNull(vd)) {
+        try {
+          JsonValue vfeeds = vd.getElement("feeds");
+          List<MoxtraFeed> feeds = new ArrayList<MoxtraFeed>();
+          if (!isNull(vfeeds) && vfeeds.isArray()) {
+            for (Iterator<JsonValue> vfiter = vfeeds.getElements(); vfiter.hasNext();) {
+              JsonValue vf = vfiter.next();
+
+              String verb;
+              JsonValue vverb = vf.getElement("verb");
+              if (isNotNull(vverb)) {
+                verb = vverb.getStringValue();
+              } else {
+                throw new MoxtraException("Binder conversations request doesn't return verb");
+              }
+              Date publishedTime;
+              JsonValue vpublished = vf.getElement("published");
+              if (isNotNull(vpublished)) {
+                publishedTime = parseDate(vpublished.getStringValue());
+              } else {
+                throw new MoxtraException("Binder conversations request doesn't return published time");
+              }
+              String generatorId;
+              JsonValue vgenerator = vf.getElement("generator");
+              if (isNotNull(vgenerator)) {
+                vgenerator = vgenerator.getElement("id");
+                if (isNotNull(vpublished)) {
+                  generatorId = vgenerator.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return generator id");
+                }
+              } else {
+                throw new MoxtraException("Binder conversations request doesn't return generator data");
+              }
+              // object
+              String objectType, objectId;
+              JsonValue vobject = vf.getElement("object");
+              if (isNotNull(vobject)) {
+                JsonValue vtype = vobject.getElement("objectType");
+                if (isNotNull(vtype)) {
+                  objectType = vtype.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return object type");
+                }
+                JsonValue vid = vobject.getElement("id");
+                if (isNotNull(vid)) {
+                  objectId = vid.getStringValue();
+                } else {
+                  // else, some objects has no id (e.g. annotation)
+                  objectId = null;
+                }
+              } else {
+                throw new MoxtraException("Binder conversations request doesn't return object data");
+              }
+              // target
+              String targetType, targetId, targetUrl;
+              JsonValue vtarget = vf.getElement("target");
+              if (isNotNull(vtarget)) {
+                JsonValue vtype = vtarget.getElement("objectType");
+                if (isNotNull(vtype)) {
+                  targetType = vtype.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return target type");
+                }
+                JsonValue vid = vtarget.getElement("id");
+                if (isNotNull(vid)) {
+                  targetId = vid.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return target id");
+                }
+                JsonValue vurl = vtarget.getElement("url");
+                if (isNotNull(vurl)) {
+                  targetUrl = vurl.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return target url");
+                }
+              } else {
+                if (verb.equals(MoxtraFeed.VERB_CREATE) && generatorId.equals(objectId)) {
+                  // it's OK, target is null for newly created binder
+                  targetType = targetId = targetUrl = null;
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return target data");
+                }
+              }
+              // actor
+              String actorType, actorId;
+              JsonValue vactor = vf.getElement("actor");
+              if (isNotNull(vactor)) {
+                JsonValue vtype = vactor.getElement("objectType");
+                if (isNotNull(vtype)) {
+                  actorType = vtype.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return actor type");
+                }
+                JsonValue vid = vactor.getElement("id");
+                if (isNotNull(vid)) {
+                  actorId = vid.getStringValue();
+                } else {
+                  throw new MoxtraException("Binder conversations request doesn't return actor id");
+                }
+              } else {
+                throw new MoxtraException("Binder conversations request doesn't return actor data");
+              }
+
+              MoxtraFeed feed = new MoxtraFeed(verb,
+                                               generatorId,
+                                               actorId,
+                                               actorType,
+                                               objectId,
+                                               objectType,
+                                               targetId,
+                                               targetType,
+                                               targetUrl,
+                                               publishedTime);
+              feeds.add(feed);
+            }
+          }
+          return feeds;
+        } catch (ParseException e) {
+          throw new MoxtraException("Error parsing meet time " + e.getMessage(), e);
+        }
+      } else {
+        throw new MoxtraException("Binder conversations request doesn't return an expected body (data)");
+      }
+    } else {
+      throw new MoxtraAuthorizationException("Authorization required");
+    }
+  }
+
+  public Content downloadBinderPage(String binderId, String pageId) throws OAuthSystemException,
+                                                                         OAuthProblemException,
+                                                                         MoxtraException,
+                                                                         MoxtraClientException {
+    if (isInitialized()) {
+      String url = API_BINDER_DOWNLOADPDF.replace("{binder_id}", binderId);
+      url += ("?filter=" + pageId);
+      RESTResponse resp = restRequest(url, OAuth.HttpMethod.GET);
+
+      InputStream content = resp.getInputStream();
+      if (content != null) {
+        return new Content(content, resp.getContentType());
+      } else {
+        throw new MoxtraException("Binder page request doesn't return an expected content stream");
       }
     } else {
       throw new MoxtraAuthorizationException("Authorization required");
@@ -3279,7 +3473,8 @@ public class MoxtraClient {
       if (isNotNull(vutype)) {
         type = vutype.getStringValue();
       } else {
-        throw new MoxtraException("Request doesn't return user type");
+        // throw new MoxtraException("Request doesn't return user type");
+        type = MoxtraUser.USER_TYPE_NORMAL;
       }
     }
     if (createdTime == null) {
@@ -3287,7 +3482,8 @@ public class MoxtraClient {
       if (isNotNull(vucreated)) {
         createdTime = new Date(vucreated.getLongValue());
       } else {
-        throw new MoxtraException("Request doesn't return user created time");
+        // throw new MoxtraException("Request doesn't return user created time");
+        createdTime = null;
       }
     }
     if (updatedTime == null) {
@@ -3295,7 +3491,8 @@ public class MoxtraClient {
       if (isNotNull(vuupdated)) {
         updatedTime = new Date(vuupdated.getLongValue());
       } else {
-        throw new MoxtraException("Request doesn't return user updated time");
+        // throw new MoxtraException("Request doesn't return user updated time");
+        updatedTime = null;
       }
     }
 

@@ -156,6 +156,38 @@ public class BinderSpaceService implements ResourceContainer {
 
   @POST
   @RolesAllowed("users")
+  @Path("/sync/{binderId}")
+  public Response syncPages(@Context UriInfo uriInfo, @PathParam("binderId") String binderId) {
+    try {
+      MoxtraBinder binder = moxtra.getBinder(binderId);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
+      if (binderSpace != null) {
+        if (binderSpace.ensureSpaceMember()) {
+          binderSpace.syncPages();
+          return Response.status(Status.ACCEPTED).entity("{\"code\":\"accepted\"}").build();
+        } else {
+          return Response.status(Status.FORBIDDEN)
+                         .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
+                             + binderId + "'"))
+                         .build();
+        }
+      }
+      return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error synchronizing binder pages " + binderId))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error getting binder " + binderId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error getting binder")).build();
+    } catch (RepositoryException e) {
+      LOG.error("Error reading binder " + binderId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error reading binder")).build();
+    }
+  }
+
+  @POST
+  @RolesAllowed("users")
   @Path("/{spaceName}/meet/event/{eventId}")
   @Deprecated
   // TODO doesn't work as needs portal request

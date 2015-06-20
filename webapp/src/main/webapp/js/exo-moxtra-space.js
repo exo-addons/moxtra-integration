@@ -194,8 +194,7 @@
 			$settingsButton.show();
 			var binderId = $app.data("moxtra-binder-id");
 			if (!binderId) {
-				// FYI if no binderId then binder not enabled: we shop a tip for an user where to enable
-				// it
+				// FYI if no binderId then binder not enabled: we shop a tip for an user where to enable it
 				$settingsButton.find("a").tooltip("show");
 			} else {
 				// load binder data (meet button, pages zone etc)
@@ -282,7 +281,6 @@
 							$form.show("blind", 750);
 
 							// dates
-							//if ($startPicker.is(":visible")) {
 							var startTime = new Date();
 							startTime.setMinutes(startTime.getMinutes() + 5);
 							startPicker.setDate(startTime);
@@ -413,27 +411,6 @@
 							} else {
 								var agenda = $form.find("textarea[name='meetAgenda']").val();
 								var autoRec = $form.find("input[name='meetAutorec']").is(":checked");
-								//var startTime = $form.find("input[name='meetStartTime']:visible").val();
-								//var endTime = $form.find("input[name='meetEndTime']:visible").val();
-
-								// XXX we cannot use REST service here as portal request required for creating calendar event
-								//var newMeet = moxtra.createBinderMeet(spaceName, topic, agenda, startTime.getTime(), endTime.getTime(), autoRec,
-								// participants);
-								//var newMeet = moxtra.createMeet(topic, agenda, startTime.getTime(), endTime.getTime(), autoRec, participants);
-								/*newMeet.done(function(meet) {
-								$meetPopup.data(meet.name, meet);
-								//$meetPopup.modal("hide");
-								showMeet(meet);
-								});
-								newMeet.fail(function(e) {
-								showError(e.message, $message);
-
-								// get back to first pane, start button stays hidden
-								//$meetStart.hide();
-								//$meetSchedule.hide();
-								$creating.hide("fade");
-								$form.show("blind");
-								});*/
 
 								// XXX Juzu 0.6.2 doesn't work correctly with list/arrays params: concat participants into string
 								$created.jzLoad("MoxtraBinderSpaceController.createMeet()", {

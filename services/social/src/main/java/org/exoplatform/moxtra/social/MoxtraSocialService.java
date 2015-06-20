@@ -15,8 +15,10 @@ import org.exoplatform.moxtra.calendar.MoxtraCalendarStateListener;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraBinder;
 import org.exoplatform.moxtra.client.MoxtraClient;
+import org.exoplatform.moxtra.client.MoxtraClient.Content;
 import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
+import org.exoplatform.moxtra.client.MoxtraFeed;
 import org.exoplatform.moxtra.client.MoxtraMeet;
 import org.exoplatform.moxtra.client.MoxtraOwnerUndefinedException;
 import org.exoplatform.moxtra.client.MoxtraPage;
@@ -41,6 +43,10 @@ import org.exoplatform.social.core.space.model.Space;
 import org.exoplatform.social.core.space.spi.SpaceService;
 import org.exoplatform.social.webui.Utils;
 import org.picocontainer.Startable;
+import org.quartz.JobDataMap;
+import org.quartz.Trigger;
+import org.quartz.impl.JobDetailImpl;
+import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.io.InputStream;
 import java.util.ArrayList;
@@ -59,6 +65,7 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.Property;
+import javax.jcr.PropertyIterator;
 import javax.jcr.RepositoryException;
 import javax.jcr.Session;
 import javax.jcr.ValueFormatException;
@@ -410,6 +417,13 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       return false;
     }
 
+    public void touch() throws MoxtraClientException, MoxtraException, RepositoryException {
+      ensureBinderMember();
+      
+      // Moxtra.currentUserName();
+      runSyncJob(this);
+    }
+
     /**
      * Check if given document (by its UUID) has a page for conversation. This method return
      * <code>false</code> for page currently creating.
@@ -442,7 +456,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
      * @throws MoxtraClientException
      */
     public boolean hasPage(Node document) throws RepositoryException, MoxtraClientException, MoxtraException {
-      ensureBinderMember();
+      touch();
       return isPageNode(document, true);
     }
 
@@ -563,6 +577,202 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       return null;
     }
 
+    /**
+     * Download conversation pages content to eXo. Each content node will be placed near the original
+     * document.
+     * 
+     * @param document
+     * @throws RepositoryException
+     * @throws MoxtraException
+     * @throws MoxtraClientException
+     */
+    public void syncPages() throws RepositoryException, MoxtraClientException, MoxtraException {
+      MoxtraBinder binder = getBinder();
+
+      try {
+        MoxtraUser owner = binder.getOwnerUser();
+        String userName = owner.getUniqueId();
+        if (userName == null) {
+          // TODO we can run only if it a manager created this binder
+          // find in org-service by email of owner and run if current user has the same
+          LOG.warn("Binder onwer name empty, cannot run sync");
+          return;
+        }
+        MoxtraClient client = moxtra.getClient(userName);
+        
+        // TODO binderNode already exists here, thus we could access it by UUID
+        Node spaceNode = spaceNode();
+        Node binderNode = JCR.getBinder(spaceNode);
+        Node pagesNode;
+        try {
+          pagesNode = JCR.getPages(binderNode);
+        } catch (PathNotFoundException e) {
+          pagesNode = JCR.addPages(binderNode);
+          binderNode.save();
+        }
+
+        if (!JCR.isRefreshing(binderNode)) {
+          JCR.markRefreshing(binderNode);
+          binderNode.save();
+          
+          // first validate all currently uploading pages
+          for (NodeIterator pditer = JCR.findPageDocuments(spaceNode); pditer.hasNext();) {
+            Node document = pditer.nextNode();
+            // this will force page node creation if it was created in Moxtra 
+            isPageNode(document, true);
+          }
+          
+          try {
+            long timestamp;
+            try {
+              timestamp = JCR.getRefreshedTime(binderNode).getDate().getTimeInMillis();
+            } catch (PathNotFoundException e) {
+              timestamp = binder.getCreatedTime().getTime();
+            }
+
+            // get binder feeds
+            List<MoxtraFeed> feeds = client.getBinderConversations(binder.getBinderId(), 0); // TODO timestamp
+            List<MoxtraFeed> applyList = new ArrayList<MoxtraFeed>();
+
+            // TODO find new remote feeds for pages (not yet applied)
+            next: for (MoxtraFeed feed : feeds) {
+              long feedTimestamp = feed.getPublishedTime().getTime();
+              // skip already applied feeds
+              if (feedTimestamp > timestamp) {
+                if (feed.getTargetType().equals(MoxtraFeed.OBJECT_TYPE_FILE)
+                    || feed.getTargetType().equals(MoxtraFeed.OBJECT_TYPE_PAGE)) {
+                  // TODO for each page find is it local page or new (remote only)
+                  if (feed.getVerb().equals(MoxtraFeed.VERB_TAG)) {
+                    // annotated
+                    long feedTime = feed.getPublishedTime().getTime();
+                    // remove feeds for the same page/change and add the new to the end
+                    for (Iterator<MoxtraFeed> fiter = applyList.iterator(); fiter.hasNext();) {
+                      MoxtraFeed otherFeed = fiter.next();
+                      if (otherFeed.isSameObject(otherFeed)) {
+                        if (feedTime >= otherFeed.getPublishedTime().getTime()) {
+                          fiter.remove();
+                          break;
+                        } else {
+                          continue next;
+                        }
+                      }
+                    }
+                    applyList.add(feed);
+                  } else {
+                    if (feed.getVerb().equals(MoxtraFeed.VERB_POST)) {
+                      // new comment
+                      // XXX what do we do with comments?
+                      // pageId = feed.getTargetId();
+                      LOG.warn("Feed (post) not supported: " + feed);
+                    } else if (feed.getVerb().equals(MoxtraFeed.VERB_CREATE)) {
+                      // TODO new file
+                      LOG.warn("Feed (create) not supported: " + feed);
+                    }
+                    continue;
+                  }
+                } else {
+                  LOG.warn("Feed not supported: " + feed);
+                }
+              }
+            }
+
+            long maxTimestamp = 0;
+            for (MoxtraFeed feed : applyList) {
+              // for existing find page document
+              String pageId = feed.getTargetId();
+
+              // create conversation file near the original document: $DOCNAME_Conversation.docExt
+              Node pageNode;
+              try {
+                pageNode = JCR.getPage(binderNode, pageId);
+              } catch (PathNotFoundException e) {
+                // TODO (PRIORITY 2) for new create a page document in space's root (or respectively to the
+                // folder structure in Moxtra)
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug(">>> skipping not existing locally page " + pageId + " " + feed.getTargetUrl());
+                }
+                continue;
+              }
+
+              // FYI there is should be only single reference property
+              for (PropertyIterator pageRefs = pageNode.getReferences(); pageRefs.hasNext();) {
+                Property pageRef = pageRefs.nextProperty();
+                Node document = pageRef.getParent();
+
+                Node folder = document.getParent();
+
+                String convoNodeName = convoName(document.getName(), "_conversation");
+                Node convo, content;
+                try {
+                  convo = folder.getNode(convoNodeName);
+                  content = convo.getNode("jcr:content");
+                } catch (PathNotFoundException e) {
+                  convo = folder.addNode(convoNodeName, "nt:file");
+                  content = convo.addNode("jcr:content", "nt:resource");
+                }
+
+                if (!JCR.isPageContent(convo)) {
+                  JCR.addPageContent(convo);
+                }
+
+                // get page content from Moxtra
+                Content pageContent = client.downloadBinderPage(binder.getBinderId(), pageId);
+                InputStream dataStream = pageContent.getContent();
+                try {
+                  content.setProperty("jcr:mimeType", "application/pdf"); // pageContent.getContentType()
+                  java.util.Calendar created = java.util.Calendar.getInstance();
+                  created.setTime(feed.getPublishedTime());
+                  content.setProperty("jcr:lastModified", created);
+                  content.setProperty("jcr:data", dataStream);
+                  folder.save(); // save to let actions add mixins to new folder node
+                } finally {
+                  dataStream.close();
+                }
+
+                // reference created conversation content to the document
+                JCR.setContentRef(document, convo);
+                document.save();
+                // reference conversation to the page
+                JCR.setPageRef(convo, pageNode);
+                String docName = documentName(document);
+                String convoName = convoName(docName, " Conversation");
+                convo.setProperty("exo:title", convoName);
+                convo.setProperty("exo:name", convoName);
+                convo.save();
+              }
+
+              // find max timestamp
+              long feedTimestamp = feed.getPublishedTime().getTime();
+              if (feedTimestamp > maxTimestamp) {
+                maxTimestamp = feedTimestamp;
+              }
+            }
+
+            if (maxTimestamp > 0) {
+              JCR.setRefreshedTime(binderNode, new Date(maxTimestamp));
+              //pagesNode.save(); // will save in finally below
+            }
+          } finally {
+            JCR.markNotRefreshing(binderNode);
+            binderNode.save();
+          }
+        } else {
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Binder " + binder.getBinderId() + "@" + getSpace().getGroupId() + " already synching");
+          }
+        }
+      } catch (OAuthProblemException e) {
+        throw new MoxtraSocialException("Error reading binder conversations '" + binder.getName() + "': "
+            + e.getMessage(), e);
+      } catch (OAuthSystemException e) {
+        throw new MoxtraSocialException("Error reading binder conversations '" + binder.getName() + "': "
+            + e.getMessage(), e);
+      } catch (Exception e) {
+        throw new MoxtraSocialException("Error reading binder node '" + binder.getName() + "'. "
+            + e.getMessage(), e);
+      }
+    }
+
     public List<MoxtraUser> getMembers(boolean includeMe) throws Exception {
       List<MoxtraUser> binderUsers = binder.getUsers();
       if (!includeMe) {
@@ -630,11 +840,11 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             MoxtraPage page = findPage(pageName);
             if (page != null) {
               // page already created in Moxtra, add local node
-              Node pageNode = writePage(page, document.getName(), pageName);
+              Node pageNode = writePage(page, document.getName());
               // update document node (remove creating time props)
               creatingTimeProp.remove();
               pageNameProp.remove();
-              JCR.addPageRef(document, pageNode);
+              JCR.setPageRef(document, pageNode);
               document.save();
               return true;
             } else if (System.currentTimeMillis() - creatingTime.getTimeInMillis() < MAX_PAGE_CREATING_TIME) {
@@ -653,13 +863,14 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       return false;
     }
 
-    protected Node writePage(MoxtraPage page, String nodeName, String pageName) throws MoxtraSocialException,
-                                                                               RepositoryException {
+    protected Node writePage(MoxtraPage page, String nodeName) throws MoxtraSocialException,
+                                                              RepositoryException {
       Node spaceNode = spaceNode();
       Node binderNode = JCR.getBinder(spaceNode);
-      Node pageNode = JCR.addPage(binderNode, nodeName, pageName);
+      Node pageNode = JCR.addPage(binderNode, String.valueOf(page.getId()));
 
       JCR.setId(pageNode, page.getId());
+      JCR.setName(pageNode, page.getOriginalFileName());
       JCR.setRevision(pageNode, page.getRevision());
       JCR.setPageUrl(pageNode, page.getUrl());
       JCR.setType(pageNode, page.getType());
@@ -774,26 +985,15 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
-  protected final MoxtraCalendarService   moxtraCalendar;
+  protected final MoxtraCalendarService moxtraCalendar;
 
-  protected final SessionProviderService  sessionsProvider;
+  protected final ManageDriveService    driveService;
 
-  /**
-   * OrganizationService to find eXo users email.
-   */
-  protected final OrganizationService     orgService;
+  protected final Set<String>           noteMimeTypes  = new HashSet<String>();
 
-  protected final JobSchedulerServiceImpl schedulerService;
+  protected final Set<String>           drawMimeTypes  = new HashSet<String>();
 
-  protected final NodeHierarchyCreator    hierarchyCreator;
-
-  protected final ManageDriveService      driveService;
-
-  protected final Set<String>             noteMimeTypes  = new HashSet<String>();
-
-  protected final Set<String>             drawMimeTypes  = new HashSet<String>();
-
-  protected final Set<SpaceApplication>   addedSpaceApps = new HashSet<SpaceApplication>();
+  protected final Set<SpaceApplication> addedSpaceApps = new HashSet<SpaceApplication>();
 
   /**
    * @throws MoxtraConfigurationException
@@ -806,12 +1006,8 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
                              OrganizationService orgService,
                              JobSchedulerServiceImpl schedulerService,
                              ManageDriveService driveService) {
-    super(moxtra);
+    super(moxtra, sessionProviderService, hierarchyCreator, orgService, schedulerService);
     this.moxtraCalendar = moxtraCalendar;
-    this.sessionsProvider = sessionProviderService;
-    this.hierarchyCreator = hierarchyCreator;
-    this.orgService = orgService;
-    this.schedulerService = schedulerService;
     this.driveService = driveService;
   }
 
@@ -940,88 +1136,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   }
 
   /**
-   * Create page conversation.
-   * 
-   * @param document
-   * @param binder
-   * @throws RepositoryException
-   * @throws MoxtraException
-   * @throws MoxtraClientException
-   */
-  @Deprecated
-  public void createPageConversation_NOTUSED(Node document) throws RepositoryException,
-                                                           MoxtraClientException,
-                                                           MoxtraException {
-    // TODO don't use binder parameter, but find it from the given node (it is in a space sub-tree)
-    MoxtraBinderSpace binderSpace = getBinderSpace();
-    if (binderSpace != null) {
-      MoxtraBinder binder = binderSpace.getBinder();
-
-      // TODO create/upload page asynchronously
-
-      // TODO other nodetypes?
-      if (document.isNodeType("moxtra:pageDocument")) {
-        throw new MoxtraPageAlreadyException("Document already a conversation page " + document.getName());
-      } else if (document.isNodeType("nt:file")) {
-        // detect the doc type and choose Note or Draw (Whiteboard)
-        Node data = document.getNode("jcr:content");
-        if (data.isNodeType("nt:resource")) {
-          MoxtraClient client = moxtra.getClient();
-          String mimeType = data.getProperty("jcr:mimeType").getString();
-          String docName = documentName(document);
-          try {
-            if (isNoteMimeType(mimeType) || isDrawMimeType(mimeType)) {
-              // it is a Note or Draw should be
-              client.pageUpload(binder, mimeType, data.getProperty("jcr:data").getStream(), docName);
-            } else {
-              // not supported document
-              throw new MoxtraSocialException("Document type not supported for " + document.getName() + ": "
-                  + mimeType);
-            }
-          } catch (OAuthProblemException e) {
-            throw new MoxtraSocialException("Error creating page conversation " + docName + ". "
-                + e.getMessage(), e);
-          } catch (OAuthSystemException e) {
-            throw new MoxtraSocialException("Error creating page conversation " + docName + ". "
-                + e.getMessage(), e);
-          }
-
-          // TODO add mixin and Moxtra specific info
-          document.addMixin("moxtra:pageDocument");
-          document.save();
-
-          Node spaceNode;
-          try {
-            spaceNode = spaceNode(binderSpace.getSpace());
-          } catch (Exception e) {
-            throw new MoxtraSocialException("Error reading space node "
-                + binderSpace.getSpace().getDisplayName());
-          }
-
-          Node binderNode = JCR.getBinder(spaceNode);
-          Node pageNode = JCR.addPage(binderNode, document.getName(), docName);
-          spaceNode.save();
-
-          JCR.addPageRef(document, pageNode);
-          document.save();
-
-          String docId = document.getUUID();
-          // TODO save in binder space obj
-        } else {
-          throw new MoxtraSocialException("Cannot determine MIME type of file " + document.getName()
-              + ", content node type " + data.getPrimaryNodeType().getName());
-        }
-      } else {
-        throw new MoxtraSocialException("Document not a file " + document.getName() + " "
-            + document.getPrimaryNodeType().getName());
-      }
-    } else {
-      throw new MoxtraSocialException("Moxtra Binder space not enabled for " + document.getName() + " "
-          + document.getPrimaryNodeType().getName());
-    }
-  }
-
-  /**
    * Name that will be used for a page conversation on given document.
    * 
    * @param document
@@ -1031,45 +1145,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   public String getPageName(Node document) throws RepositoryException {
     return documentName(document);
   }
-
-  /**
-   * Save page conversation.
-   * 
-   * @param document
-   * @param binder
-   * @param pageId
-   * @throws RepositoryException
-   */
-  @Deprecated
-  public void savePageConversation(Node document, MoxtraBinder binder, String pageId) throws RepositoryException {
-    Node parent = document.getParent();
-    Node convoDocument = parent.addNode(convoName(document.getName()), "nt:file");
-    try {
-      Property exoTitle = document.getProperty("exo:title");
-      convoDocument.setProperty(exoTitle.getName(), convoName(exoTitle.getString()));
-    } catch (PathNotFoundException e) {
-      // nothing to set
-    }
-    try {
-      Property exoName = document.getProperty("exo:name");
-      convoDocument.setProperty(exoName.getName(), convoName(exoName.getString()));
-    } catch (PathNotFoundException e) {
-      // nothing to set
-    }
-    // TODO set
-    parent.save();
-    // TODO add mixin and Moxtra specific info
-    parent.addMixin("moxtra:page");
-    parent.save();
-  }
-
-  // TODO cleanup
-  // public MoxtraMeet getMeet(String sessionKey) throws MoxtraClientException,
-  // OAuthSystemException,
-  // OAuthProblemException,
-  // MoxtraException {
-  // return moxtra.getClient().getMeet(sessionKey);
-  // }
 
   public MoxtraBinder getBinder(String binderId) throws MoxtraException {
     try {
@@ -1440,18 +1515,18 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     return null;
   }
 
-  protected String convoName(String name) {
-    String convoSuffix = " Conversation";
+  protected String convoName(String name, String convoSuffix) {
     StringBuilder cname = new StringBuilder();
     int nameEnd = name.lastIndexOf(".");
     if (nameEnd > 0) {
       cname.append(name.substring(0, nameEnd));
       cname.append(convoSuffix);
-      cname.append(name.substring(nameEnd));
+      //cname.append(name.substring(nameEnd));
     } else {
       cname.append(name);
       cname.append(convoSuffix);
     }
+    cname.append(".pdf");
     return cname.toString();
   }
 
@@ -1509,7 +1584,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   protected Node spaceNode(Space space) throws Exception {
     String groupsPath = hierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
     String spaceFolder = groupsPath + "/spaces/" + space.getPrettyName();
-    Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionsProvider.getSystemSessionProvider(null))
+    Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionProviderService.getSystemSessionProvider(null))
                                          .getSession();
     Node spaceNode = (Node) sysSession.getItem(spaceFolder);
     return spaceNode;
@@ -1518,7 +1593,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   protected Node binderNode(MoxtraBinder binder) throws Exception {
     String groupsPath = hierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
     String spacesFolder = groupsPath + "/spaces/";
-    Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionsProvider.getSystemSessionProvider(null))
+    Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionProviderService.getSystemSessionProvider(null))
                                          .getSession();
     // first try by binder name cleaned in space's pretty name style
     Node binderNode;
@@ -1526,12 +1601,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       String spacePrettyName = SpaceUtils.cleanString(binder.getName());
       binderNode = ((Node) sysSession.getItem(spacesFolder + spacePrettyName + "/moxtra:binder"));
     } catch (PathNotFoundException e) {
-      // TODO cleanup // Space space = spaceByName(binder.getName());
-      // if (space != null) {
-      // spaceNode = spaceNode(space);
-      // } else {
-      // spaceNode = null;
-      // }
       // need search using JCR query and binder NT and id
       NodeIterator binderNodes = JCR.findBinder((Node) sysSession.getItem(spacesFolder), binder);
       long nodesCount = binderNodes.getSize();
@@ -1589,7 +1658,6 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
    * @throws RepositoryException
    */
   protected void writeBinder(Node binderNode, MoxtraBinder binder) throws RepositoryException {
-
     // object fields
     JCR.setId(binderNode, binder.getBinderId());
     JCR.setName(binderNode, binder.getName());
@@ -1669,6 +1737,10 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         }
       }
     }
+    // internal save time
+    Date savedTime = new Date();
+    JCR.setSavedTime(binderNode, savedTime);
+    binder.setSavedTime(savedTime);
   }
 
   protected MoxtraBinder readBinder(Node binderNode) throws RepositoryException,
@@ -1700,6 +1772,15 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
 
     MoxtraBinder localBinder = MoxtraBinder.create(binderId, name, revision, createdTime, updatedTime, users);
+
+    try {
+      Date savedTime = JCR.getSavedTime(binderNode).getDate().getTime();
+      localBinder.setSavedTime(savedTime);
+    } catch (PathNotFoundException e) {
+      // ok, it will happen on previously created binders
+      localBinder.setSavedTime(updatedTime);
+    }
+
     return localBinder;
   }
 
@@ -1722,4 +1803,82 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
+  protected String binderJobName(MoxtraBinderSpace binderSpace) {
+    return "Binder_" + binderSpace.getBinder().getBinderId() + "@" + binderSpace.getSpace().getGroupId();
+  }
+
+  /**
+   * Schedule a local job to sync a binder.
+   * 
+   * @throws Exception
+   */
+  protected String runSyncJob(MoxtraBinderSpace binderSpace) throws MoxtraSocialException {
+    String jobName = binderJobName(binderSpace);
+
+    boolean reschedule;
+    // TODO
+    // JobInfo jobInfo = new JobInfo(jobName, MOXTRA_JOB_GROUP_NAME, MoxtraBinderSyncJob.class);
+    // JobDetail existing = schedulerService.getJob(jobInfo);
+    try {
+      Trigger[] existing = schedulerService.getTriggersOfJob(jobName, MOXTRA_JOB_GROUP_NAME);
+      if (existing != null && existing.length > 0) {
+        Date existingEndTime = existing[0].getEndTime();
+        if (existingEndTime != null
+            && (System.currentTimeMillis() - existingEndTime.getTime()) > MoxtraBinderSyncJob.SYNC_RESCHEDULE_THRESHOLD_MS) {
+          reschedule = true;
+        } else {
+          return jobName; // job still actual
+        }
+      } else {
+        reschedule = false;
+      }
+    } catch (Exception e) {
+      throw new MoxtraSocialException("Error reading binder synchronization job " + jobName, e);
+    }
+
+    String userName = Moxtra.currentUserName();
+
+    // job info
+    JobDetailImpl job = new JobDetailImpl();
+
+    job.setName(jobName);
+    job.setGroup(MOXTRA_JOB_GROUP_NAME);
+    job.setJobClass(MoxtraBinderSyncJob.class);
+    job.setDescription("Synchronize space documents with Moxtra binder");
+
+    JobDataMap jobData = job.getJobDataMap();
+
+    jobData.put(MoxtraBinderSyncJob.DATA_USER_ID, userName);
+    jobData.put(MoxtraBinderSyncJob.DATA_GROUP_ID, binderSpace.getSpace().getGroupId());
+    jobData.put(MoxtraBinderSyncJob.DATA_BINDER_ID, binderSpace.getBinder().getBinderId());
+    // jobData.put(MoxtraBinderSyncJob.DATA_SYNC_ATTEMPTS, Long.valueOf(0l));
+
+    // schedule the job
+    SimpleTriggerImpl trigger = new SimpleTriggerImpl();
+    trigger.setName(jobName);
+    trigger.setGroup(MOXTRA_JOB_GROUP_NAME);
+
+    java.util.Calendar startTime = Moxtra.getCalendar();
+    startTime.add(Calendar.MINUTE, MoxtraBinderSyncJob.SYNC_DELAY_MINUTES);
+    java.util.Calendar endTime = Moxtra.getCalendar();
+    endTime.add(Calendar.MINUTE, MoxtraBinderSyncJob.SYNC_PERIOD_MINUTES);
+
+    trigger.setStartTime(startTime.getTime());
+    trigger.setEndTime(endTime.getTime());
+    // trigger.setRepeatCount(0);
+    trigger.setRepeatInterval(MoxtraBinderSyncJob.SYNC_INTERVAL_MS);
+
+    try {
+      if (reschedule) {
+        schedulerService.rescheduleJob(jobName, MOXTRA_JOB_GROUP_NAME, trigger);
+      } else {
+        jobEnvironment.configure(userName);
+        schedulerService.addJob(job, trigger);
+      }
+    } catch (Exception e) {
+      throw new MoxtraSocialException("Error scheduling binder synchronization job " + jobName, e);
+    }
+
+    return jobName;
+  }
 }

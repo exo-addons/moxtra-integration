@@ -27,9 +27,6 @@ import org.exoplatform.calendar.service.Reminder;
 import org.exoplatform.calendar.service.Utils;
 import org.exoplatform.calendar.service.impl.CalendarServiceImpl;
 import org.exoplatform.calendar.service.impl.NewUserListener;
-import org.exoplatform.commons.utils.MimeTypeResolver;
-import org.exoplatform.container.ExoContainer;
-import org.exoplatform.container.ExoContainerContext;
 import org.exoplatform.moxtra.Moxtra;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
@@ -58,9 +55,7 @@ import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.organization.User;
 import org.exoplatform.services.scheduler.JobInfo;
 import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
-import org.exoplatform.services.security.ConversationState;
 import org.quartz.JobDataMap;
-import org.quartz.JobDetail;
 import org.quartz.impl.JobDetailImpl;
 import org.quartz.impl.triggers.SimpleTriggerImpl;
 
@@ -71,10 +66,8 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Queue;
 import java.util.Set;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 import javax.jcr.ItemNotFoundException;
@@ -95,126 +88,43 @@ import javax.jcr.Session;
  */
 public class MoxtraCalendarService extends BaseMoxtraService {
 
-  protected static final Log LOG                           = ExoLogger.getLogger(MoxtraCalendarService.class);
+  protected static final Log                             LOG                           = ExoLogger.getLogger(MoxtraCalendarService.class);
 
-  public final static String EVENT_STATE_BUSY              = "busy".intern();
+  public final static String                             EVENT_STATE_BUSY              = "busy".intern();
 
-  public final static String COMMA                         = ",".intern();
+  public final static String                             COMMA                         = ",".intern();
 
-  public final static String CALENDAR_TYPE_PUBLIC          = String.valueOf(Calendar.TYPE_PUBLIC);
+  public final static String                             CALENDAR_TYPE_PUBLIC          = String.valueOf(Calendar.TYPE_PUBLIC);
 
-  public final static String CALENDAR_TYPE_PRIVATE         = String.valueOf(Calendar.TYPE_PRIVATE);
+  public final static String                             CALENDAR_TYPE_PRIVATE         = String.valueOf(Calendar.TYPE_PRIVATE);
 
-  public final static String CALENDAR_TYPE_SHARED          = String.valueOf(Calendar.TYPE_SHARED);
+  public final static String                             CALENDAR_TYPE_SHARED          = String.valueOf(Calendar.TYPE_SHARED);
 
   /**
    * A period in ms, if scheduling meet event will happen later of it comparing to current time, then a
    * reminder will be set up for the calendar event.
    */
-  public final static long   MEET_EVENT_REMINDER_THRESHOLD = 60 * 60 * 1000;
+  public final static long                               MEET_EVENT_REMINDER_THRESHOLD = 60 * 60 * 1000;
 
-  public final static long   MEET_SCHEDULED_REFRESH_PERIOD = 60 * 1000;
+  public final static long                               MEET_SCHEDULED_REFRESH_PERIOD = 60 * 1000;
 
-  public final static long   MEET_ENDED_REFRESH_PERIOD     = 3 * 60 * 1000;
-
-  protected class UserSettings {
-    final ConversationState conversation;
-
-    final ExoContainer      container;
-
-    ConversationState       prevConversation;
-
-    ExoContainer            prevContainer;
-
-    SessionProvider         prevSessions;
-
-    UserSettings(ConversationState conversation, ExoContainer container) {
-      this.conversation = conversation;
-      this.container = container;
-    }
-  }
-
-  /**
-   * Setup environment for jobs execution in eXo Container.
-   */
-  protected class Environment {
-
-    protected final Map<String, UserSettings> config = new ConcurrentHashMap<String, UserSettings>();
-
-    protected void configure(String userName) throws MoxtraCalendarException {
-      ConversationState conversation = ConversationState.getCurrent();
-      if (conversation == null) {
-        throw new MoxtraCalendarException("Error configuring user environment for " + userName
-            + ". User identity not set.");
-      }
-      config.put(userName, new UserSettings(conversation, ExoContainerContext.getCurrentContainer()));
-    }
-
-    protected void prepare(String userName) throws MoxtraCalendarException {
-      UserSettings settings = config.get(userName);
-      if (settings != null) {
-        settings.prevConversation = ConversationState.getCurrent();
-        ConversationState.setCurrent(settings.conversation);
-
-        // set correct container
-        settings.prevContainer = ExoContainerContext.getCurrentContainerIfPresent();
-        ExoContainerContext.setCurrentContainer(settings.container);
-
-        // set correct SessionProvider
-        settings.prevSessions = sessionProviderService.getSessionProvider(null);
-        SessionProvider sp = new SessionProvider(settings.conversation);
-        sessionProviderService.setSessionProvider(null, sp);
-      } else {
-        throw new MoxtraCalendarException("User setting not configured to prepare " + userName
-            + " environment.");
-      }
-    }
-
-    protected void cleanup(String userName) throws MoxtraCalendarException {
-      UserSettings settings = config.get(userName);
-      if (settings != null) {
-        ConversationState.setCurrent(settings.prevConversation);
-        ExoContainerContext.setCurrentContainer(settings.prevContainer);
-        SessionProvider sp = sessionProviderService.getSessionProvider(null);
-        sessionProviderService.setSessionProvider(null, settings.prevSessions);
-        sp.close();
-      } else {
-        throw new MoxtraCalendarException("User setting not configured to clean " + userName
-            + " environment.");
-      }
-    }
-  }
+  public final static long                               MEET_ENDED_REFRESH_PERIOD     = 3 * 60 * 1000;
 
   /**
    * Moxtra app enabled in current context.
    */
-  protected final ThreadLocal<MoxtraCalendarApplication> contextApp       = new ThreadLocal<MoxtraCalendarApplication>();
-
-  protected final MimeTypeResolver                       mimetypeResolver = new MimeTypeResolver();
-
-  protected final Environment                            jobEnvironment   = new Environment();
+  protected final ThreadLocal<MoxtraCalendarApplication> contextApp                    = new ThreadLocal<MoxtraCalendarApplication>();
 
   /**
    * CalendarService implementation required to access JCR data storage.
    */
   protected final CalendarServiceImpl                    calendar;
 
-  /**
-   * OrganizationService to find eXo users email.
-   */
-  protected final OrganizationService                    orgService;
-
-  protected final JobSchedulerServiceImpl                schedulerService;
-
-  protected final NodeHierarchyCreator                   hierarchyCreator;
-
-  protected final SessionProviderService                 sessionProviderService;
-
   protected final ManageDriveService                     driveService;
 
-  protected final Set<MoxtraCalendarStateListener>       stateListeners   = new LinkedHashSet<MoxtraCalendarStateListener>();
+  protected final Set<MoxtraCalendarStateListener>       stateListeners                = new LinkedHashSet<MoxtraCalendarStateListener>();
 
-  protected final Queue<String>                          downloadingMeets = new ConcurrentLinkedQueue<String>();
+  protected final Queue<String>                          downloadingMeets              = new ConcurrentLinkedQueue<String>();
 
   /**
    * @throws MoxtraConfigurationException
@@ -223,16 +133,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   public MoxtraCalendarService(MoxtraService moxtra,
                                SessionProviderService sessionProviderService,
                                NodeHierarchyCreator hierarchyCreator,
-                               CalendarServiceImpl calendar,
                                OrganizationService orgService,
                                JobSchedulerServiceImpl schedulerService,
+                               CalendarServiceImpl calendar,
                                ManageDriveService driveService) {
-    super(moxtra);
-    this.sessionProviderService = sessionProviderService;
-    this.hierarchyCreator = hierarchyCreator;
+    super(moxtra, sessionProviderService, hierarchyCreator, orgService, schedulerService);
     this.calendar = calendar;
-    this.orgService = orgService;
-    this.schedulerService = schedulerService;
     this.driveService = driveService;
   }
 
@@ -727,12 +633,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
                         String mimeType = rec.getContentType();
                         String fileExt = mimetypeResolver.getExtension(mimeType);
                         fileExt = (fileExt.length() > 0 ? "." + fileExt : fileExt);
-                        
+
                         // XXX hardcoded support for video/mp4 what Moxtra uses for meet videos
                         if (fileExt.length() == 0 && mimeType.indexOf("mp4") > 0) {
                           fileExt = ".mp4";
                         }
-                        
+
                         InputStream is = client.requestGet(rec.getDownloadLink(), rec.getContentType());
 
                         String numSuffix;
@@ -845,16 +751,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
           + event.getCalendarId() + ". " + e.getMessage(), e);
     }
     return null;
-  }
-
-  public void prepareJobEnvironment(JobDetail job) throws MoxtraCalendarException {
-    String exoUserId = job.getJobDataMap().getString(MoxtraMeetDownloadJob.DATA_USER_ID);
-    jobEnvironment.prepare(exoUserId);
-  }
-
-  public void cleanupJobEnvironment(JobDetail job) throws MoxtraCalendarException {
-    String exoUserId = job.getJobDataMap().getString(MoxtraMeetDownloadJob.DATA_USER_ID);
-    jobEnvironment.cleanup(exoUserId);
   }
 
   // ******* internals *******
@@ -1239,7 +1135,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     JobDetailImpl job = new JobDetailImpl();
 
     job.setName(jobName);
-    job.setGroup(MOXTRA_DOWNLOAD_JOB_GROUP_NAME);
+    job.setGroup(MOXTRA_JOB_GROUP_NAME);
     job.setJobClass(MoxtraMeetDownloadJob.class);
     job.setDescription("Download meet video in job");
 
@@ -1267,7 +1163,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     // video may be not available yet, thus job might need to be rescheduled, or need run it periodically
     SimpleTriggerImpl trigger = new SimpleTriggerImpl();
     trigger.setName(jobName);
-    trigger.setGroup(MOXTRA_DOWNLOAD_JOB_GROUP_NAME);
+    trigger.setGroup(MOXTRA_JOB_GROUP_NAME);
 
     // will try with a delay after meet end
     // use Moxtra calendar as we use theirs end time
@@ -1293,7 +1189,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     // new trigger with actual meet end time
     SimpleTriggerImpl trigger = new SimpleTriggerImpl();
     trigger.setName(jobName);
-    trigger.setGroup(MOXTRA_DOWNLOAD_JOB_GROUP_NAME);
+    trigger.setGroup(MOXTRA_JOB_GROUP_NAME);
 
     java.util.Calendar downloadTime = java.util.Calendar.getInstance();
     downloadTime.setTime(meet.getEndTime());
@@ -1304,12 +1200,12 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     downloadTime.add(java.util.Calendar.MINUTE, MoxtraMeetDownloadJob.MEET_DOWNLOAD_DELAY_MINUTES);
     trigger.setStartTime(downloadTime.getTime());
 
-    schedulerService.rescheduleJob(jobName, MOXTRA_DOWNLOAD_JOB_GROUP_NAME, trigger);
+    schedulerService.rescheduleJob(jobName, MOXTRA_JOB_GROUP_NAME, trigger);
   }
 
   protected void removeDownloadJob(CalendarEvent event, MoxtraMeet meet) throws Exception {
     String jobName = meetJobName(event, meet);
-    JobInfo jobInfo = new JobInfo(jobName, MOXTRA_DOWNLOAD_JOB_GROUP_NAME, MoxtraMeetDownloadJob.class);
+    JobInfo jobInfo = new JobInfo(jobName, MOXTRA_JOB_GROUP_NAME, MoxtraMeetDownloadJob.class);
     schedulerService.removeJob(jobInfo);
   }
 

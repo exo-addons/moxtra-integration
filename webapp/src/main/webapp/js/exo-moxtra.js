@@ -1540,6 +1540,7 @@
 			apiReady.done(function(api) {
 				var options = {
 					iframe : false,
+					video : true,
 					session_key : sessionKey,
 					start_meet : function(event) {
 						log("meet: start_meet " + JSON.stringify(event));

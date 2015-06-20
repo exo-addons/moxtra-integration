@@ -419,7 +419,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
     public void touch() throws MoxtraClientException, MoxtraException, RepositoryException {
       ensureBinderMember();
-      
+
       // Moxtra.currentUserName();
       runSyncJob(this);
     }
@@ -599,7 +599,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
           return;
         }
         MoxtraClient client = moxtra.getClient(userName);
-        
+
         // TODO binderNode already exists here, thus we could access it by UUID
         Node spaceNode = spaceNode();
         Node binderNode = JCR.getBinder(spaceNode);
@@ -614,14 +614,14 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         if (!JCR.isRefreshing(binderNode)) {
           JCR.markRefreshing(binderNode);
           binderNode.save();
-          
+
           // first validate all currently uploading pages
           for (NodeIterator pditer = JCR.findPageDocuments(spaceNode); pditer.hasNext();) {
             Node document = pditer.nextNode();
-            // this will force page node creation if it was created in Moxtra 
+            // this will force page node creation if it was created in Moxtra
             isPageNode(document, true);
           }
-          
+
           try {
             long timestamp;
             try {
@@ -698,47 +698,48 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
               for (PropertyIterator pageRefs = pageNode.getReferences(); pageRefs.hasNext();) {
                 Property pageRef = pageRefs.nextProperty();
                 Node document = pageRef.getParent();
+                if (!JCR.isPageContent(document)) {
+                  Node folder = document.getParent();
 
-                Node folder = document.getParent();
+                  String convoNodeName = convoName(document.getName(), "_conversation");
+                  Node convo, content;
+                  try {
+                    convo = folder.getNode(convoNodeName);
+                    content = convo.getNode("jcr:content");
+                  } catch (PathNotFoundException e) {
+                    convo = folder.addNode(convoNodeName, "nt:file");
+                    content = convo.addNode("jcr:content", "nt:resource");
+                  }
 
-                String convoNodeName = convoName(document.getName(), "_conversation");
-                Node convo, content;
-                try {
-                  convo = folder.getNode(convoNodeName);
-                  content = convo.getNode("jcr:content");
-                } catch (PathNotFoundException e) {
-                  convo = folder.addNode(convoNodeName, "nt:file");
-                  content = convo.addNode("jcr:content", "nt:resource");
+                  if (!JCR.isPageContent(convo)) {
+                    JCR.addPageContent(convo);
+                  }
+
+                  // get page content from Moxtra
+                  Content pageContent = client.downloadBinderPage(binder.getBinderId(), pageId);
+                  InputStream dataStream = pageContent.getContent();
+                  try {
+                    content.setProperty("jcr:mimeType", "application/pdf"); // pageContent.getContentType()
+                    java.util.Calendar created = java.util.Calendar.getInstance();
+                    created.setTime(feed.getPublishedTime());
+                    content.setProperty("jcr:lastModified", created);
+                    content.setProperty("jcr:data", dataStream);
+                    folder.save(); // save to let actions add mixins to new folder node
+                  } finally {
+                    dataStream.close();
+                  }
+
+                  // reference created conversation content to the document
+                  JCR.setContentRef(document, convo);
+                  document.save();// JCR.getContentRef(document)
+                  // reference conversation to the page
+                  JCR.setPageRef(convo, pageNode);
+                  String docName = documentName(document);
+                  String convoName = convoName(docName, " Conversation");
+                  convo.setProperty("exo:title", convoName);
+                  convo.setProperty("exo:name", convoName);
+                  convo.save();
                 }
-
-                if (!JCR.isPageContent(convo)) {
-                  JCR.addPageContent(convo);
-                }
-
-                // get page content from Moxtra
-                Content pageContent = client.downloadBinderPage(binder.getBinderId(), pageId);
-                InputStream dataStream = pageContent.getContent();
-                try {
-                  content.setProperty("jcr:mimeType", "application/pdf"); // pageContent.getContentType()
-                  java.util.Calendar created = java.util.Calendar.getInstance();
-                  created.setTime(feed.getPublishedTime());
-                  content.setProperty("jcr:lastModified", created);
-                  content.setProperty("jcr:data", dataStream);
-                  folder.save(); // save to let actions add mixins to new folder node
-                } finally {
-                  dataStream.close();
-                }
-
-                // reference created conversation content to the document
-                JCR.setContentRef(document, convo);
-                document.save();
-                // reference conversation to the page
-                JCR.setPageRef(convo, pageNode);
-                String docName = documentName(document);
-                String convoName = convoName(docName, " Conversation");
-                convo.setProperty("exo:title", convoName);
-                convo.setProperty("exo:name", convoName);
-                convo.save();
               }
 
               // find max timestamp
@@ -750,7 +751,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
             if (maxTimestamp > 0) {
               JCR.setRefreshedTime(binderNode, new Date(maxTimestamp));
-              //pagesNode.save(); // will save in finally below
+              // pagesNode.save(); // will save in finally below
             }
           } finally {
             JCR.markNotRefreshing(binderNode);
@@ -1521,7 +1522,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     if (nameEnd > 0) {
       cname.append(name.substring(0, nameEnd));
       cname.append(convoSuffix);
-      //cname.append(name.substring(nameEnd));
+      // cname.append(name.substring(nameEnd));
     } else {
       cname.append(name);
       cname.append(convoSuffix);

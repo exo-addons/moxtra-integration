@@ -888,7 +888,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     if (isNew) {
       JCR.setAutoRecording(meetNode, meet.isAutoRecording()); // using "is" for new meet
       // create local users
-      Node usersNode = JCR.addUsers(meetNode);
+      Node usersNode = JCR.addUsers(meetNode);//JCR.getUsers(meetNode)
       // add users from given list (of actual remote users)
       // XXX if meet already started (what is almost not possible - we just scheduled it), its
       // users will be empty, thus if such crap happened, we'll use local users (host user email

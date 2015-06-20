@@ -142,7 +142,7 @@
     </propertyDefinitions>
     <childNodeDefinitions>
       <childNodeDefinition name="moxtra:users" defaultPrimaryType="moxtra:usersList"
-        autoCreated="true" mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
+        autoCreated="false" mandatory="false" onParentVersion="COPY" protected="false" sameNameSiblings="false">
         <requiredPrimaryTypes>
           <requiredPrimaryType>moxtra:usersList</requiredPrimaryType>
         </requiredPrimaryTypes>

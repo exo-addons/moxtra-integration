@@ -663,7 +663,9 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
                       // new comment
                       // XXX what do we do with comments?
                       // pageId = feed.getTargetId();
-                      LOG.warn("Feed (post) not supported: " + feed);
+                      if (LOG.isDebugEnabled()) {
+                        LOG.debug("Feed (post) not supported: " + feed);
+                      }
                     } else if (feed.getVerb().equals(MoxtraFeed.VERB_CREATE)) {
                       // TODO new file
                       LOG.warn("Feed (create) not supported: " + feed);
@@ -671,7 +673,9 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
                     continue;
                   }
                 } else {
-                  LOG.warn("Feed not supported: " + feed);
+                  if (LOG.isDebugEnabled()) {
+                    LOG.debug("Feed not supported: " + feed);
+                  }
                 }
               }
             }
@@ -1332,35 +1336,22 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     }
   }
 
-  public MeetEvent createMeet(MoxtraBinderSpace binderSpace, MoxtraMeet meet) throws MoxtraClientException,
-                                                                             MoxtraSocialException,
-                                                                             RepositoryException,
-                                                                             MoxtraException {
+  public MeetEvent createMeet(MoxtraBinderSpace binderSpace, MoxtraMeet meet) throws Exception {
 
-    try {
-      String calendarId = moxtraCalendar.getCalendarIdFromGroupId(binderSpace.getSpace().getGroupId());
-      CalendarEvent event = moxtraCalendar.createMeet(calendarId, meet);
-      MeetEvent meetEvent = new MeetEvent(event, meet);
-      return meetEvent;
-    } catch (Exception e) {
-      throw new MoxtraSocialException("Error creating binder meet", e);
-    }
+    String calendarId = moxtraCalendar.getCalendarIdFromGroupId(binderSpace.getSpace().getGroupId());
+    CalendarEvent event;
+    event = moxtraCalendar.createMeet(calendarId, meet);
+    MeetEvent meetEvent = new MeetEvent(event, meet);
+    return meetEvent;
   }
 
-  public MeetEvent updateMeet(MoxtraBinderSpace binderSpace, String eventId) throws MoxtraClientException,
-                                                                            MoxtraSocialException,
-                                                                            RepositoryException,
-                                                                            MoxtraException {
+  public MeetEvent updateMeet(MoxtraBinderSpace binderSpace, String eventId) throws Exception {
 
-    try {
-      String calendarId = moxtraCalendar.getCalendarIdFromGroupId(binderSpace.getSpace().getGroupId());
-      CalendarEvent event = moxtraCalendar.refreshMeet(calendarId, eventId);
-      MoxtraMeet meet = moxtraCalendar.getMeet(event);
-      MeetEvent meetEvent = new MeetEvent(event, meet);
-      return meetEvent;
-    } catch (Exception e) {
-      throw new MoxtraSocialException("Error updating binder meet", e);
-    }
+    String calendarId = moxtraCalendar.getCalendarIdFromGroupId(binderSpace.getSpace().getGroupId());
+    CalendarEvent event = moxtraCalendar.refreshMeet(calendarId, eventId);
+    MoxtraMeet meet = moxtraCalendar.getMeet(event);
+    MeetEvent meetEvent = new MeetEvent(event, meet);
+    return meetEvent;
   }
 
   // ********* internals *********

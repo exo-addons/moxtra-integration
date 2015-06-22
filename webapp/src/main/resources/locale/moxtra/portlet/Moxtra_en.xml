@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<bundle>
+  <MoxtraBinderSpacePortlet>
+    <label>
+      <name>Moxtra</name>
+    </label>
+  </MoxtraBinderSpacePortlet>
+  <MoxtraBinderSpaceController>
+    <title>Moxtra conversation</title>
+    <meetButton>Meet</meetButton>
+    <startMeet>Start meet</startMeet>
+    <scheduleMeet>Schedule meet</scheduleMeet>
+    <selectScheduledMeet>Scheduled meets</selectScheduledMeet>
+    <settings>Settings</settings>
+    <settingsHint>Configure Moxtra Binder in settings</settingsHint>
+    <settingsTitle>Moxtra settings</settingsTitle>
+    <enableBinder>Enable Moxtra</enableBinder>
+    <enableBinderHint>Enable Moxtra conversations for this space</enableBinderHint>
+    <selectBinder>Moxtra Binder for conversations</selectBinder>
+    <openBinder>Open binder</openBinder>
+    <newBinderHint>Create new Binder</newBinderHint>
+    <selectBinderHint>Use existing Binder</selectBinderHint>
+    <autocreateUsers>Create new users in Binder</autocreateUsers>
+    <autocreateUsersHint>Automatically create new space users in Moxtra Binder</autocreateUsersHint>
+    <syncComments>Synchronize comments with Binder</syncComments>
+    <syncCommentsHints>Automatically synchronize comments with Moxtra Binder</syncCommentsHints>
+    <save>Save</save>
+    <meetSettings>Meet settings</meetSettings>
+    <meetTopic>Topic</meetTopic>
+    <meetTopicHint>Define a topic of your meet</meetTopicHint>
+    <meetAgenda>Agenda</meetAgenda>
+    <meetAgendaHint>Describe your meet agenda</meetAgendaHint>
+    <meetStartTime>Start time</meetStartTime>
+    <meetStartTimeHint>Choose meet start-time</meetStartTimeHint>
+    <meetEndTime>End time</meetEndTime>
+    <meetEndTimeHint>Choose meet end-time</meetEndTimeHint>
+    <meetParticipants>Invite meet participants</meetParticipants>
+    <meetMoxtraContacts>Moxtra contacts</meetMoxtraContacts>
+    <meetSpaceMembers>Space members</meetSpaceMembers>
+    <meetEmails>Invite by email</meetEmails>
+    <meetAutorec>Record automatically</meetAutorec>
+    <meetCreating>Please wait, your meeting is creating...</meetCreating>
+    <meetCreated>Your meet created successfully!</meetCreated>
+    <meetLink>Meet link in Moxtra</meetLink>
+    <meetEvent>Meet scheduled in the space calendar</meetEvent>
+    <meetOpenEvent>Open space calendar</meetOpenEvent>
+    <meetStart>Start meet</meetStart>
+    <cancel>Cancel</cancel>
+    <start>Start</start>
+    <schedule>Schedule</schedule>
+  </MoxtraBinderSpaceController>
+</bundle>

@@ -217,6 +217,9 @@ public class BinderSpaceService implements ResourceContainer {
     } catch (RepositoryException e) {
       LOG.error("Error updating meet " + spaceName + "/" + eventId, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error updating meet event")).build();
+    } catch (Exception e) {
+      LOG.error("Error updating meet in '" + spaceName + "' space", e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error updating meet in space")).build();
     }
   }
 
@@ -308,6 +311,9 @@ public class BinderSpaceService implements ResourceContainer {
     } catch (RepositoryException e) {
       LOG.error("Error saving meet in '" + spaceName + "' space", e);
       return Response.serverError().entity(ErrorInfo.serverError("Error saving meet in space")).build();
+    } catch (Exception e) {
+      LOG.error("Error creating meet in '" + spaceName + "' space", e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error creating meet in space")).build();
     }
   }
 

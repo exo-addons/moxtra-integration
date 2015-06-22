@@ -132,7 +132,6 @@
           <include>**/*.css</include>
           <include>**/*.js</include>
           <include>**/*.pom</include>
-          <include>**/*.sha1</include>
           <include>**/*.conf</include>
           <include>**/*.gtmpl</include>
           <include>**/*.gif</include>

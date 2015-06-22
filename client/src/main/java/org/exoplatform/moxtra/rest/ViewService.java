@@ -18,12 +18,8 @@
  */
 package org.exoplatform.moxtra.rest;
 
-import net.oauth.OAuthProblemException;
-
 import org.apache.commons.io.IOUtils;
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.moxtra.MoxtraService;
-import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.resources.ResourceBundleService;
@@ -51,6 +47,7 @@ import javax.ws.rs.core.UriInfo;
 
 /**
  * Moxtra Javascript View Components services handled by eXo server-side client.<br>
+ * TODO move this functionality to standalone Juzu app (for templates, i18n etc.)
  * 
  * Created by The eXo Platform SAS
  * 
@@ -60,6 +57,7 @@ import javax.ws.rs.core.UriInfo;
  */
 @Path("/moxtra")
 @Produces(MediaType.TEXT_HTML)
+@Deprecated
 public class ViewService implements ResourceContainer {
 
   protected static final Log            LOG = ExoLogger.getLogger(ViewService.class);
@@ -120,25 +118,11 @@ public class ViewService implements ResourceContainer {
       pageText = pageText.replace("&{Moxtra.loginMoxtra}",
                                   getString("Moxtra.loginMoxtra", request.getLocale()));
 
-//      MoxtraClient client = moxtra.getClient();
-//      if (!client.isAuthorized()) {
-//        // Moxtra auth URL
-//        try {
-//          pageText = pageText.replace("${authLink}", client.authorizer().authorizationLink());
-//        } catch (OAuthSystemException e) {
-//          LOG.error("Error preparing page view: " + e.getMessage(), e);
-//          return Response.status(Status.INTERNAL_SERVER_ERROR).entity("Error preparing page view").build();
-//        }
-//      }
-
       return Response.ok().entity(pageText).build();
     } else {
       // redirect not authorized user to portal login
       URI requestUri = uriInfo.getAbsolutePath();
-      // https://peter.exoplatform.com.ua:8443/portal/login?initialURI=%2Fportal%2Fintranet%2F
-      // String scheme,
-      // String userInfo, String host, int port,
-      // String path, String query, String fragment
+      // Should be like: https://peter.exoplatform.com.ua:8443/portal/login?initialURI=%2Fportal%2Fintranet%2F
       try {
         URI loginUrl = new URI(requestUri.getScheme(), null, // userInfo
                                requestUri.getHost(),

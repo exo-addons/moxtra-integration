@@ -218,6 +218,7 @@
 
 						// init meets
 						var $meetPopup = $data.find("#moxtra-binder-meet");
+						var $meetMessage = $meetPopup.find(".meetMessage");
 						var $startMenu = $data.find(".dropdown a.meetStartMenu");
 						var $scheduleMenu = $data.find(".dropdown a.meetScheduleMenu");
 						var $meetStart = $meetPopup.find(".meetStart");
@@ -246,14 +247,14 @@
 							var now = new Date();
 							var startTime = startPicker.getDate();
 							if (startTime.getTime() - now.getTime() <= 0) {
-								now.setMinutes(now.getMinutes() + 5);
+								now.setTime(now.getTime() + (5 * 60000));
 								startTime = now;
 								startPicker.setDate(startTime);
 							}
 							var endTime = endPicker.getDate();
 							if (endTime.getTime() - startTime.getTime() <= 0) {
 								var newEndTime = new Date(startTime.getTime());
-								newEndTime.setMinutes(newEndTime.getMinutes() + (timeStep * 2));
+								newEndTime.setTime(newEndTime.getTime() + (timeStep * 3 * 60000));
 								endPicker.setDate(newEndTime);
 								log("meetEndTime fixed: " + e.date.toString() + " -> " + newEndTime.toString());
 							}
@@ -263,7 +264,7 @@
 							var endTime = endPicker.getDate();
 							if (endTime.getTime() - startTime.getTime() <= 0) {
 								var newStartTime = new Date(endTime.getTime());
-								newStartTime.setMinutes(newStartTime.getMinutes() - timeStep);
+								newStartTime.setTime(newStartTime.getTime() - (timeStep * 60000));
 								startPicker.setDate(newStartTime);
 								log("meetStartTime fixed: " + e.date.toString() + " -> " + newStartTime.toString());
 							}
@@ -282,36 +283,34 @@
 
 							// dates
 							var startTime = new Date();
-							startTime.setMinutes(startTime.getMinutes() + 5);
+							startTime.setTime(startTime.getTime() + (5 * 60000));
 							startPicker.setDate(startTime);
 							var endTime = new Date();
-							endTime.setMinutes(startTime.getMinutes() + 35);
+							endTime.setTime(startTime.getTime() + (35 * 60000));
 							endPicker.setDate(endTime);
 						}
 
 						// show and process a meet
 						function openMeet(startNow) {
-							var $message = $meetPopup.find(".meetMessage");
-
 							// validation first
 							var topic = $form.find("input[name='meetTopic']").val();
 							if (!topic) {
-								showError("Meet topic required", $message);
+								showError("Meet topic required", $meetMessage);
 								return false;
 							}
 
 							var startTime;
 							var endTime;
-							if (startNow) {
-								// quick meet for about 30min
-								startTime = new Date();
-								startTime.setMinutes(startTime.getMinutes() + 5);
-								endTime = new Date();
-								endTime.setMinutes(startTime.getMinutes() + 35);
-							} else {
-								startTime = startPicker.getDate();
-								endTime = endPicker.getDate();
-							}
+							// if (startNow) {
+							// // quick meet for about 30min
+							// startTime = new Date();
+							// startTime.setTime(startTime.getTime() + (5 * 60000));
+							// endTime = new Date();
+							// endTime.setTime(startTime.getTime() + (35 * 60000));
+							// } else {
+							startTime = startPicker.getDate();
+							endTime = endPicker.getDate();
+							// }
 							var participants = $form.find(".meetSpaceMembers select[name='meetParticipants']").val();
 							if (!participants) {
 								participants = [];
@@ -341,7 +340,7 @@
 								}
 							}
 							if (participants.length <= 0) {
-								showError("At least one participant required", $message);
+								showError("At least one participant required", $meetMessage);
 								return false;
 							}
 
@@ -373,7 +372,7 @@
 									}, function(response) {
 										var $msg = $updated.find(".messageText");
 										if ($msg.length > 0) {
-											showError($msg, $message);
+											showError($msg, $meetMessage);
 										} else {
 											// TODO show updated info somewhere?
 										}
@@ -394,7 +393,7 @@
 												refreshMeet();
 											},
 											error : function(event) {
-												showError(event.error_message + " (" + event.error_code + ")", $message);
+												showError(event.error_message + " (" + event.error_code + ")", $meetMessage);
 											}
 										});
 									});
@@ -423,7 +422,7 @@
 								}, function(response) {
 									var $msg = $created.find(".messageText");
 									if ($msg.length > 0) {
-										showError($msg, $message);
+										showError($msg, $meetMessage);
 
 										// get back to first pane, start button stays hidden
 										//$meetStart.hide();
@@ -447,22 +446,26 @@
 							}
 						}
 
+						function initMeet($button) {
+							var spaceMembers = $form.find(".meetMoxtraContacts").jzLoad("MoxtraBinderSpaceController.spaceMembersList()");
+							var moxtraContacts = $form.find(".meetSpaceMembers").jzLoad("MoxtraBinderSpaceController.contactsList()");
+							$.when(spaceMembers, moxtraContacts).done(function() {
+								$button.click(function(ev) {
+									ev.preventDefault();
+									openMeet(true);
+								});
+								$button.removeAttr("disabled");
+							});
+							hideError();
+							hideError($meetMessage);
+							resetMeet();
+						}
+
 						// start/schedule button actions
 						$startMenu.click(function() {
 							// Start meet action
-							hideError();
-							hideError($message);
-							resetMeet();
-							// load current user contacts
-							$form.find(".meetMoxtraContacts").jzLoad("MoxtraBinderSpaceController.contactsList()", function(response) {
-								$form.find(".meetSpaceMembers").jzLoad("MoxtraBinderSpaceController.spaceMembersList()", function(response) {
-									$meetStart.click(function(ev) {
-										ev.preventDefault();
-										hideError($message);
-										openMeet(true);
-									});
-								});
-							});
+							$meetStart.attr("disabled", true);
+							initMeet($meetStart);
 							$meetStart.show();
 							$meetTime.hide();
 							$meetSchedule.hide();
@@ -470,21 +473,10 @@
 						});
 						$scheduleMenu.click(function() {
 							// Schedule meet action
-							hideError();
-							hideError($message);
-							resetMeet();
-							// load current user contacts
-							$form.find(".meetMoxtraContacts").jzLoad("MoxtraBinderSpaceController.contactsList()", function(response) {
-								$form.find(".meetSpaceMembers").jzLoad("MoxtraBinderSpaceController.spaceMembersList()", function(response) {
-									$meetSchedule.click(function(ev) {
-										ev.preventDefault();
-										hideError($message);
-										openMeet(true);
-									});
-								});
-							});
-							$meetTime.show();
+							$meetSchedule.attr("disabled", true);
+							initMeet($meetSchedule);
 							$meetSchedule.show();
+							$meetTime.show();
 							$meetStart.hide();
 							$meetPopup.modal("show");
 						});

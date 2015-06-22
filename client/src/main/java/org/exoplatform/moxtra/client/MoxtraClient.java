@@ -1097,9 +1097,9 @@ public class MoxtraClient {
           authorizer = new OAuth2Authorizer();
           if (isSSOAuth()) {
             try {
-              User user = orgService.getUserHandler().findUserByName(exoUserName);
-              if (user != null) {
-                authorizer.authorizeOrg(exoUserName, user.getFirstName(), user.getLastName());
+              User exoUser = findExoUser(exoUserName);
+              if (exoUser != null) {
+                authorizer.authorizeOrg(exoUserName, exoUser.getFirstName(), exoUser.getLastName());
               } else {
                 LOG.error("User not found in organization service " + exoUserName
                     + ". Moxtra SSO not possible.");
@@ -3214,6 +3214,13 @@ public class MoxtraClient {
           binderUser = bu;
           break;
         }
+        // XXX we try also by user name in binder as Moxtra doesn't return meet
+        // participant unique_id/email when inviting by unique_id in SSO mode,
+        // but binder may contain such user obtained by its user id from Moxtra
+        if (userName != null && userName.equals(bu.getName())) {
+          binderUser = bu;
+          break;
+        }
       }
 
       MoxtraUser user;
@@ -3513,17 +3520,27 @@ public class MoxtraClient {
       }
     }
 
-    String userEmail;
+    String id;
+    JsonValue vuid = vu.getElement("id");
+    if (isNotNull(vuid)) {
+      id = vuid.getStringValue();
+    } else {
+      id = null;
+    }
+    String email;
     JsonValue vuemail = vu.getElement("email");
     if (isNotNull(vuemail)) {
-      userEmail = vuemail.getStringValue();
+      email = vuemail.getStringValue();
+      if (email.trim().length() == 0) {
+        email = null;
+      }
     } else {
-      userEmail = null;
+      email = null;
     }
     String name;
     JsonValue vuname = vu.getElement("name");
     if (isNull(vuname)) {
-      name = userEmail;
+      name = email;
     } else {
       name = vuname.getStringValue();
     }
@@ -3554,26 +3571,19 @@ public class MoxtraClient {
     if (isNotNull(vuuid) && (uniqueId = vuuid.getStringValue()).length() > 0) {
       // find user data in eXo organization and use it
       try {
-        User user = orgService.getUserHandler().findUserByName(uniqueId);
-        if (user == null && userEmail != null && userEmail.length() > 0) {
+        User exoUser = findExoUser(uniqueId);
+        if (exoUser == null && email != null && email.length() > 0) {
           // try by email if available
           Query query = new Query();
-          query.setEmail(userEmail);
-          ListAccess<User> emailUsers = orgService.getUserHandler().findUsersByQuery(query);
-          if (emailUsers.getSize() > 0) {
-            // XXX use first occurrence
-            user = emailUsers.load(0, 1)[0];
-          }
-          if (allowRemoteOrgUsers) {
-            // we show this user with email
-            uniqueId = null;
-          }
+          query.setEmail(email);
+          exoUser = findExoUser(query);
+          uniqueId = null; // this user will appear with email
         }
-        if (user != null) {
-          userEmail = user.getEmail();
-          firstName = user.getFirstName();
-          lastName = user.getLastName();
-          name = fullName(user);
+        if (exoUser != null) {
+          email = exoUser.getEmail();
+          firstName = exoUser.getFirstName();
+          lastName = exoUser.getLastName();
+          name = fullName(exoUser);
         } else {
           if (allowRemoteOrgUsers) {
             // ignore this user
@@ -3588,10 +3598,6 @@ public class MoxtraClient {
         throw new MoxtraClientException("Error searching user in organization service '" + uniqueId + "'", e);
       }
     } else {
-      // check if name and email exist (for standard OAuth2 user, not SSO)
-      if (userEmail == null) {
-        throw new MoxtraException("Request doesn't return user email");
-      }
       uniqueId = null;
     }
     String orgId;
@@ -3612,19 +3618,73 @@ public class MoxtraClient {
         orgId = null;
       }
     }
-    String userId;
-    JsonValue vuid = vu.getElement("id");
-    if (isNotNull(vuid)) {
-      userId = vuid.getStringValue();
-    } else {
-      userId = null;
+
+    if (uniqueId == null && email == null) {
+      if (id != null) {
+        // XXX we have no unique_id or email but have Moxtra user id, try get an user by this id
+        if (LOG.isDebugEnabled()) {
+          LOG.debug("User without email and unique_id, try get it from Moxtra by id: " + vu);
+        }
+        try {
+          MoxtraUser moxtraUser = getUser(id);
+          // use required fields only, let type be from the original response (for binder/meet member types)
+          uniqueId = moxtraUser.getUniqueId();
+          email = moxtraUser.getEmail();
+          if (isSSOAuth()) {
+            if (moxtraUser.getOrgId() != null) {
+              orgId = moxtraUser.getOrgId();
+            } else if (isSingleOrg()) {
+              orgId = this.orgId;
+            }
+          }
+          firstName = moxtraUser.getFirstName();
+          lastName = moxtraUser.getLastName();
+        } catch (MoxtraException e) {
+          // error getting user by id...
+          String[] fullName = name.trim().split(" ");
+          if (isSSOAuth() && fullName.length > 0) {
+            // try find by first/last names in eXo org
+            Query query = new Query();
+            query.setFirstName(fullName[0]);
+            if (fullName.length > 1) {
+              query.setLastName(fullName[1]);
+            }
+            try {
+              User exoUser = findExoUser(query);
+              if (exoUser != null) {
+                uniqueId = exoUser.getUserName(); // XXX we assume it is the same in Moxtra
+                email = exoUser.getEmail();
+                firstName = exoUser.getFirstName();
+                lastName = exoUser.getLastName();
+                if (LOG.isDebugEnabled()) {
+                  LOG.debug("Moxtra user (without email and unique_id) found in eXo organization by first/last name (" + name + "): "
+                      + uniqueId + " (" + email + ")");
+                }
+              } else {
+                LOG.warn("Moxtra user (without email and unique_id) not found in eXo organization by first/last name ("
+                    + name + ")");
+                return null; // tolerant in SSO mode
+              }
+            } catch (Exception oe) {
+              LOG.warn("Error searching user in organization service '" + name + "'. " + e.getMessage());
+              return null; // tolerant in SSO mode
+            }
+          } else {
+            throw new MoxtraException("Error getting user (without email and unique_id) by Moxtra id: " + id
+                + ". " + e.getMessage(), e);
+          }
+        }
+      } else {
+        // email should exist for standard OAuth2 user
+        throw new MoxtraException("Request doesn't return user email or id");
+      }
     }
 
-    MoxtraUser user = new MoxtraUser(userId,
+    MoxtraUser user = new MoxtraUser(id,
                                      uniqueId,
                                      orgId,
                                      name,
-                                     userEmail,
+                                     email,
                                      firstName,
                                      lastName,
                                      pictureUri,
@@ -3677,6 +3737,22 @@ public class MoxtraClient {
       }
     }
     return new String(encode).trim();
+  }
+
+  protected User findExoUser(String userName) throws Exception {
+    return orgService.getUserHandler().findUserByName(userName);
+  }
+
+  protected User findExoUser(Query query) throws Exception {
+    ListAccess<User> users = orgService.getUserHandler().findUsersByQuery(query);
+    if (users.getSize() > 0) {
+      for (User user : users.load(0, users.getSize())) {
+        if (user != null) {
+          return user;
+        }
+      }
+    }
+    return null;
   }
 
 }

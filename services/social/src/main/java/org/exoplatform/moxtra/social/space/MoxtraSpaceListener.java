@@ -44,18 +44,8 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    * {@inheritDoc}
    */
   @Override
-  public void spaceAccessEdited(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
   public void spaceCreated(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO what we could do here?
   }
 
   /**
@@ -63,53 +53,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void spaceRemoved(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void applicationActivated(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void applicationAdded(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void applicationDeactivated(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void applicationRemoved(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void grantedLead(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO remove space binder if created an one
   }
 
   /**
@@ -117,8 +61,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void joined(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Auto-join space user(s) to its binder if enabled
   }
 
   /**
@@ -126,17 +69,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void left(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void revokedLead(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Remove user from the space binder if enabled
   }
 
   /**
@@ -144,17 +77,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void spaceRenamed(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
-  }
-
-  /**
-   * {@inheritDoc}
-   */
-  @Override
-  public void spaceDescriptionEdited(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Rename binder if enabled
   }
 
   /**
@@ -162,8 +85,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void spaceAvatarEdited(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Update space's finder avatar if enabled
   }
 
   /**
@@ -171,8 +93,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void addInvitedUser(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Auto-join user to binder if enabled
   }
 
   /**
@@ -180,8 +101,70 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void addPendingUser(SpaceLifeCycleEvent event) {
-    // TODO Auto-generated method stub
-
+    // TODO Auto-join user to binder if enabled
   }
 
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void spaceDescriptionEdited(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void revokedLead(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void applicationActivated(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void applicationAdded(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void applicationDeactivated(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void applicationRemoved(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void grantedLead(SpaceLifeCycleEvent event) {
+    // nothing
+  }
+
+  /**
+   * {@inheritDoc}
+   */
+  @Override
+  public void spaceAccessEdited(SpaceLifeCycleEvent event) {
+    // nothing
+  }
 }

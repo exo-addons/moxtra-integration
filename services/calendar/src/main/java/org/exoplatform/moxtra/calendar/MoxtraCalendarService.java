@@ -66,6 +66,7 @@ import java.util.Date;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.MissingResourceException;
 import java.util.Queue;
 import java.util.Set;
 import java.util.concurrent.ConcurrentLinkedQueue;
@@ -286,6 +287,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
         // it's eXo user
         parts.add(uid);
         partStatuses.add(uid + ":");
+        reminded.add(user.getEmail());
       } else {
         // invited by email or Moxtra user
         String email = user.getEmail();
@@ -309,7 +311,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       email.setReminderType(Reminder.TYPE_EMAIL);
       email.setReminderOwner(userName);
 
-      // email.setAlarmBefore(Long.parseLong(getEmailRemindBefore())) ;
       StringBuffer sbAddress = new StringBuffer();
       for (String s : reminded) {
         if (sbAddress.length() > 0) {
@@ -319,7 +320,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
       }
       email.setEmailAddress(sbAddress.toString());
       email.setRepeate(false);
-      // email.setRepeatInterval(Long.parseLong(getEmailRepeatInterVal()));
+      email.setAlarmBefore(15); // remind by email before 15min the start
       email.setFromDateTime(startTime);
       event.setReminders(Collections.singletonList(email));
     }
@@ -389,9 +390,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
           event.setDescription(meet.getAgenda());
           // TODO need update perticipants?
 
-          // save the event (this will fire saveEventMeet() when running in calendar)
-          calendar.savePublicEvent(calendarId, event, false);
-
           // manage auto-rec downloads
           // if auto-record enabled and end time changed
           boolean updateVideoDownload = meet.isAutoRecording() && !meet.getEndTime().equals(localEndTime);
@@ -403,6 +401,16 @@ public class MoxtraCalendarService extends BaseMoxtraService {
           } else if (updateVideoDownload) {
             // update scheduled meet video download (for time)
             updateDownloadJob(event, meet);
+          }
+
+          // save the event at last point (this will fire saveEventMeet() when running in calendar)
+          try {
+            calendar.savePublicEvent(calendarId, event, false);
+          } catch (MissingResourceException e) {
+            // XXX ignore i18n errors (may be thrown when running in Juzu portlet as it doesn't run as
+            // PlatformPortletApplication, it does as PlatformPortalApplication, and thus has no resources
+            // from integ* config, e.g. for CalendarSpaceActivityPublisher)
+            LOG.warn("Error saving calendar event: " + e.getMessage(), e);
           }
 
           return event;
@@ -888,7 +896,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     if (isNew) {
       JCR.setAutoRecording(meetNode, meet.isAutoRecording()); // using "is" for new meet
       // create local users
-      Node usersNode = JCR.addUsers(meetNode);//JCR.getUsers(meetNode)
+      Node usersNode = JCR.addUsers(meetNode);// JCR.getUsers(meetNode)
       // add users from given list (of actual remote users)
       // XXX if meet already started (what is almost not possible - we just scheduled it), its
       // users will be empty, thus if such crap happened, we'll use local users (host user email

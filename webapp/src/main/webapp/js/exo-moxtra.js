@@ -825,9 +825,9 @@
 									var uinfo = user.email + "+" + user.userName;
 									// personal talk for about 30min
 									var startTime = new Date();
-									startTime.setMinutes(startTime.getMinutes() + 1);
+									startTime.setTime(startTime.getTime() + 60000);
 									var endTime = new Date();
-									endTime.setMinutes(startTime.getMinutes() + 30);
+									endTime.setTime(startTime.getTime() + (30 * 60000));
 									// mark cursor loading
 									var cursorCss = $button.css("cursor");
 									$button.css("cursor", "wait");

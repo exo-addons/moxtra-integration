@@ -31,10 +31,10 @@ http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd">
     <portlet-name>MoxtraBinderSpacePortlet</portlet-name>
     <display-name xml:lang="EN">Moxtra</display-name>
     <portlet-class>org.exoplatform.moxtra.social.portlet.MoxtraBinderSpacePortlet</portlet-class>
-    <init-param>
+    <!-- init-param>
       <name>webui.configuration</name>
       <value>/WEB-INF/conf/portlet/MoxtraBinderSpacePortlet/webui/configuration.xml</value>
-    </init-param>
+    </init-param -->
     <init-param>
       <name>juzu.app_name</name>
       <value>org.exoplatform.moxtra.social.portlet</value>
@@ -48,7 +48,7 @@ http://java.sun.com/xml/ns/portlet/portlet-app_2_0.xsd">
     </supports>
      
     <!-- <supported-locale>en</supported-locale> -->
-    <resource-bundle>locale.moxtra.social.Moxtra</resource-bundle>
+    <resource-bundle>locale.moxtra.portlet.Moxtra</resource-bundle>
     <portlet-info>
       <title>Moxtra Binder for Social space</title>
       <keywords>Moxtra Binder Space</keywords>

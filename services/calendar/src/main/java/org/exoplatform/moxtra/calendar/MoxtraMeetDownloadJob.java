@@ -40,6 +40,8 @@ import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.util.Calendar;
 
+import javax.jcr.PathNotFoundException;
+
 /**
  * Created by The eXo Platform SAS
  * 
@@ -97,116 +99,131 @@ public class MoxtraMeetDownloadJob extends BaseMoxtraJob {
    */
   @Override
   public void execute(JobExecutionContext context) throws JobExecutionException {
-    JobDetail job = context.getJobDetail();
-    JobDataMap data = job.getJobDataMap();
-
-    ExoContainer container = ExoContainerContext.getCurrentContainer();
-    CalendarService calendar = (CalendarService) container.getComponentInstance(CalendarService.class);
-    MoxtraCalendarService moxtra = (MoxtraCalendarService) container.getComponentInstance(MoxtraCalendarService.class);
-
     try {
+      JobDetail job = context.getJobDetail();
+      JobDataMap data = job.getJobDataMap();
+
+      ExoContainer container = ExoContainerContext.getCurrentContainer();
+      CalendarService calendar = (CalendarService) container.getComponentInstance(CalendarService.class);
+      MoxtraCalendarService moxtra = (MoxtraCalendarService) container.getComponentInstance(MoxtraCalendarService.class);
+
+      String exoUserId = data.getString(DATA_USER_ID);
+      String calType = data.getString(DATA_CALENDAR_TYPE);
+      String calId = data.getString(DATA_CALENDAR_ID);
+      String eventId = data.getString(DATA_EVENT_ID);
+      Long attempts = data.getLong(DATA_DOWNLOAD_ATTEMPTS);
+
       moxtra.prepareJobEnvironment(job);
       try {
-        String exoUserId = data.getString(DATA_USER_ID);
-        String calType = data.getString(DATA_CALENDAR_TYPE);
-        String calId = data.getString(DATA_CALENDAR_ID);
-        String eventId = data.getString(DATA_EVENT_ID);
-        Long attempts = data.getLong(DATA_DOWNLOAD_ATTEMPTS);
         CalendarEvent event;
-        if (String.valueOf(org.exoplatform.calendar.service.Calendar.TYPE_PUBLIC).equals(calType)) {
-          event = calendar.getGroupEvent(calId, eventId);
-        } else {
-          // user calendar
-          event = calendar.getEvent(exoUserId, eventId);
+        try {
+          if (String.valueOf(org.exoplatform.calendar.service.Calendar.TYPE_PUBLIC).equals(calType)) {
+            event = calendar.getGroupEvent(calId, eventId);
+          } else {
+            // user calendar
+            event = calendar.getEvent(exoUserId, eventId);
+          }
+        } catch (PathNotFoundException e) {
+          LOG.warn("Meet event " + eventId + " not found in " + calId + ". Recordings download job "
+              + context.getJobDetail().getKey() + " canceled due to error: " + e.getMessage());
+          return;
         }
         if (event != null) {
-          String status;
           try {
-            status = moxtra.downloadMeetVideo(exoUserId, event);
-          } catch (MoxtraCalendarException e) {
-            Throwable cause = e.getCause();
-            if (cause != null && cause instanceof OAuthSystemException) {
-              cause = cause.getCause();
-              if (cause != null && cause.getClass().getPackage().getName().startsWith("java.net")) {
-                // XXX if OAuth system error was caused by network exception (java.net.*) then postpone the
-                // job for later time
-                // TODO Should we do limited number of attempts for network error?
-                // if (attempts < MEET_DOWNLOAD_ATTEMPTS_MAX) {
-                attempts++;
-                LOG.warn("Network error while downloading meet video recordings " + cause.getMessage()
-                    + ". Download will be rescheduled for " + event.getSummary() + " in " + calId
-                    + ", attempt #" + attempts);
-                status = MEET_STATUS_UNDEFINED;
+            String status;
+            try {
+              status = moxtra.downloadMeetVideo(exoUserId, event);
+            } catch (MoxtraCalendarException e) {
+              Throwable cause = e.getCause();
+              if (cause != null && cause instanceof OAuthSystemException) {
+                cause = cause.getCause();
+                if (cause != null && cause.getClass().getPackage().getName().startsWith("java.net")) {
+                  // XXX if OAuth system error was caused by network exception (java.net.*) then postpone the
+                  // job for later time
+                  // TODO Should we do limited number of attempts for network error?
+                  // if (attempts < MEET_DOWNLOAD_ATTEMPTS_MAX) {
+                  attempts++;
+                  LOG.warn("Network error while downloading meet recordings " + cause.getMessage()
+                      + ". Download will be rescheduled for " + event.getSummary() + " in " + calId
+                      + ", attempt #" + attempts);
+                  status = MEET_STATUS_UNDEFINED;
+                } else {
+                  throw e;
+                }
               } else {
                 throw e;
               }
+            }
+            if (status != null
+                && (MoxtraMeet.SESSION_SCHEDULED.equals(status) || MoxtraMeet.SESSION_STARTED.equals(status)
+                    || MEET_STATUS_UNDEFINED.equals(status) || MEET_STATUS_NOT_PROCESSED.equals(status))) {
+              JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerService.class);
+
+              String jobName = job.getKey().getName();
+              String jobGroup = job.getKey().getGroup();
+
+              // new job
+              JobDetailImpl newJob = new JobDetailImpl();
+              newJob.setName(jobName);
+              newJob.setGroup(jobGroup);
+              newJob.setJobClass(job.getJobClass());
+              newJob.setDescription(newJob.getDescription());
+              newJob.getJobDataMap().putAll(job.getJobDataMap());
+              // update incremented attempts
+              newJob.getJobDataMap().put(DATA_DOWNLOAD_ATTEMPTS, attempts);
+
+              // schedule the new job in step min
+              SimpleTriggerImpl trigger = new SimpleTriggerImpl();
+              trigger.setName(jobName);
+              trigger.setGroup(jobGroup);
+              // use default calendar as we don't rely on meet end time anymore
+              Calendar downloadTime = Calendar.getInstance();
+              downloadTime.add(Calendar.MINUTE, MEET_DOWNLOAD_ATTEMPT_DELAY_MINUTES);
+              trigger.setStartTime(downloadTime.getTime());
+
+              schedulerService.addJob(job, trigger);
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Meet recordings download for event '" + event.getSummary() + "' in " + calId
+                    + " not ready and rescheduled to " + downloadTime.getTime() + ", attempt #" + attempts);
+              }
+            } else if (MoxtraMeet.SESSION_DELETED.equals(status)) {
+              LOG.warn("Meet for event '" + event.getSummary() + "' in " + calId
+                  + " was deleted and recordings cannot be download.");
+            } else if (MoxtraMeet.SESSION_ENDED.equals(status)) {
+              // OK, it's job done
+              if (LOG.isDebugEnabled()) {
+                LOG.debug("Meet recordings download completed for event '" + event.getSummary() + "' in "
+                    + calId + ".");
+              }
+            } else if (MEET_STATUS_DOWNLOADING.equals(status)) {
+              // it's OK, nothing to do
+              LOG.warn("Meet recordings is downloading currently for event '" + event.getSummary() + "' in "
+                  + calId + ". Recordings download canceled.");
+            } else if (MEET_STATUS_DOWNLOADED.equals(status)) {
+              // it's OK, nothing to do
+              LOG.warn("Meet recordings already downloaded for event '" + event.getSummary() + "' in "
+                  + calId + ". Recordings download canceled.");
             } else {
-              throw e;
+              LOG.warn("Unefined meet status '" + status + "'. Meet recordings download for event "
+                  + event.getSummary() + " in " + calId + " canceled.");
             }
-          }
-          if (status != null
-              && (MoxtraMeet.SESSION_SCHEDULED.equals(status) || MoxtraMeet.SESSION_STARTED.equals(status)
-                  || MEET_STATUS_UNDEFINED.equals(status) || MEET_STATUS_NOT_PROCESSED.equals(status))) {
-            JobSchedulerServiceImpl schedulerService = (JobSchedulerServiceImpl) container.getComponentInstance(JobSchedulerService.class);
-
-            String jobName = job.getKey().getName();
-            String jobGroup = job.getKey().getGroup();
-
-            // new job
-            JobDetailImpl newJob = new JobDetailImpl();
-            newJob.setName(jobName);
-            newJob.setGroup(jobGroup);
-            newJob.setJobClass(job.getJobClass());
-            newJob.setDescription(newJob.getDescription());
-            newJob.getJobDataMap().putAll(job.getJobDataMap());
-            // update incremented attempts
-            newJob.getJobDataMap().put(DATA_DOWNLOAD_ATTEMPTS, attempts);
-
-            // schedule the new job in step min
-            SimpleTriggerImpl trigger = new SimpleTriggerImpl();
-            trigger.setName(jobName);
-            trigger.setGroup(jobGroup);
-            // use default calendar as we don't rely on meet end time anymore
-            Calendar downloadTime = Calendar.getInstance();
-            downloadTime.add(Calendar.MINUTE, MEET_DOWNLOAD_ATTEMPT_DELAY_MINUTES);
-            trigger.setStartTime(downloadTime.getTime());
-
-            schedulerService.addJob(job, trigger);
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Meet recordings download for event '" + event.getSummary() + "' in " + calId
-                  + " not ready and rescheduled to " + downloadTime.getTime() + ", attempt #" + attempts);
-            }
-          } else if (MoxtraMeet.SESSION_DELETED.equals(status)) {
-            LOG.warn("Meet for event " + event.getSummary() + " in " + calId
-                + " was deleted and video recordings cannot be download.");
-          } else if (MoxtraMeet.SESSION_ENDED.equals(status)) {
-            // OK, it's job done
-            if (LOG.isDebugEnabled()) {
-              LOG.debug("Meet recordings download completed for event '" + event.getSummary() + "' in "
-                  + calId + ".");
-            }
-          } else if (MEET_STATUS_DOWNLOADING.equals(status)) {
-            // it's OK, nothing to do
-            LOG.warn("Meet recordings is downloading currently for event '" + event.getSummary() + "' in "
-                + calId + ". Job canceled.");
-          } else if (MEET_STATUS_DOWNLOADED.equals(status)) {
-            // it's OK, nothing to do
-            LOG.warn("Meet recordings already downloaded for event '" + event.getSummary() + "' in " + calId
-                + ". Job canceled,");
-          } else {
-            LOG.warn("Unefined meet status '" + status + "'. Meet recordings download for event "
-                + event.getSummary() + " in " + calId + " canceled.");
+          } catch (MoxtraException e) {
+            throw new JobExecutionException("Moxtra error while processing meet recordings download for '"
+                + event.getSummary() + "' in " + calId + ". " + e.getMessage(), e);
+          } catch (Throwable e) {
+            throw new JobExecutionException("Error processing Moxtra meet recordings download for '"
+                + event.getSummary() + "' in " + calId + ". " + e.getMessage(), e);
           }
         } else {
-          LOG.warn("Meet event not found in " + calId + ", job canceled. See above log messages for a cause.");
+          LOG.warn("Meet event not found in " + eventId + " not found in " + calId
+              + ". Recordings download job " + context.getJobDetail().getKey()
+              + " canceled. See above log messages for a cause.");
         }
       } finally {
         moxtra.cleanupJobEnvironment(job);
       }
-    } catch (MoxtraException e) {
-      throw new JobExecutionException("Moxtra error while processing meet video download", e);
     } catch (Throwable e) {
-      throw new JobExecutionException("Error processing Moxtra meet video download", e);
+      throw new JobExecutionException("Error preparing Moxtra meet recordings download. " + e.getMessage(), e);
     }
   }
 }

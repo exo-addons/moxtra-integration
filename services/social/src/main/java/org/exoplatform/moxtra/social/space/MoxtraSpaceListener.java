@@ -19,6 +19,9 @@
 package org.exoplatform.moxtra.social.space;
 
 import org.exoplatform.moxtra.social.MoxtraSocialService;
+import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
+import org.exoplatform.services.log.ExoLogger;
+import org.exoplatform.services.log.Log;
 import org.exoplatform.social.core.space.SpaceListenerPlugin;
 import org.exoplatform.social.core.space.spi.SpaceLifeCycleEvent;
 
@@ -30,6 +33,8 @@ import org.exoplatform.social.core.space.spi.SpaceLifeCycleEvent;
  * 
  */
 public class MoxtraSpaceListener extends SpaceListenerPlugin {
+
+  protected static final Log          LOG = ExoLogger.getLogger(MoxtraSpaceListener.class);
 
   protected final MoxtraSocialService moxtra;
 
@@ -61,7 +66,8 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void joined(SpaceLifeCycleEvent event) {
-    // TODO Auto-join space user(s) to its binder if enabled
+    // Auto-join space user(s) to its binder if enabled
+    joinUser(event);
   }
 
   /**
@@ -69,7 +75,7 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void left(SpaceLifeCycleEvent event) {
-    // TODO Remove user from the space binder if enabled
+    removeUser(event);
   }
 
   /**
@@ -77,7 +83,8 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void spaceRenamed(SpaceLifeCycleEvent event) {
-    // TODO Rename binder if enabled
+    // Rename binder if enabled
+    renameBinder(event);
   }
 
   /**
@@ -93,7 +100,8 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void addInvitedUser(SpaceLifeCycleEvent event) {
-    // TODO Auto-join user to binder if enabled
+    // Auto-join user to binder if enabled
+    joinUser(event);
   }
 
   /**
@@ -101,7 +109,8 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
    */
   @Override
   public void addPendingUser(SpaceLifeCycleEvent event) {
-    // TODO Auto-join user to binder if enabled
+    // Auto-join user to binder if enabled
+    joinUser(event);
   }
 
   /**
@@ -166,5 +175,41 @@ public class MoxtraSpaceListener extends SpaceListenerPlugin {
   @Override
   public void spaceAccessEdited(SpaceLifeCycleEvent event) {
     // nothing
+  }
+
+  protected void joinUser(SpaceLifeCycleEvent event) {
+    String userName = event.getTarget();
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(event.getSpace());
+      if (binderSpace != null) {
+        binderSpace.ensureBinderMember(userName);
+      }
+    } catch (Exception e) {
+      LOG.error("Error joining user " + userName + " to binder of " + event.getSpace().getPrettyName(), e);
+    }
+  }
+
+  protected void removeUser(SpaceLifeCycleEvent event) {
+    String userName = event.getTarget();
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(event.getSpace());
+      if (binderSpace != null) {
+        binderSpace.removeBinderMember(userName);
+      }
+    } catch (Exception e) {
+      LOG.error("Error removing user " + userName + " from binder of " + event.getSpace().getPrettyName(), e);
+    }
+  }
+
+  protected void renameBinder(SpaceLifeCycleEvent event) {
+    String newName = event.getSpace().getDisplayName();
+    try {
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(event.getSpace());
+      if (binderSpace != null) {
+        binderSpace.renameBinder(newName);
+      }
+    } catch (Exception e) {
+      LOG.error("Error renaming binder of " + event.getSpace().getPrettyName() + " to '" + newName + "'", e);
+    }
   }
 }

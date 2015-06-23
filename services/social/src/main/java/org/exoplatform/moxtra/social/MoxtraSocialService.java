@@ -357,14 +357,30 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
      * Ensure current eXo user is a member of this binder.
      * 
      * @return <code>true</code> if current user is a member of the binder, <code>false</code> otherwise (user
-     *         needto be invited by the manager)
+     *         need to be invited by the manager)
      * @throws MoxtraClientException
      * @throws MoxtraException
      * @throws RepositoryException
      */
     public boolean ensureBinderMember() throws MoxtraClientException, MoxtraException, RepositoryException {
       String userName = Moxtra.currentUserName();
+      return ensureBinderMember(userName);
+    }
 
+    /**
+     * Ensure given eXo user is a member of this binder. This method doesn't check if the user is a space
+     * member.
+     * 
+     * @param userName {@link String} eXo user name
+     * @return <code>true</code> if user is a member of the binder, <code>false</code> otherwise (user
+     *         need to be invited by the manager)
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public boolean ensureBinderMember(String userName) throws MoxtraClientException,
+                                                      MoxtraException,
+                                                      RepositoryException {
       String userEmail;
       String fullName;
       String firstName;
@@ -405,16 +421,102 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             LOG.info("User " + userName + " auto-joined binder '" + binder.getName() + "' in "
                 + space.getGroupId());
           } catch (OAuthProblemException e) {
-            throw new MoxtraSocialException("Error inviting space user to page conversation " + userName
-                + " (" + userEmail + "). " + e.getMessage(), e);
+            throw new MoxtraSocialException("Error adding space user to the binder " + userName + " ("
+                + userEmail + "). " + e.getMessage(), e);
           } catch (OAuthSystemException e) {
-            throw new MoxtraSocialException("Error inviting space user to page conversation " + userName
-                + " (" + userEmail + "). " + e.getMessage(), e);
+            throw new MoxtraSocialException("Error inviting space user to the binder " + userName + " ("
+                + userEmail + "). " + e.getMessage(), e);
           }
           return true;
         }
       }
       return false;
+    }
+
+    /**
+     * Remove given eXo user from this binder users.
+     * 
+     * @param userName {@link String} eXo user name
+     * @return <code>true</code> if member removed from the binder, <code>false</code> otherwise (user not a
+     *         member)
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public boolean removeBinderMember(String userName) throws MoxtraClientException,
+                                                      MoxtraException,
+                                                      RepositoryException {
+      String userEmail;
+      try {
+        User user = orgService.getUserHandler().findUserByName(userName);
+        if (user != null) {
+          userEmail = user.getEmail();
+        } else {
+          userEmail = null;
+        }
+      } catch (Exception e) {
+        LOG.error("Error reading organization user " + userName, e);
+        userEmail = null;
+      }
+      if (userEmail != null) {
+        MoxtraUser moxtraUser = null;
+        for (MoxtraUser user : binder.getUsers()) {
+          if (userEmail.equals(user.getEmail())) {
+            moxtraUser = user;
+          }
+        }
+        if (moxtraUser != null) {
+          // remove user from the binder editor
+
+          MoxtraBinder editor = binder.editor();
+          editor.removeUser(moxtraUser);
+          try {
+            saveBinder(editor);
+            LOG.info("User " + userName + " left binder '" + binder.getName() + "' in " + space.getGroupId());
+          } catch (OAuthProblemException e) {
+            throw new MoxtraSocialException("Error removing space user from the binder " + userName + " ("
+                + userEmail + "). " + e.getMessage(), e);
+          } catch (OAuthSystemException e) {
+            throw new MoxtraSocialException("Error removing space user from the binder " + userName + " ("
+                + userEmail + "). " + e.getMessage(), e);
+          }
+          return true;
+        } // else, not binder user already
+      }
+      return false;
+    }
+
+    /**
+     * Rename this binder.
+     * 
+     * @param newName {@link String} new name of the binder
+     * @throws MoxtraClientException
+     * @throws MoxtraException
+     * @throws RepositoryException
+     */
+    public void renameBinder(String newName) throws MoxtraClientException,
+                                            MoxtraException,
+                                            RepositoryException {
+      if (newName != null) {
+        // remove user from the binder editor
+
+        MoxtraBinder editor = binder.editor();
+        String oldName = editor.getName();
+        editor.editName(newName);
+        try {
+          saveBinder(editor);
+          if (LOG.isDebugEnabled()) {
+            LOG.debug("Binder space " + binder.getBinderId() + " renamed from '" + oldName + "' to '"
+                + newName + "'");
+          }
+        } catch (OAuthProblemException e) {
+          throw new MoxtraSocialException("Error renaming space's binder " + oldName + " ("
+              + binder.getBinderId() + ") to " + newName + ". " + e.getMessage(), e);
+        } catch (OAuthSystemException e) {
+          throw new MoxtraSocialException("Error renaming space's binder " + oldName + " ("
+              + binder.getBinderId() + ") to " + newName + ". " + e.getMessage(), e);
+        }
+      } // else, null name skipped
     }
 
     public void touch() throws MoxtraClientException, MoxtraException, RepositoryException {
@@ -917,7 +1019,15 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
         client = moxtra.getClient();
       }
 
-      client.inviteUsers(binder);
+      if (binder.hasNameChanged()) {
+        client.renameBinder(binder);
+      }
+      if (binder.hasUsersAdded()) {
+        client.inviteUsers(binder);
+      }
+      if (binder.hasUsersRemoved()) {
+        client.removeUsers(binder);
+      }
 
       // refresh the instance binder object!
       client.refreshBinder(this.binder);
@@ -1220,8 +1330,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
 
   /**
    * Return Moxtra binder space if it is enabled for the given space (by pretty name) or <code>null</code> if
-   * not
-   * enabled.
+   * not enabled.
    * 
    * @param String a space pretty name
    * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
@@ -1234,6 +1343,18 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
     } else {
       throw new MoxtraSocialException("Space not found " + spaceName);
     }
+  }
+
+  /**
+   * Return Moxtra binder space if it is enabled for the given space or <code>null</code> if
+   * not enabled.
+   * 
+   * @param space {@link Space}
+   * @return {@link MoxtraBinderSpace} instance or <code>null</code> if binder not enabled
+   * @throws MoxtraSocialException
+   */
+  public MoxtraBinderSpace getBinderSpace(Space space) throws MoxtraSocialException {
+    return binderSpace(space);
   }
 
   /**

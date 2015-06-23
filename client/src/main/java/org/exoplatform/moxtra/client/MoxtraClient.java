@@ -2603,7 +2603,8 @@ public class MoxtraClient {
           String uniqueId = user.getUniqueId();
           if (uniqueId != null) {
             params.put("unique_id", uniqueId);
-            if (!user.isSameOrganization(orgId)) {
+            // XXX don't add org_id when running in single-org SSO, otherwise it will fail with "Client error, single invitee expected"
+            if (!isSingleOrg() && !user.isSameOrganization(this.orgId)) {
               params.put("org_id", user.getOrgId());
             }
           } else {

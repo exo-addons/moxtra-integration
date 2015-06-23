@@ -406,7 +406,9 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
             moxtraUser = user;
           }
         }
-        if (moxtraUser == null) {
+        SpaceService spaces = spaceService();
+        // invited and pending users will join when itself do in own sessions (it will be "joined" event in the space)
+        if (moxtraUser == null && !spaces.isPendingUser(space, userName) && !spaces.isInvitedUser(space, userName)) {
           // add user to the binder editor
           moxtraUser = new MoxtraUser(userName,
                                       moxtra.getClient().getOrgId(),
@@ -1527,7 +1529,7 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
       Space space = service.getSpaceByPrettyName(name);
       if (space == null) {
         space = service.getSpaceByDisplayName(name);
-      }
+      }//service.getS
       return space;
     } catch (NullPointerException e) {
       // XXX NPE has a place when running not in portal request, assume it as normal
@@ -1695,11 +1697,25 @@ public class MoxtraSocialService extends BaseMoxtraService implements Startable 
   }
 
   protected Node spaceNode(Space space) throws Exception {
-    String groupsPath = hierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
-    String spaceFolder = groupsPath + "/spaces/" + space.getPrettyName();
     Session sysSession = hierarchyCreator.getPublicApplicationNode(sessionProviderService.getSystemSessionProvider(null))
                                          .getSession();
-    Node spaceNode = (Node) sysSession.getItem(spaceFolder);
+    String groupsPath = hierarchyCreator.getJcrPath(BasePath.CMS_GROUPS_PATH);
+    String spaceFolder = groupsPath + space.getGroupId();
+
+    Node spaceNode;
+    try {
+      spaceNode = (Node) sysSession.getItem(spaceFolder);
+    } catch (PathNotFoundException e) {
+      // try by pretty name
+      spaceFolder = groupsPath + "/spaces/" + space.getPrettyName();
+      try {
+        spaceNode = (Node) sysSession.getItem(spaceFolder);
+      } catch (PathNotFoundException pne) {
+        // also not found
+      }
+      throw new MoxtraSocialException("Cannot find space node " + space, e);
+    }
+
     return spaceNode;
   }
 

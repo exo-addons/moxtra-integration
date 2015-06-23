@@ -56,21 +56,27 @@ import org.exoplatform.services.organization.User;
 import org.exoplatform.services.scheduler.JobInfo;
 import org.exoplatform.services.scheduler.impl.JobSchedulerServiceImpl;
 import org.quartz.JobDataMap;
+import org.quartz.SchedulerException;
 import org.quartz.impl.JobDetailImpl;
 import org.quartz.impl.triggers.SimpleTriggerImpl;
 
 import java.io.InputStream;
+import java.text.DateFormat;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Date;
+import java.util.GregorianCalendar;
 import java.util.HashSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.MissingResourceException;
 import java.util.Queue;
 import java.util.Set;
+import java.util.TimeZone;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
+import javax.jcr.ItemExistsException;
 import javax.jcr.ItemNotFoundException;
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
@@ -91,25 +97,29 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   protected static final Log                             LOG                           = ExoLogger.getLogger(MoxtraCalendarService.class);
 
-  public final static String                             EVENT_STATE_BUSY              = "busy".intern();
+  public static final String                             EVENT_STATE_BUSY              = "busy".intern();
 
-  public final static String                             COMMA                         = ",".intern();
+  public static final String                             COMMA                         = ",".intern();
 
-  public final static String                             CALENDAR_TYPE_PUBLIC          = String.valueOf(Calendar.TYPE_PUBLIC);
+  public static final String                             CALENDAR_TYPE_PUBLIC          = String.valueOf(Calendar.TYPE_PUBLIC);
 
-  public final static String                             CALENDAR_TYPE_PRIVATE         = String.valueOf(Calendar.TYPE_PRIVATE);
+  public static final String                             CALENDAR_TYPE_PRIVATE         = String.valueOf(Calendar.TYPE_PRIVATE);
 
-  public final static String                             CALENDAR_TYPE_SHARED          = String.valueOf(Calendar.TYPE_SHARED);
+  public static final String                             CALENDAR_TYPE_SHARED          = String.valueOf(Calendar.TYPE_SHARED);
 
   /**
    * A period in ms, if scheduling meet event will happen later of it comparing to current time, then a
    * reminder will be set up for the calendar event.
    */
-  public final static long                               MEET_EVENT_REMINDER_THRESHOLD = 60 * 60 * 1000;
+  public static final long                               MEET_EVENT_REMINDER_THRESHOLD = 60 * 60 * 1000;
 
-  public final static long                               MEET_SCHEDULED_REFRESH_PERIOD = 60 * 1000;
+  public static final long                               MEET_SCHEDULED_REFRESH_PERIOD = 60 * 1000;
 
-  public final static long                               MEET_ENDED_REFRESH_PERIOD     = 3 * 60 * 1000;
+  public static final long                               MEET_ENDED_REFRESH_PERIOD     = 3 * 60 * 1000;
+
+  public static final long                               MAX_SAME_NAME_MEET_RECORDINGS = 1000;
+
+  public static final DateFormat                         DATE_FORMAT_JCR_NAME          = new SimpleDateFormat("yyyyMMdd-HHmmss");
 
   /**
    * Moxtra app enabled in current context.
@@ -533,14 +543,14 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   }
 
   /**
-   * Download meet video associated with given event and save the video to a location configured in the meet
-   * node. This method should be called by a meet owner (host user) only.
+   * Download meet recordings associated with given event and save the video to a location configured in the
+   * meet node. This method should be called by a meet owner (host user) only.
    * 
    * @param userName {@link String} event/meet owner in eXo
    * @param event {@link CalendarEvent} event with enabled meet
    * @throws MoxtraCalendarException
    */
-  public String downloadMeetVideo(String userName, CalendarEvent event) throws MoxtraCalendarException {
+  public String downloadMeetRecordings(String userName, CalendarEvent event) throws MoxtraCalendarException {
     // FYI event node will be in system session
     Node eventNode = readEventNode(userName, event.getCalType(), event.getCalendarId(), event.getId());
     try {
@@ -649,18 +659,37 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
                         InputStream is = client.requestGet(rec.getDownloadLink(), rec.getContentType());
 
-                        String numSuffix;
+                        String numSuffix = (meetNodeName.length() > 0 ? "." : "")
+                            + DATE_FORMAT_JCR_NAME.format(meet.getEndTime());
                         if (recList.size() > 1) {
                           numSuffix = "-" + String.valueOf(i + 1);
-                        } else {
-                          numSuffix = "";
                         }
 
                         String nodeName = meetNodeName + numSuffix + fileExt;
+                        String extraSuffix = "";
                         Node video;
                         Node content;
                         try {
                           video = meetFolder.getNode(nodeName);
+                          // this should not happen in real life, but it is a logic to avoid race conditions
+                          int counter = 1;
+                          while (counter <= MAX_SAME_NAME_MEET_RECORDINGS) {
+                            try {
+                              extraSuffix = userName + counter;
+                              nodeName = meetNodeName + numSuffix + "-" + extraSuffix + fileExt;
+                              video = meetFolder.addNode(nodeName, "nt:file");
+                              break;
+                            } catch (ItemExistsException e) {
+                              counter++; // try next
+                              if (counter > MAX_SAME_NAME_MEET_RECORDINGS) {
+                                LOG.warn("Cannot find an empty node for meet recordings in "
+                                    + meetFolder.getPath() + ": " + e.getMessage());
+                                throw new MoxtraCalendarException("Cannot find an empty node for meet recordings: "
+                                                                      + e.getMessage(),
+                                                                  e);
+                              }
+                            }
+                          }
                           content = video.getNode("jcr:content");
                         } catch (PathNotFoundException e) {
                           video = meetFolder.addNode(nodeName, "nt:file");
@@ -675,21 +704,33 @@ public class MoxtraCalendarService extends BaseMoxtraService {
                         content.setProperty("jcr:data", is);
                         meetFolder.save(); // save to let actions add mixins to new folder node
 
-                        if (recList.size() > 1) {
-                          numSuffix = " " + String.valueOf(i + 1);
-                        } else {
-                          numSuffix = "";
+                        StringBuilder titleBuilder = new StringBuilder();
+                        titleBuilder.append(meet.getName());
+                        if (meetNodeName.length() > 0) {
+                          titleBuilder.append(' ');
                         }
-                        String videoTitle = meet.getName() + numSuffix + fileExt;
-                        video.setProperty("exo:title", videoTitle);
-                        video.setProperty("exo:name", videoTitle);
+                        titleBuilder.append(formatUserDate(userName, meet.getEndTime()));
+                        if (extraSuffix.length() > 0) {
+                          titleBuilder.append(" (");
+                          titleBuilder.append(extraSuffix);
+                          titleBuilder.append(")");
+                        }
+                        if (recList.size() > 1) {
+                          titleBuilder.append(' ');
+                          titleBuilder.append(i + 1);
+                        }
+                        titleBuilder.append(fileExt);
+
+                        String title = titleBuilder.toString();
+                        video.setProperty("exo:title", title);
+                        video.setProperty("exo:name", title);
 
                         // add content mixin
                         JCR.addMeetContent(video);
                         video.save();
 
                         // reference recordings to its meet
-                        JCR.setName(video, videoTitle);
+                        JCR.setName(video, title);
                         JCR.setMeetRef(video, meetNode.getUUID());
                         video.save();
 
@@ -1191,7 +1232,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     return jobName;
   }
 
-  protected void updateDownloadJob(CalendarEvent event, MoxtraMeet meet) throws Exception {
+  protected Date updateDownloadJob(CalendarEvent event, MoxtraMeet meet) {
     String jobName = meetJobName(event, meet);
 
     // new trigger with actual meet end time
@@ -1208,13 +1249,26 @@ public class MoxtraCalendarService extends BaseMoxtraService {
     downloadTime.add(java.util.Calendar.MINUTE, MoxtraMeetDownloadJob.MEET_DOWNLOAD_DELAY_MINUTES);
     trigger.setStartTime(downloadTime.getTime());
 
-    schedulerService.rescheduleJob(jobName, MOXTRA_JOB_GROUP_NAME, trigger);
+    try {
+      return schedulerService.rescheduleJob(jobName, MOXTRA_JOB_GROUP_NAME, trigger);
+    } catch (SchedulerException e) {
+      LOG.error("Scheduler error while updating meet download job: " + e.getMessage());
+      return null;
+    }
   }
 
-  protected void removeDownloadJob(CalendarEvent event, MoxtraMeet meet) throws Exception {
-    String jobName = meetJobName(event, meet);
-    JobInfo jobInfo = new JobInfo(jobName, MOXTRA_JOB_GROUP_NAME, MoxtraMeetDownloadJob.class);
-    schedulerService.removeJob(jobInfo);
+  protected boolean removeDownloadJob(CalendarEvent event, MoxtraMeet meet) {
+    try {
+      String jobName = meetJobName(event, meet);
+      JobInfo jobInfo = new JobInfo(jobName, MOXTRA_JOB_GROUP_NAME, MoxtraMeetDownloadJob.class);
+      return schedulerService.removeJob(jobInfo);
+    } catch (SchedulerException e) {
+      LOG.error("Scheduler error while removing meet download job: " + e.getMessage());
+      return false;
+    } catch (Exception e) {
+      LOG.error("Error removing meet download job: " + e.getMessage());
+      return false;
+    }
   }
 
   protected String meetJobName(CalendarEvent event, MoxtraMeet meet) {
@@ -1429,6 +1483,36 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   protected void fireMeetDelete(MoxtraMeet meet, String calendarId, CalendarEvent event) {
     for (MoxtraCalendarStateListener listener : stateListeners) {
       listener.onMeetDelete(meet, calendarId, event);
+    }
+  }
+
+  /**
+   * Format given date using given user's settings for Calendar (date/time formats and time zone).<br>
+   * 
+   * @param userName {@link String}
+   * @param date {@link Date}
+   * @return {@link String} with date formatted
+   */
+  protected String formatUserDate(String userName, Date date) {
+    try {
+      CalendarSetting userSettings = calendar.getCalendarSetting(userName);
+      userSettings.getTimeZone();
+
+      DateFormat dateFormat = new SimpleDateFormat(userSettings.getDateFormat());
+      DateFormat timeFormat = new SimpleDateFormat(userSettings.getTimeFormat());
+
+      // Do we really need this step with TZ?
+      // We do as in Calendar services
+      java.util.Calendar theDate = new GregorianCalendar();
+      theDate.setTimeZone(TimeZone.getTimeZone(userSettings.getTimeZone()));
+      theDate.setTimeInMillis(date.getTime());
+
+      Date userDate = theDate.getTime();
+      String formatted = dateFormat.format(userDate) + " " + timeFormat.format(userDate);
+      return formatted;
+    } catch (Exception e) {
+      LOG.warn("Error formatting date using user settings for Calendar: " + e.getMessage(), e);
+      return DATE_FORMAT_JCR_NAME.format(date);
     }
   }
 }

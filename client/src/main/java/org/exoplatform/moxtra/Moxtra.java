@@ -40,7 +40,7 @@ import java.util.TimeZone;
 public class Moxtra {
 
   public static final DateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
-
+  
   static {
     TimeZone tz = TimeZone.getTimeZone("UTC");
     DATE_FORMAT.setTimeZone(tz);

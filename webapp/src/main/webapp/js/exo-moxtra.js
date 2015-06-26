@@ -503,19 +503,19 @@
 					}
 
 					function showPage() {
-						var callbacks = {
-							start_page : function(event) {
-								$progress.hide();
-								$editor.show();
-							},
-							publish_feed : function(event) {
-								// TODO initiate page sync
-							},
-							receive_feed : function(event) {
-								// seems nothing here? or sync also?
-							}
-						};
 						if (target === window) {
+							var callbacks = {
+								start_page : function(event) {
+									$progress.hide();
+									$editor.show();
+								},
+								publish_feed : function(event) {
+									// TODO initiate page sync
+								},
+								receive_feed : function(event) {
+									// seems nothing here? or sync also?
+								}
+							};
 							var page = moxtrajs.showPages(binderId, pageId, "moxtra-page-editor", callbacks);
 							page.done(function() {
 								process.resolve();
@@ -528,6 +528,7 @@
 							$t.ready(function() {
 								try {
 									//target.initPage(binderId, pageId);
+									log("Open page in new window: target.location:" + pageViewUrl + binderId + "/" + pageId);
 									target.location = pageViewUrl + binderId + "/" + pageId;
 									// when opening in another window it's resolved for this current one
 									process.resolve();
@@ -1699,7 +1700,7 @@
 			apiReady.done(function(api) {
 				var options = {
 					binder_id : binderId,
-					video: true,
+					video : true,
 					iframe : elemId ? true : false,
 					tagid4iframe : elemId,
 					error : function(event) {

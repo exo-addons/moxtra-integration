@@ -90,8 +90,9 @@ public class BinderSpaceService implements ResourceContainer {
         if (binderSpace.ensureSpaceMember()) {
           if (binderSpace.hasPage(pageNodeUUID)) {
             MoxtraPage page = binderSpace.getPage(pageNodeUUID);
-            // if (page.isCreated()) { // TODO does it really works so?
-            return Response.ok().entity(page).build();
+            if (page.isCreated()) {
+              return Response.ok().entity(page).build();
+            }
           }
         } else {
           return Response.status(Status.FORBIDDEN)

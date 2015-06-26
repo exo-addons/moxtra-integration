@@ -127,7 +127,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
             MoxtraPage page;
             if (binderSpace.hasPage(selectedNode)) {
               page = binderSpace.getPage(selectedNode);
-              isPageCreating = false; // !page.isCreated(); // TODO does it really works so?
+              isPageCreating = !page.isCreated(); 
             } else {
               binderSpace.createPage(selectedNode);
               page = null;

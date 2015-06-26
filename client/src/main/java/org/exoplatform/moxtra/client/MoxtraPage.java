@@ -226,7 +226,7 @@ public class MoxtraPage {
    * @return <code>true</code> if page ready for use, <code>false</code> otherwise
    */
   public boolean isCreated() {
-    return url != null;
+    return id != null;
   }
 
   // ******** internals *********

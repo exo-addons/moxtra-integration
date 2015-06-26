@@ -18,20 +18,17 @@
  */
 package org.exoplatform.moxtra;
 
-import org.apache.oltu.oauth2.common.exception.OAuthProblemException;
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.container.component.ComponentPlugin;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraClient;
-import org.exoplatform.moxtra.client.MoxtraClientException;
 import org.exoplatform.moxtra.client.MoxtraConfigurationException;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
 import org.exoplatform.services.organization.OrganizationService;
 import org.exoplatform.services.organization.User;
-import org.exoplatform.services.security.ConversationState;
 import org.picocontainer.Startable;
 
+import java.io.InputStream;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -204,4 +201,21 @@ public class MoxtraService implements Startable {
     }
   }
 
+  /**
+   * For internal user: return a blank content for future empty Moxtra Note.
+   * 
+   * @return {@link InputStream}
+   */
+  public InputStream getBlankNoteContent() {
+    return getClass().getResourceAsStream("/blanks/empty-note.html");
+  }
+
+  /**
+   * For internal user: return a blank content for future empty Moxtra Whiteboard.
+   * 
+   * @return {@link InputStream}
+   */
+  public InputStream getBlankWhiteboardContent() {
+    return getClass().getResourceAsStream("/blanks/empty-draw-w.png");
+  }
 }

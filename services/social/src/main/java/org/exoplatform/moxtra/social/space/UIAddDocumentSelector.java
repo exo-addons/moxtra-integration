@@ -116,8 +116,10 @@ public class UIAddDocumentSelector extends UIContainer implements UIPopupCompone
           } else {
             // otherwise we assume it's page upload to binder
             try {
-              MoxtraBinder binder = moxtra.getBinder(selectorContainer.binderId);
-              MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
+              // do not use binder by id, a space binder in the request context should be used 
+              //MoxtraBinder binder = moxtra.getBinder(selectorContainer.binderId);
+              //MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
+              MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
               if (binderSpace != null) {
                 if (binderSpace.hasPage(fileNode)) {
                   uiApp.addMessage(new ApplicationMessage("UIAddDocumentSelector.msg.alreadyPage",

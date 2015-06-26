@@ -491,7 +491,9 @@ public class MoxtraBinder {
    * @return the pages
    */
   public List<MoxtraPage> getPages() {
-    if (pages != null) {
+    if (isEditor()) {
+      return original.getPages();
+    } else if (pages != null) {
       return Collections.unmodifiableList(pages);
     } else {
       return Collections.emptyList();

@@ -34,6 +34,8 @@ public abstract class BaseMoxtraJob implements Job, InterruptableJob {
 
   public static final String DATA_USER_ID                 = "user_id";
 
+  public static final String DATA_SPACE_ID                = "space_id";
+  
   public static final String DATA_GROUP_ID                = "group_id";
 
   public static final String DATA_MOXTRA_USER_ID          = "moxtra_user_id";

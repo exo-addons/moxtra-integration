@@ -18,7 +18,6 @@
  */
 package org.exoplatform.moxtra.social.ecms;
 
-import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.ecm.webui.component.explorer.UIDocumentContainer;
 import org.exoplatform.ecm.webui.component.explorer.UIDocumentWorkspace;
 import org.exoplatform.ecm.webui.component.explorer.UIDrivesArea;
@@ -128,7 +127,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
             MoxtraPage page;
             if (binderSpace.hasPage(selectedNode)) {
               page = binderSpace.getPage(selectedNode);
-              isPageCreating = !page.isCreated();
+              isPageCreating = false; // !page.isCreated(); // TODO does it really works so?
             } else {
               binderSpace.createPage(selectedNode);
               page = null;
@@ -143,19 +142,21 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
               RequireJS requireJS = context.getJavascriptManager().getRequireJS();
               // TODO do we really need require and initUser() here?
               requireJS.require("SHARED/exoMoxtra", "moxtra");
-              boolean isAuthorized = moxtra.isAuthorized();
-              String authLink = isAuthorized ? "" : moxtra.getOAuth2Link();
-              requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', " + isAuthorized
-                  + ", '" + authLink + "');");
+              if (moxtra.isAuthorized()) {
+                requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\");");
+              } else {
+                requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", \""
+                    + moxtra.getOAuth2Link() + "\");");
+              }
               if (isPageCreating) {
-                // set pageId=null and provide space name and node UUID for waiting for page creation
-                requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId()
-                    + "', null, '" + binderSpace.getSpace().getPrettyName() + "', '" + selectedNode.getUUID()
-                    + "');");
+                // set pageId=null and provide space ID and node UUID for waiting for page creation
+                requireJS.addScripts("moxtra.openPage(\"" + binderSpace.getBinder().getBinderId()
+                    + "\", null, \"" + binderSpace.getSpace().getId() + "\", \"" + selectedNode.getUUID()
+                    + "\");");
               } else {
                 // open existing page
-                requireJS.addScripts("moxtra.openPage('" + binderSpace.getBinder().getBinderId() + "', '"
-                    + page.getId() + "');");
+                requireJS.addScripts("moxtra.openPage(\"" + binderSpace.getBinder().getBinderId() + "\", \""
+                    + page.getId() + "\");");
               }
             } else {
               // set current node after page creation
@@ -185,7 +186,7 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
 
             context.addUIComponentToUpdateByAjax(uiExplorer.getChild(UIControl.class));
           } else {
-            LOG.warn("No binder space emabled for space node " + selectedNode.getPath());
+            LOG.warn("No binder space enabled for space node " + selectedNode.getPath());
             uiApp.addMessage(new ApplicationMessage("Moxtra.error.noMoxraBinder",
                                                     null,
                                                     ApplicationMessage.ERROR));
@@ -207,11 +208,8 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
    */
   @Override
   public String renderEventURL(boolean ajax, String name, String beanId, Parameter[] params) throws Exception {
-    WebuiRequestContext context = (WebuiRequestContext) WebuiRequestContext.getCurrentInstance();
-    if (context.getAttribute(name) == null) {
-      initContext(context, true); // editInNewWindow=true
-      context.setAttribute(name, true);
-    }
+    initContext();
+
     // force open Moxtra editor in new window
     Parameter[] newParams;
     if (params == null) {
@@ -223,18 +221,4 @@ public class EditInMoxtraManagerComponent extends BaseMoxtraSocialDocumentManage
     newParams[newParams.length - 1] = new Parameter(OPEN_IN_NEW_WINDOW, String.valueOf(true));
     return super.renderEventURL(ajax, name, beanId, newParams);
   }
-
-  protected void initContext(WebuiRequestContext context, boolean editInNewWindow) throws OAuthSystemException {
-    // add Moxtra JS to proceed auth if required
-    MoxtraSocialService moxtra = context.getUIApplication()
-                                        .getApplicationComponent(MoxtraSocialService.class);
-    RequireJS requireJS = context.getJavascriptManager().getRequireJS();
-    requireJS.require("SHARED/exoMoxtra", "moxtra");
-    boolean isAuthorized = moxtra.isAuthorized();
-    String authLink = isAuthorized ? "" : moxtra.getOAuth2Link();
-    requireJS.addScripts("moxtra.initUser('" + context.getRemoteUser() + "', " + isAuthorized
-        + ", '" + authLink + "');");
-    requireJS.addScripts("moxtra.initDocuments(true);"); // openInNewWindow=true
-  }
-
 }

@@ -1,16 +1,14 @@
 #{param name=isNew/} 
 #{param name=exoUser/} 
 #{param name=isManager/} 
-#{param name=isAuthorized/} 
 #{param name=authLink/} 
 #{param name=binderId/}
-#{param name=spaceName/}
+#{param name=spaceId/}
 <%
   def disabled = isNew ? 'disabled' : ''
 %>
 <div class="container-fluid">
-	<div id="moxtra-binder-app" class="row-fluid" data-exo-user="${exoUser}" 
-								data-moxtra-authorized=${isAuthorized} data-exo-space=${spaceName}
+	<div id="moxtra-binder-app" class="row-fluid" data-exo-user="${exoUser}" data-exo-space-id=${spaceId}
 								<%=authLink ? "data-moxtra-authlink=\"$authLink\"" : '' %> 
 								<%=binderId ? "data-moxtra-binder-id=\"$binderId\"" : '' %>>
 		<div class="span12">

@@ -32,7 +32,7 @@
 				width: 35px;
 				height: 35px;
 				margin-right: auto;
-        margin-left: auto;
+				margin-left: auto;
 				pointer-events: none;
 				background: url('/moxtra/skin/icons/oxygen/32/animations/throbber.gif') no-repeat left center !important; /* orientation=lt */
 				background: url('/moxtra/skin/icons/oxygen/32/animations/throbber.gif') no-repeat right center !important; /* orientation=rt */
@@ -58,8 +58,10 @@
       <div id="moxtra-page-editor" style="display: none;"></div>
       <div id="moxtra-page-progress">
         <div id="moxtra-page-progress">
-          <div>&{Moxtra.waitConversationPagePreparing}</div>
-          <div class="waitThrobber"> </div>
+          <div>
+            &{Moxtra.waitConversationPagePreparing}
+          </div>
+          <div class="waitThrobber"></div>
         </div>
       </div>
       <div id="moxtra-auth" style="display: none;">
@@ -76,84 +78,62 @@
     <script type="text/javascript" src="https://www.moxtra.com/api/js/moxtra-latest.js" id="moxtrajs"></script>
     <script src="/eXoResources/javascript/eXo/core/require.js"></script>
     <script type="text/javascript">
-			// RequireJS initialization first
-			require.config({
-				baseUrl : "/moxtra/js",
-				paths : {
-					"jquery" : "/platform-extension/javascript/jquery-1.7.1",
-					//"jqueryUI" : "/moxtra/js/jquery-ui.min",
-					"jqueryPnotify" : "/moxtra/js/jquery.pnotify.min"
-				},
-				shim : {
-					//"jqueryUI" : ["jquery"],
-					"jqueryPnotify" : ["jquery"]
-				},
-				waitSeconds : 60
-			});
-
-			define("exo-moxtra", ["jquery", "jqueryPnotify"], function($) {// "jqueryUI",
-				// hey tricky thing here: read eXo AMD exo-moxtra.js as text and eval it here to return a module
-				var script = "";
-				var process = $.ajax({
-					async : false,
-					type : "GET",
-					url : "/moxtra/js/exo-moxtra.js",
-					dataType : "text"
-				});
-				process.done(function(data) {
-					script = data;
-				});
-				process.fail(function(jqXHR, textStatus, e) {
-					console.log(textStatus + " " + e);
-				});
-				return eval(script);
-			});
-
-			var servicePath = "/portal/rest/moxtra/page/";
-			var pageInitlzr = $.Deferred();
-			var user;
-
-			// these funcs will be called from space window
-			function initUser(userName, isAuthorized, authLinkUrl) {
-				user = {
-					userName : userName,
-					isAuthorized : isAuthorized,
-					authLinkUrl : authLinkUrl // not used here
-				};
-			}
-
-			function initPage(binderId, pageId) {
-				//var query = "?binderId=" + binderId + "&pageId=" + pageId;
-				setTimeout(function() {
-					location.pathname = servicePath + binderId + "/" + pageId;
-				}, 500);
-				// This not required as the page window should be reloaded by path change
-				//pageInitlzr.resolve(binderId, pageId);
-			}
-
-			// deprecated, not used as server-side hash not available (in login redirect)
-			function initPage_hash(binderId, pageId) {
-				pageInitlzr.resolve(binderId, pageId);
-				var hash = "#" + binderId + "/" + pageId;
-				if (history.pushState) {
-					history.pushState(null, null, hash);
-				} else {
-					location.hash = hash;
-				}
-			}
-
 			$(function() {
-				// check if URL hash has binderId/pageId, use it to show the page
-				// otherwise wait until it will be initialized from external
-				require(["exo-moxtra"], function(exoMoxtra) {
-					exoMoxtra.moxtrajs(Moxtra);
+			  var servicePath = "/portal/rest/moxtra/page/"; 
+				var pBinderId;
+				var pPageId;
+				var pagePath = location.pathname;
+				var si = pagePath.indexOf(servicePath);
+				if (si == 0) {
+					pagePath = pagePath.slice(servicePath.length);
+				}
+				var pe = pagePath.split("/");
+				if (pe.length >= 2) {
+					pBinderId = pe[0];
+					pPageId = pe[1];
+				}
 
-					function showPage(binderId, pageId) {
-						var $progress = $("#moxtra-page-progress");
-						if (!exoMoxtra.isAuthorized()) {
-							if (user && user.isAuthorized) {
-								exoMoxtra.initUser(user.userName, user.isAuthorized, null);
-							} else {
+				if (pBinderId && pPageId) {
+
+					// RequireJS initialization first
+					require.config({
+						baseUrl : "/moxtra/js",
+						paths : {
+							"jquery" : "/platform-extension/javascript/jquery-1.7.1",
+							"jqueryPnotify" : "/moxtra/js/jquery.pnotify.min",
+						},
+						shim : {
+							"jqueryPnotify" : ["jquery"]
+						},
+						waitSeconds : 60
+					});
+
+					define("exo-moxtra", ["jquery"], function($) {
+						// hey tricky thing here: read eXo AMD exo-moxtra.js as text and eval it here to return a module
+						var script = "";
+						var process = $.ajax({
+							async : false,
+							type : "GET",
+							url : "/moxtra/js/exo-moxtra.js",
+							dataType : "text"
+						});
+						process.done(function(data) {
+							script = data;
+						});
+						process.fail(function(jqXHR, textStatus, e) {
+							console.log(textStatus + " " + e);
+						});
+						return eval(script);
+					});
+
+					// check if URL hash has binderId/pageId, use it to show the page
+					// otherwise wait until it will be initialized from external
+					require(["exo-moxtra"], function(exoMoxtra) {
+						exoMoxtra.moxtrajs(Moxtra);
+
+						function showPage(binderId, pageId) {
+							var $progress = $("#moxtra-page-progress");
+							if (!exoMoxtra.isAuthorized()) {
 								var $auth = $("#moxtra-auth");
 								$auth.each(function(i, e) {
 									$progress.hide();
@@ -173,53 +153,19 @@
 									});
 								});
 							}
+							if ($progress.is(":visible")) {
+								var process = exoMoxtra.initPage(binderId, pageId);
+								process.done(function() {
+									$("#moxtra-page-editor>div").removeAttr("style");
+								});
+							}
 						}
-						if ($progress.is(":visible")) {
-							var process = exoMoxtra.initPage(binderId, pageId);
-							process.done(function() {
-								$("#moxtra-page-editor>div").removeAttr("style");
-							});
-						}
-					}
 
-					// extract binder and page ids from query string
-					// function getQueryParam(name) {
-					// var match = RegExp('[?&]' + name + '=([^&]*)').exec(location.search);
-					// return match && decodeURIComponent(match[1].replace(/\+/g, ' '));
-					// }
-					// var qBinderId = getQueryParam("binderId");
-					// var qPageId = getQueryParam("pageId");
-					// extract binder and page ids from the path
-					var pBinderId;
-					var pPageId;
-					var pagePath = location.pathname;
-					var si = pagePath.indexOf(servicePath);
-					if (si == 0) {
-						pagePath = pagePath.slice(servicePath.length);
-					}
-					var pe = pagePath.split("/");
-					if (pe.length >= 2) {
-						pBinderId = pe[0];
-						pPageId = pe[1];
-					}
-					if (pBinderId && pPageId) {
-						//var he = location.hash.split("/");
-						//var binderId = he[0];
-						//var hi = binderId.indexOf("#");
-						//if (hi == 0) {
-						//	binderId = binderId.slice(1);
-						//}
-						//var pageId = he[1];
 						showPage(pBinderId, pPageId);
-					} else {
-						pageInitlzr.done(function(binderId, pageId) {
-							// need some delay to let Moxtra JS API prepare
-							setTimeout(function() {
-								showPage(binderId, pageId);
-							}, 1000);
-						});
-					}
-				});
+					});
+				} else {
+					console.log("Binder Id and Page Id undefined");
+				}
 			});
     </script>
   </body>

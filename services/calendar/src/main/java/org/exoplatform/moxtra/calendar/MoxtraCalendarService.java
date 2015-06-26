@@ -43,8 +43,8 @@ import org.exoplatform.moxtra.client.MoxtraUser;
 import org.exoplatform.moxtra.commons.BaseMoxtraService;
 import org.exoplatform.moxtra.jcr.JCR;
 import org.exoplatform.moxtra.webui.MoxtraNotActivatedException;
-import org.exoplatform.services.cms.drives.DriveData;
 import org.exoplatform.services.cms.drives.ManageDriveService;
+import org.exoplatform.services.idgenerator.IDGeneratorService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.common.SessionProvider;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -82,7 +82,6 @@ import javax.jcr.Node;
 import javax.jcr.NodeIterator;
 import javax.jcr.PathNotFoundException;
 import javax.jcr.RepositoryException;
-import javax.jcr.Session;
 
 /**
  * Business logic of Moxtra in eXo Calendar integration.<br>
@@ -131,8 +130,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
    */
   protected final CalendarServiceImpl                    calendar;
 
-  protected final ManageDriveService                     driveService;
-
   protected final Set<MoxtraCalendarStateListener>       stateListeners                = new LinkedHashSet<MoxtraCalendarStateListener>();
 
   protected final Queue<String>                          downloadingMeets              = new ConcurrentLinkedQueue<String>();
@@ -144,13 +141,19 @@ public class MoxtraCalendarService extends BaseMoxtraService {
   public MoxtraCalendarService(MoxtraService moxtra,
                                SessionProviderService sessionProviderService,
                                NodeHierarchyCreator hierarchyCreator,
+                               IDGeneratorService idGenerator,
                                OrganizationService orgService,
                                JobSchedulerServiceImpl schedulerService,
                                CalendarServiceImpl calendar,
                                ManageDriveService driveService) {
-    super(moxtra, sessionProviderService, hierarchyCreator, orgService, schedulerService);
+    super(moxtra,
+          sessionProviderService,
+          hierarchyCreator,
+          idGenerator,
+          orgService,
+          schedulerService,
+          driveService);
     this.calendar = calendar;
-    this.driveService = driveService;
   }
 
   public void addListener(MoxtraCalendarStateListener listener) {
@@ -631,7 +634,7 @@ public class MoxtraCalendarService extends BaseMoxtraService {
                     }
 
                     // add this event meet folder in meetings
-                    String meetNodeName = Text.escapeIllegalJcrChars(meet.getName());
+                    String meetNodeName = cleanNodeName(meet.getName());
                     Node meetFolder;
                     try {
                       meetFolder = meetings.getNode(meetNodeName);
@@ -1273,56 +1276,6 @@ public class MoxtraCalendarService extends BaseMoxtraService {
 
   protected String meetJobName(CalendarEvent event, MoxtraMeet meet) {
     return "Meet_" + meet.getSessionKey() + "@" + event.getId() + "." + event.getCalendarId();
-  }
-
-  /**
-   * Find given user Personal Documents folder using system session.
-   * 
-   * @param userName {@link String}
-   * @return {@link Node} Personal Documents folder node or <code>null</code>
-   * @throws Exception
-   */
-  protected Node getUserDocumentsNode(String userName) throws Exception {
-    // code idea based on ECMS's UIJCRExplorerPortlet.getUserDrive()
-    for (DriveData userDrive : driveService.getPersonalDrives(userName)) {
-      String homePath = userDrive.getHomePath();
-      if (homePath.endsWith("/Private")) {
-        // using system session!
-        SessionProvider sessionProvider = sessionProviderService.getSystemSessionProvider(null);
-        Node userNode = hierarchyCreator.getUserNode(sessionProvider, userName);
-        String driveRootPath = org.exoplatform.services.cms.impl.Utils.getPersonalDrivePath(homePath,
-                                                                                            userName);
-        int uhlen = userNode.getPath().length();
-        if (homePath.length() > uhlen) {
-          // it should be w/o leading slash, e.g. "Private"
-          String driveSubPath = driveRootPath.substring(uhlen + 1);
-          return userNode.getNode(driveSubPath);
-        }
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Find given group Documents folder using system session.
-   * 
-   * @param groupName {@link String}
-   * @return {@link Node} space's Documents folder node or <code>null</code>
-   * @throws Exception
-   */
-  protected Node getSpaceDocumentsNode(String userName, String groupName) throws Exception {
-    // DriveData groupDrive = driveService.getDriveByName("Groups");
-    String groupDriveName = groupName.replace("/", ".");
-    DriveData groupDrive = driveService.getDriveByName(groupDriveName);
-    if (groupDrive != null) {
-      // using system session!
-      SessionProvider sessionProvider = sessionProviderService.getSystemSessionProvider(null);
-      // we actually don't need user home node, just a JCR session
-      Session session = hierarchyCreator.getUserNode(sessionProvider, userName).getSession();
-      return (Node) session.getItem(groupDrive.getHomePath());
-    } else {
-      return null;
-    }
   }
 
   /**

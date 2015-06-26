@@ -1,0 +1,26 @@
+<% 
+def rcontext = _ctx.getRequestContext() ;
+def jsManager = rcontext.getJavascriptManager();
+
+jsManager.require("SHARED/jquery", "gj").addScripts("gj('#" + uiform.FIELD_TITLE_PAGE_NAME + "').focus(); gj('#" + uiform.id + "').unbind('keypress').keypress(function(e) { if(e.which == 13) {gj('button.addFolderButton').click(); e.preventDefault();}});");
+
+String fieldName; %>
+<div class="UIForm uiAddFolder uiAddMoxtraPageForm">
+  <%uiform.begin()%>
+      <div class="form-horizontal resizable">
+				<label for="<%= uiform.FIELD_TITLE_PAGE_NAME%>"><%= uiform.getLabel(uiform.FIELD_TITLE_PAGE_NAME) %></label>
+				<div class="controls-full">
+					<% uiform.renderChild(uiform.FIELD_TITLE_PAGE_NAME) %>
+				</div>			
+      </div>
+      <div class="uiAction uiActionBorder">
+      	<button type="button" onclick="<%= uiform.event(uiform.ACTION_CREATE)%>" class="btn btn-primary createNewPage" href="javascript:void(0);">
+      		<%= uiform.getLabel(uiform.ACTION_CREATE) %>
+      	</button>
+      	<button type="button" onclick="<%= uiform.event(uiform.ACTION_CANCEL)%>" class="btn" href="javascript:void(0);">
+      		<%= uiform.getLabel(uiform.ACTION_CANCEL) %>
+      	</button>
+      </div>
+  <%uiform.end()%>
+</div>
+

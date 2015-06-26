@@ -184,17 +184,17 @@
 		// use data set on enable checkbox in index template
 		// if userName not found it means that user unauthorized
 		var userName = $app.data("exo-user");
-		var spaceName = $app.data("exo-space");
-		var authorized = $app.data("moxtra-authorized");
 		var authLink = $app.data("moxtra-authlink");
-		moxtra.initUser(userName, authorized, authLink);
+		moxtra.initUser(userName, authLink);
 
 		function loadData() {
 			// show settings button
 			$settingsButton.show();
+			var spaceId = $app.data("exo-space-id");
+			moxtra.initSpace(spaceId);
 			var binderId = $app.data("moxtra-binder-id");
 			if (!binderId) {
-				// FYI if no binderId then binder not enabled: we shop a tip for an user where to enable it
+				// FYI if no binderId then binder not enabled: we show a tip for an user where to enable it
 				$settingsButton.find("a").tooltip("show");
 			} else {
 				// load binder data (meet button, pages zone etc)
@@ -353,17 +353,6 @@
 							function showMeet(meet) {
 								// show created meet pane
 								// meet link opens a page on Moxtra where user can start it
-								//var $meetLink = $created.find(".meetLink > a");
-								//$meetLink.attr("href", meet.startMeetUrl);
-								//$meetLink.text(meet.startMeetUrl);
-
-								//var $meetEvent = $created.find(".meetEvent > a");
-								//var calendarLink = window.location.href;
-								//var midx = calendarLink.lastIndexOf("/moxtra");
-								//if (midx > 0) {
-								//	calendarLink = calendarLink.slice(0, midx) + "/calendar";
-								//}
-								//$meetEvent.attr("href", calendarLink);
 
 								function refreshMeet() {
 									var $updated = $created.find(".meetUpdated");

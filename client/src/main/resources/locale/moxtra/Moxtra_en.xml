@@ -10,6 +10,7 @@
       <errorOpeningInMoxtra>Error opening document in Moxtra conversation</errorOpeningInMoxtra>
       <noMoxraBinder>Moxtra must be enabled</noMoxraBinder>
       <editPreparingMoxtraEditor>Error preparing Moxtra conversation form</editPreparingMoxtraEditor>
+      <errorInitMoxtra>Error initializing Moxtra application</errorInitMoxtra>
     </error>
   </Moxtra>
 </bundle>

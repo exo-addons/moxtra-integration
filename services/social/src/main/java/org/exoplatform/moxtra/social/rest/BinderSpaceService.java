@@ -80,24 +80,23 @@ public class BinderSpaceService implements ResourceContainer {
 
   @GET
   @RolesAllowed("users")
-  @Path("/{spaceName}/page/{pageNodeUUID}")
+  @Path("/{spaceId}/page/{pageNodeUUID}")
   public Response getPage(@Context UriInfo uriInfo,
-                          @PathParam("spaceName") String spaceName,
+                          @PathParam("spaceId") String spaceId,
                           @PathParam("pageNodeUUID") String pageNodeUUID) {
     try {
-      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceId);
       if (binderSpace != null) {
         if (binderSpace.ensureSpaceMember()) {
           if (binderSpace.hasPage(pageNodeUUID)) {
             MoxtraPage page = binderSpace.getPage(pageNodeUUID);
-            if (page.isCreated()) {
-              return Response.ok().entity(page).build();
-            }
+            // if (page.isCreated()) { // TODO does it really works so?
+            return Response.ok().entity(page).build();
           }
         } else {
           return Response.status(Status.FORBIDDEN)
                          .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
-                             + spaceName + "'"))
+                             + spaceId + "'"))
                          .build();
         }
       }
@@ -105,14 +104,14 @@ public class BinderSpaceService implements ResourceContainer {
       return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
-                     .entity(ErrorInfo.clientError("Error getting binder page " + spaceName + " "
+                     .entity(ErrorInfo.clientError("Error getting binder page " + spaceId + " "
                          + pageNodeUUID))
                      .build();
     } catch (MoxtraException e) {
-      LOG.error("Error getting binder page " + spaceName + " " + pageNodeUUID, e);
+      LOG.error("Error getting binder page " + spaceId + " " + pageNodeUUID, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error getting binder page")).build();
     } catch (RepositoryException e) {
-      LOG.error("Error reading binder page " + spaceName + " " + pageNodeUUID, e);
+      LOG.error("Error reading binder page " + spaceId + " " + pageNodeUUID, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error reading binder page")).build();
     }
   }
@@ -120,6 +119,8 @@ public class BinderSpaceService implements ResourceContainer {
   @POST
   @RolesAllowed("users")
   @Path("/pages/{binderId}/{pageId}")
+  @Deprecated
+  // TODO NOT USED
   public Response savePage(@Context UriInfo uriInfo,
                            @PathParam("binderId") String binderId,
                            @PathParam("pageId") String pageId) {
@@ -157,7 +158,9 @@ public class BinderSpaceService implements ResourceContainer {
   @POST
   @RolesAllowed("users")
   @Path("/sync/{binderId}")
-  public Response syncPages(@Context UriInfo uriInfo, @PathParam("binderId") String binderId) {
+  @Deprecated
+  // TODO not used
+  public Response syncPagesByBinder(@Context UriInfo uriInfo, @PathParam("binderId") String binderId) {
     try {
       MoxtraBinder binder = moxtra.getBinder(binderId);
       MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
@@ -188,48 +191,94 @@ public class BinderSpaceService implements ResourceContainer {
 
   @POST
   @RolesAllowed("users")
-  @Path("/{spaceName}/meet/event/{eventId}")
+  @Path("{spaceId}/sync/{binderId}")
+  public Response syncPages(@Context UriInfo uriInfo,
+                            @PathParam("spaceId") String spaceId,
+                            @PathParam("binderId") String binderId) {
+    try {
+      MoxtraBinderSpace binderSpace;
+      if (spaceId == null || spaceId.equals("null")) {
+        MoxtraBinder binder = moxtra.getLocalBinder(binderId);
+        if (binder != null) {
+          binderSpace = moxtra.getBinderSpace(binder);
+        } else {
+          binderSpace = null;
+        }
+      } else {
+        binderSpace = moxtra.getBinderSpace(spaceId);
+      }
+      if (binderSpace != null) {
+        if (binderSpace.ensureSpaceMember()) {
+          binderSpace.syncPages();
+          return Response.status(Status.ACCEPTED).entity("{\"code\":\"accepted\"}").build();
+        } else {
+          return Response.status(Status.FORBIDDEN)
+                         .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
+                             + binderId + "'"))
+                         .build();
+        }
+      }
+      return Response.status(Status.NOT_FOUND).entity("{\"code\":\"page_not_found\"}").build();
+    } catch (MoxtraClientException e) {
+      return Response.status(Status.BAD_REQUEST)
+                     .entity(ErrorInfo.clientError("Error synchronizing binder pages " + binderId))
+                     .build();
+    } catch (MoxtraException e) {
+      LOG.error("Error getting binder " + binderId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error getting binder")).build();
+    } catch (RepositoryException e) {
+      LOG.error("Error reading binder " + binderId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error reading binder")).build();
+    } catch (Exception e) {
+      LOG.error("Error reading binder " + binderId, e);
+      return Response.serverError().entity(ErrorInfo.serverError("Error reading binder")).build();
+    }
+  }
+
+  @POST
+  @RolesAllowed("users")
+  @Path("/{spaceId}/meet/event/{eventId}")
   @Deprecated
   // TODO doesn't work as needs portal request
   public Response updateMeet(@Context UriInfo uriInfo,
-                             @PathParam("spaceName") String spaceName,
+                             @PathParam("spaceId") String spaceId,
                              @PathParam("eventId") String eventId) {
     try {
-      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceId);
       if (binderSpace != null) {
         if (binderSpace.ensureSpaceMember()) {
           moxtra.updateMeet(binderSpace, eventId);
         } else {
           return Response.status(Status.FORBIDDEN)
                          .entity(ErrorInfo.clientError("Not sufficient permissions to access space '"
-                             + spaceName + "'"))
+                             + spaceId + "'"))
                          .build();
         }
       }
       return Response.status(Status.NOT_FOUND).entity("{\"code\":\"event_not_found\"}").build();
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
-                     .entity(ErrorInfo.clientError("Error updating meet " + spaceName + "/" + eventId))
+                     .entity(ErrorInfo.clientError("Error updating meet " + spaceId + "/" + eventId))
                      .build();
     } catch (MoxtraException e) {
-      LOG.error("Error updating meet " + spaceName + "/" + eventId, e);
+      LOG.error("Error updating meet " + spaceId + "/" + eventId, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error updating meet event")).build();
     } catch (RepositoryException e) {
-      LOG.error("Error updating meet " + spaceName + "/" + eventId, e);
+      LOG.error("Error updating meet " + spaceId + "/" + eventId, e);
       return Response.serverError().entity(ErrorInfo.serverError("Error updating meet event")).build();
     } catch (Exception e) {
-      LOG.error("Error updating meet in '" + spaceName + "' space", e);
+      LOG.error("Error updating meet in '" + spaceId + "' space", e);
       return Response.serverError().entity(ErrorInfo.serverError("Error updating meet in space")).build();
     }
   }
 
   @POST
   @RolesAllowed("users")
-  @Path("/{spaceName}/meets")
+  @Path("/{spaceId}/meets")
   @Deprecated
   // TODO doesn't work as needs portal request
   public Response createMeet(@Context UriInfo uriInfo,
-                             @PathParam("spaceName") String spaceName,
+                             @PathParam("spaceId") String spaceId,
                              @FormParam("name") String name,
                              @FormParam("agenda") @DefaultValue("") String agenda,
                              @FormParam("startTime") String startTimeMs,
@@ -238,7 +287,7 @@ public class BinderSpaceService implements ResourceContainer {
                              @FormParam("users[]") List<String> users) {
 
     try {
-      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceName);
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceId);
       if (binderSpace != null) {
         if (name != null && name.length() > 0) {
           if (startTimeMs != null && endTimeMs != null) {
@@ -302,17 +351,17 @@ public class BinderSpaceService implements ResourceContainer {
       }
     } catch (MoxtraClientException e) {
       return Response.status(Status.BAD_REQUEST)
-                     .entity(ErrorInfo.clientError("Error creating meet '" + name + "' in '" + spaceName
+                     .entity(ErrorInfo.clientError("Error creating meet '" + name + "' in '" + spaceId
                          + "' space "))
                      .build();
     } catch (MoxtraException e) {
-      LOG.error("Error creating meet in '" + spaceName + "' space", e);
+      LOG.error("Error creating meet in '" + spaceId + "' space", e);
       return Response.serverError().entity(ErrorInfo.serverError("Error creating meet in space")).build();
     } catch (RepositoryException e) {
-      LOG.error("Error saving meet in '" + spaceName + "' space", e);
+      LOG.error("Error saving meet in '" + spaceId + "' space", e);
       return Response.serverError().entity(ErrorInfo.serverError("Error saving meet in space")).build();
     } catch (Exception e) {
-      LOG.error("Error creating meet in '" + spaceName + "' space", e);
+      LOG.error("Error creating meet in '" + spaceId + "' space", e);
       return Response.serverError().entity(ErrorInfo.serverError("Error creating meet in space")).build();
     }
   }

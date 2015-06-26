@@ -1792,7 +1792,7 @@ public class MoxtraClient {
                 throw new MoxtraException("Binder conversations request doesn't return generator data");
               }
               // object
-              String objectType, objectId;
+              String objectType, objectId, objectUrl, objectDisplayName, objectMimeType, objectContent;
               JsonValue vobject = vf.getElement("object");
               if (isNotNull(vobject)) {
                 JsonValue vtype = vobject.getElement("objectType");
@@ -1807,6 +1807,30 @@ public class MoxtraClient {
                 } else {
                   // else, some objects has no id (e.g. annotation)
                   objectId = null;
+                }
+                JsonValue vurl = vobject.getElement("url");
+                if (isNotNull(vurl)) {
+                  objectUrl = vurl.getStringValue();
+                } else {
+                  objectUrl = null;
+                }
+                JsonValue vdp = vobject.getElement("displayName");
+                if (isNotNull(vdp)) {
+                  objectDisplayName = vdp.getStringValue();
+                } else {
+                  objectDisplayName = null;
+                }
+                JsonValue vmt = vobject.getElement("mimeType");
+                if (isNotNull(vmt)) {
+                  objectMimeType = vmt.getStringValue();
+                } else {
+                  objectMimeType = null;
+                }
+                JsonValue vcontent = vobject.getElement("content");
+                if (isNotNull(vcontent)) {
+                  objectContent = vcontent.getStringValue();
+                } else {
+                  objectContent = null;
                 }
               } else {
                 throw new MoxtraException("Binder conversations request doesn't return object data");
@@ -1867,6 +1891,10 @@ public class MoxtraClient {
                                                actorType,
                                                objectId,
                                                objectType,
+                                               objectUrl,
+                                               objectDisplayName,
+                                               objectMimeType,
+                                               objectContent,
                                                targetId,
                                                targetType,
                                                targetUrl,
@@ -2603,7 +2631,8 @@ public class MoxtraClient {
           String uniqueId = user.getUniqueId();
           if (uniqueId != null) {
             params.put("unique_id", uniqueId);
-            // XXX don't add org_id when running in single-org SSO, otherwise it will fail with "Client error, single invitee expected"
+            // XXX don't add org_id when running in single-org SSO, otherwise it will fail with
+            // "Client error, single invitee expected"
             if (!isSingleOrg() && !user.isSameOrganization(this.orgId)) {
               params.put("org_id", user.getOrgId());
             }
@@ -3349,13 +3378,13 @@ public class MoxtraClient {
         } else {
           index = vpindex.getLongValue();
         }
-        Long number;
+        String number;
         JsonValue vpnumber = vp.getElement("page_number");
         if (isNull(vpnumber)) {
           // throw new MoxtraException("Binder request doesn't return page number");
-          number = 0l;
+          number = null;
         } else {
-          number = vpnumber.getLongValue();
+          number = vpnumber.getStringValue();
         }
         JsonValue vpurl = vp.getElement("page_uri");
         if (isNull(vpurl)) {
@@ -3658,8 +3687,8 @@ public class MoxtraClient {
                 firstName = exoUser.getFirstName();
                 lastName = exoUser.getLastName();
                 if (LOG.isDebugEnabled()) {
-                  LOG.debug("Moxtra user (without email and unique_id) found in eXo organization by first/last name (" + name + "): "
-                      + uniqueId + " (" + email + ")");
+                  LOG.debug("Moxtra user (without email and unique_id) found in eXo organization by first/last name ("
+                      + name + "): " + uniqueId + " (" + email + ")");
                 }
               } else {
                 LOG.warn("Moxtra user (without email and unique_id) not found in eXo organization by first/last name ("

@@ -227,7 +227,6 @@
       </init-params>
     </component-plugin>
   </external-component-plugins>
-
   <external-component-plugins>
     <target-component>org.exoplatform.moxtra.webui.MoxtraApplicationService</target-component>
     <component-plugin>

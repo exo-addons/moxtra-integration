@@ -16,8 +16,19 @@
  */
 package org.exoplatform.moxtra.social.ecms;
 
+import org.exoplatform.ecm.webui.component.explorer.UIJCRExplorer;
+import org.exoplatform.ecm.webui.utils.JCRExceptionManager;
+import org.exoplatform.moxtra.social.MoxtraSocialException;
+import org.exoplatform.moxtra.social.MoxtraSocialService;
+import org.exoplatform.moxtra.social.MoxtraSocialService.MoxtraBinderSpace;
 import org.exoplatform.services.log.ExoLogger;
 import org.exoplatform.services.log.Log;
+import org.exoplatform.social.core.space.model.Space;
+import org.exoplatform.web.application.ApplicationMessage;
+import org.exoplatform.web.application.RequireJS;
+import org.exoplatform.webui.application.WebuiRequestContext;
+import org.exoplatform.webui.core.UIApplication;
+import org.exoplatform.webui.core.UIPopupContainer;
 import org.exoplatform.webui.ext.manager.UIAbstractManager;
 import org.exoplatform.webui.ext.manager.UIAbstractManagerComponent;
 
@@ -29,7 +40,9 @@ import org.exoplatform.webui.ext.manager.UIAbstractManagerComponent;
  */
 public abstract class BaseMoxtraSocialDocumentManagerComponent extends UIAbstractManagerComponent {
 
-  protected static final Log LOG = ExoLogger.getLogger(BaseMoxtraSocialDocumentManagerComponent.class);
+  public static final String MOXTRA_DOCUMENTS_CONTEXT = "__moxtra_documents_context";
+
+  protected static final Log LOG                      = ExoLogger.getLogger(BaseMoxtraSocialDocumentManagerComponent.class);
 
   /**
    * {@inheritDoc}
@@ -39,18 +52,68 @@ public abstract class BaseMoxtraSocialDocumentManagerComponent extends UIAbstrac
     return null;
   }
 
-  @Deprecated
   protected void initContext() throws Exception {
-    // TODO cleanup
-    // UIJCRExplorer uiExplorer = getAncestorOfType(UIJCRExplorer.class);
-    // if (uiExplorer != null) {
-    // // we store current node in the context
-    // String path = uiExplorer.getCurrentNode().getPath();
-    // String workspace = uiExplorer.getCurrentNode().getSession().getWorkspace().getName();
-    // // TODO CloudDriveContext.init(WebuiRequestContext.getCurrentInstance(), workspace, path);
-    // } else {
-    // LOG.error("Cannot find ancestor of type UIJCRExplorer in component " + this + ", parent: "
-    // + this.getParent());
-    // }
+    WebuiRequestContext context = (WebuiRequestContext) WebuiRequestContext.getCurrentInstance();
+    initContext(context);
+  }
+
+  protected MoxtraBinderSpace initContext(WebuiRequestContext context) throws Exception {
+    UIApplication uiApp = getAncestorOfType(UIApplication.class);
+    MoxtraSocialService moxtra = getApplicationComponent(MoxtraSocialService.class);
+
+    try {
+      // add Moxtra JS to proceed auth if required
+      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
+      if (binderSpace != null) {
+        if (context.getAttribute(MOXTRA_DOCUMENTS_CONTEXT) == null) {
+          RequireJS requireJS = context.getJavascriptManager().getRequireJS();
+          requireJS.require("SHARED/exoMoxtra", "moxtra");
+          if (moxtra.isAuthorized()) {
+            requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\");");
+          } else {
+            requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", \""
+                + moxtra.getOAuth2Link() + "\");");
+          }
+          String binderId = binderSpace.getBinder().getBinderId();
+          String spaceId = binderSpace.getSpace().getId();
+          requireJS.addScripts("moxtra.initDocuments(\"" + spaceId + "\", \"" + binderId + "\");");
+
+          context.setAttribute(MOXTRA_DOCUMENTS_CONTEXT, true);
+        }
+        return binderSpace;
+      } else {
+        Space space = moxtra.getContextSpace();
+        if (space != null) {
+          LOG.warn("Binder not enabled for " + space.getGroupId());
+        } else {
+          LOG.warn("No space in the context " + context.getRequestContextPath());
+        }
+        uiApp.addMessage(new ApplicationMessage("Moxtra.error.noMoxraBinder", null, ApplicationMessage.ERROR));
+      }
+    } catch (MoxtraSocialException e) {
+      LOG.error("Error initializing Moxtra in space: " + moxtra.getContextSpace() + ". " + e.getMessage(), e);
+      uiApp.addMessage(new ApplicationMessage("Moxtra.error.errorInitMoxtra", null, ApplicationMessage.ERROR));
+    } catch (Exception e) {
+      JCRExceptionManager.process(uiApp, e);
+    }
+
+    return null;
+  }
+
+  protected void initNewPage(String type, WebuiRequestContext context) throws Exception {
+    UIJCRExplorer uiExplorer = getAncestorOfType(UIJCRExplorer.class);
+    if (uiExplorer != null) {
+      MoxtraBinderSpace binderSpace = initContext(context);
+      if (binderSpace != null) {
+        UIPopupContainer uiPopupContainer = uiExplorer.getChild(UIPopupContainer.class);
+        UIAddMoxtraPageForm pageForm = uiExplorer.createUIComponent(UIAddMoxtraPageForm.class, null, null);
+        pageForm.init(type);
+        uiPopupContainer.activate(pageForm, 420, 220, false);
+
+        context.addUIComponentToUpdateByAjax(uiPopupContainer);
+      }
+    } else {
+      LOG.error("Cannot find ancestor of type UIJCRExplorer in component " + this);
+    }
   }
 }

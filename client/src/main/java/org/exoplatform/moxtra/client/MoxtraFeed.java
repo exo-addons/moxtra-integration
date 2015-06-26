@@ -29,6 +29,8 @@ import java.util.Date;
  */
 public class MoxtraFeed {
 
+  public static final String OBJECT_TYPE_BINDER     = "binder".intern();
+
   public static final String OBJECT_TYPE_PERSON     = "person".intern();
 
   public static final String OBJECT_TYPE_COMMENT    = "comment".intern();
@@ -46,6 +48,10 @@ public class MoxtraFeed {
   public static final String VERB_TAG               = "tag".intern();
 
   public static final String VERB_UPLOAD            = "upload".intern();
+  
+  public static final String VERB_UPDATE            = "update".intern();
+  
+  public static final String VERB_DELETE            = "delete".intern();
 
   protected final String     verb;
 
@@ -58,6 +64,14 @@ public class MoxtraFeed {
   protected final String     objectId;
 
   protected final String     objectType;
+
+  protected final String     objectUrl;
+
+  protected final String     objectDisplayName;
+
+  protected final String     objectMimeType;
+
+  protected final String     objectContent;
 
   protected final String     targetId;
 
@@ -73,6 +87,10 @@ public class MoxtraFeed {
                     String actorType,
                     String objectId,
                     String objectType,
+                    String objectUrl,
+                    String objectDisplayName,
+                    String objectMimeType,
+                    String objectContent,
                     String targetId,
                     String targetType,
                     String targetUrl,
@@ -84,6 +102,10 @@ public class MoxtraFeed {
     this.actorType = actorType;
     this.objectId = objectId;
     this.objectType = objectType;
+    this.objectUrl = objectUrl;
+    this.objectDisplayName = objectDisplayName;
+    this.objectMimeType = objectMimeType;
+    this.objectContent = objectContent;
     this.targetId = targetId;
     this.targetType = targetType;
     this.targetUrl = targetUrl;
@@ -109,10 +131,9 @@ public class MoxtraFeed {
    * @return <code>true</code> if similar, <code>false</code> otherwise
    */
   public boolean isSimilar(MoxtraFeed other) {
-    return this.verb.equals(other.verb)
-        && isSameObject(other);
+    return this.verb.equals(other.verb) && isSameObject(other);
   }
-  
+
   /**
    * Check if given feed has same object of the target as given.
    * 
@@ -192,6 +213,34 @@ public class MoxtraFeed {
    */
   public String getObjectType() {
     return objectType;
+  }
+
+  /**
+   * @return the objectUrl
+   */
+  public String getObjectUrl() {
+    return objectUrl;
+  }
+
+  /**
+   * @return the objectDisplayName
+   */
+  public String getObjectDisplayName() {
+    return objectDisplayName;
+  }
+
+  /**
+   * @return the objectMimeType
+   */
+  public String getObjectMimeType() {
+    return objectMimeType;
+  }
+
+  /**
+   * @return the objectContent
+   */
+  public String getObjectContent() {
+    return objectContent;
   }
 
   /**

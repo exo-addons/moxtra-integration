@@ -18,14 +18,10 @@
  */
 package org.exoplatform.moxtra.jcr;
 
-import org.exoplatform.moxtra.client.MoxtraBinder;
-
 import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.Date;
-import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Set;
 
 import javax.jcr.Node;
 import javax.jcr.NodeIterator;
@@ -405,11 +401,11 @@ public class JCR {
   public static Property setRefreshing(Node binderNode, long period) throws RepositoryException {
     return binderNode.setProperty("moxtra:refreshing", period);
   }
-  
+
   public static Property markRefreshing(Node binderNode) throws RepositoryException {
     return binderNode.setProperty("moxtra:refreshing", System.currentTimeMillis());
   }
-  
+
   public static Property markNotRefreshing(Node binderNode) throws RepositoryException {
     return binderNode.setProperty("moxtra:refreshing", (String) null);
   }
@@ -422,13 +418,20 @@ public class JCR {
     }
   }
 
-  public static NodeIterator findPageDocuments(Node spaceNode) throws RepositoryException {
+  public static NodeIterator findPageContents(Node spaceNode) throws RepositoryException {
     QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
-    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE "
-        + " jcr:path LIKE '" + spaceNode.getPath() + "/%'", Query.SQL);
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_CONTENT + " WHERE " + " jcr:path LIKE '"
+        + spaceNode.getPath() + "/%'", Query.SQL);
     return q.execute().getNodes();
   }
-  
+
+  public static NodeIterator findPageDocuments(Node spaceNode) throws RepositoryException {
+    QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE " + " jcr:path LIKE '"
+        + spaceNode.getPath() + "/%'", Query.SQL);
+    return q.execute().getNodes();
+  }
+
   public static NodeIterator findPageDocument(Node spaceNode, String pageName) throws RepositoryException {
     QueryManager qm = spaceNode.getSession().getWorkspace().getQueryManager();
     Query q = qm.createQuery("SELECT * FROM " + NODETYPE_PAGE_DOCUMENT + " WHERE exo:title='" + pageName
@@ -461,11 +464,10 @@ public class JCR {
     return document.isNodeType(NODETYPE_PAGE_CONTENT);
   }
 
-  public static NodeIterator findBinder(Node node, MoxtraBinder binder) throws RepositoryException {
+  public static NodeIterator findBinder(Node node, String binderId) throws RepositoryException {
     QueryManager qm = node.getSession().getWorkspace().getQueryManager();
-    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_BINDER_OBJECT + " WHERE moxtra:id='"
-                                 + binder.getBinderId() + "' AND jcr:path LIKE '" + node.getPath() + "/%'",
-                             Query.SQL);
+    Query q = qm.createQuery("SELECT * FROM " + NODETYPE_BINDER_OBJECT + " WHERE moxtra:id='" + binderId
+        + "' AND jcr:path LIKE '" + node.getPath() + "/%'", Query.SQL);
     return q.execute().getNodes();
   }
 
@@ -500,6 +502,22 @@ public class JCR {
     return node.getProperty("moxtra:pageUrl");
   }
 
+  public static Property setBackgroundUrl(Node node, String url) throws RepositoryException {
+    return node.setProperty("moxtra:backgroundUrl", url);
+  }
+
+  public static Property getBackgroundUrl(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:backgroundUrl");
+  }
+
+  public static String getBackgroundUrlString(Node node) throws RepositoryException {
+    try {
+      return getBackgroundUrl(node).getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
+  }
+
   public static Property setPageUrl(Node node, String url) throws RepositoryException {
     return node.setProperty("moxtra:pageUrl", url);
   }
@@ -519,6 +537,18 @@ public class JCR {
 
   public static Property setId(Node node, Long id) throws RepositoryException {
     return node.setProperty("moxtra:id", id);
+  }
+
+  public static Property getSpaceId(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:spaceId");
+  }
+
+  public static boolean hasSpaceId(Node node) throws RepositoryException {
+    return node.hasProperty("moxtra:spaceId");
+  }
+
+  public static Property setSpaceId(Node node, String id) throws RepositoryException {
+    return node.setProperty("moxtra:spaceId", id);
   }
 
   public static Property getUniqueId(Node node) throws RepositoryException {
@@ -689,8 +719,40 @@ public class JCR {
     return node.setProperty("moxtra:revision", revision);
   }
 
+  public static Property setIndex(Node node, Long index) throws RepositoryException {
+    return node.setProperty("moxtra:index", index);
+  }
+
+  public static Property getIndex(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:index");
+  }
+
+  public static Property setNumber(Node node, String number) throws RepositoryException {
+    return node.setProperty("moxtra:number", number);
+  }
+
+  public static Property getNumber(Node node) throws RepositoryException {
+    return node.getProperty("moxtra:number");
+  }
+
+  public static String getNumberString(Node node) throws RepositoryException {
+    try {
+      return getNumber(node).getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
+  }
+
   public static Property getThumbnailUrl(Node node) throws RepositoryException {
     return node.getProperty("moxtra:thumbnailUrl");
+  }
+
+  public static String getThumbnailUrlString(Node node) throws RepositoryException {
+    try {
+      return getThumbnailUrl(node).getString();
+    } catch (PathNotFoundException e) {
+      return null;
+    }
   }
 
   public static Property setThumbnailUrl(Node node, String url) throws RepositoryException {

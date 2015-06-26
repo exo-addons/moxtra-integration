@@ -84,8 +84,7 @@ public class MoxtraController {
                       .isNew(isNew)
                       .exoUser(exoUser)
                       .isManager(isManager)
-                      .isAuthorized(true)
-                      .authLink("")
+                      .authLink("") // means user authorized already
                       .binderId(binderId)
                       .ok();
         } else {
@@ -93,7 +92,6 @@ public class MoxtraController {
                       .isNew(isNew)
                       .exoUser(exoUser)
                       .isManager(isManager)
-                      .isAuthorized(false)
                       .authLink(moxtraSocial.getOAuth2Link())
                       .binderId(binderId)
                       .ok();

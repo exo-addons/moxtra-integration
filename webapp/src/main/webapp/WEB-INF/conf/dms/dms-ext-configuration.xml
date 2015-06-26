@@ -27,7 +27,7 @@
   <external-component-plugins>
     <target-component>org.exoplatform.webui.ext.UIExtensionManager</target-component>
     <component-plugin>
-      <name>Add Moxtra Space Actions</name>
+      <name>Add Moxtra Documents Context Menu Actions</name>
       <set-method>registerUIExtensionPlugin</set-method>
       <type>org.exoplatform.webui.ext.UIExtensionPlugin</type>
       <init-params>
@@ -69,15 +69,129 @@
                 <value>
                   <object type="org.exoplatform.moxtra.social.ecms.FileTypeFilter">
                     <field name="mimeTypes">
-                      <collection type="java.util.LinkedHashSet"> 
-                        <value><string>text/</string></value>
-                        <value><string>image/</string></value>
-                        <value><string>application/</string></value>
+                      <collection type="java.util.LinkedHashSet">
+                        <value>
+                          <string>text/</string>
+                        </value>
+                        <value>
+                          <string>image/</string>
+                        </value>
+                        <value>
+                          <string>application/</string>
+                        </value>
                       </collection>
                     </field>
                   </object>
                 </value>
               </collection>
+            </field>
+          </object>
+        </object-param>
+        <object-param>
+          <name>AddMoxtraWhiteboard</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIWorkingArea</string>
+            </field>
+            <field name="name">
+              <string>AddMoxtraWhiteboard</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.AddMoxtraWhiteboardManagerComponent</string>
+            </field>
+            <field name="category">
+              <string>GroundContextMenu</string>
+            </field>
+            <field name="rank">
+              <int>40</int>
+            </field>
+          </object>
+        </object-param>
+        <object-param>
+          <name>AddMoxtraNote</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIWorkingArea</string>
+            </field>
+            <field name="name">
+              <string>AddMoxtraNote</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.AddMoxtraNoteManagerComponent</string>
+            </field>
+            <field name="category">
+              <string>GroundContextMenu</string>
+            </field>
+            <field name="rank">
+              <int>40</int>
+            </field>
+          </object>
+        </object-param><object-param>
+          <name>RecordMoxtraClip</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIWorkingArea</string>
+            </field>
+            <field name="name">
+              <string>RecordMoxtraClip</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.RecordMoxtraClipManagerComponent</string>
+            </field>
+            <field name="category">
+              <string>GroundContextMenu</string>
+            </field>
+            <field name="rank">
+              <int>40</int>
+            </field>
+          </object>
+        </object-param>
+      </init-params>
+    </component-plugin>
+    <component-plugin>
+      <name>Add Moxtra Documents Action Bar Actions</name>
+      <set-method>registerUIExtensionPlugin</set-method>
+      <type>org.exoplatform.webui.ext.UIExtensionPlugin</type>
+      <init-params>
+        <object-param>
+          <name>AddMoxtraWhiteboard</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIActionBar</string>
+            </field>
+            <field name="name">
+              <string>AddMoxtraWhiteboard</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.AddMoxtraWhiteboardManagerComponent</string>
+            </field>
+          </object>
+        </object-param>
+        <object-param>
+          <name>AddMoxtraNote</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIActionBar</string>
+            </field>
+            <field name="name">
+              <string>AddMoxtraNote</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.AddMoxtraNoteManagerComponent</string>
+            </field>
+          </object>
+        </object-param>
+        <object-param>
+          <name>RecordMoxtraClip</name>
+          <object type="org.exoplatform.webui.ext.UIExtension">
+            <field name="type">
+              <string>org.exoplatform.ecm.dms.UIActionBar</string>
+            </field>
+            <field name="name">
+              <string>RecordMoxtraClip</string>
+            </field>
+            <field name="component">
+              <string>org.exoplatform.moxtra.social.ecms.RecordMoxtraClipManagerComponent</string>
             </field>
           </object>
         </object-param>

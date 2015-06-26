@@ -137,37 +137,35 @@ public class MoxtraBinderSpaceController {
         String exoUser = resourceContext.getSecurityContext().getRemoteUser();
         boolean isNew;
         boolean isManager;
-        String binderId, spaceName;
+        String binderId, spaceId;
         if (binderSpace != null) {
           isNew = binderSpace.isNew();
           isManager = binderSpace.isCurrentUserManager();
           binderId = binderSpace.getBinder().getBinderId();
-          spaceName = binderSpace.getSpace().getPrettyName();
+          spaceId = binderSpace.getSpace().getId();
         } else {
           isManager = moxtra.isContextSpaceManager();
           isNew = true; // if no binder space then it's new binder
           binderId = "";
-          spaceName = moxtra.getContextSpace().getPrettyName();
+          spaceId = moxtra.getContextSpace().getId();
         }
         if (moxtra.isAuthorized()) {
           return index.with()
                       .isNew(isNew)
                       .exoUser(exoUser)
                       .isManager(isManager)
-                      .isAuthorized(true)
-                      .authLink("")
+                      .authLink("") // empty means user authorized already
                       .binderId(binderId)
-                      .spaceName(spaceName)
+                      .spaceId(spaceId)
                       .ok();
         } else {
           return index.with()
                       .isNew(isNew)
                       .exoUser(exoUser)
                       .isManager(isManager)
-                      .isAuthorized(false)
                       .authLink(moxtra.getOAuth2Link())
                       .binderId(binderId)
-                      .spaceName(spaceName)
+                      .spaceId(spaceId)
                       .ok();
         }
       } catch (Throwable e) {

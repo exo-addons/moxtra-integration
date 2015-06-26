@@ -5,22 +5,19 @@
   // eXo Moxtra script
   def currentUser = rcontext.remoteUser
   requireJS.require('SHARED/exoMoxtra','moxtra')
-  requireJS.addScripts("moxtra.initUser(\"$currentUser\", $uicomponent.authorized);")
-  requireJS.addScripts("moxtra.initPage();")
+  if (uicomponent.authorized) {
+    requireJS.addScripts("moxtra.initUser(\"$currentUser\");")
+  } else {
+    requireJS.addScripts("moxtra.initUser(\"$currentUser\", \"$uicomponent.authLink\");")
+  }
+  requireJS.addScripts("moxtra.initDocuments();") // TODO need to specify spaceId and binderId
 %>
 <div id="$uicomponent.id" class="uiDocumentFormController resizable" >	
-<%	if (!uicomponent.authorized) {
-  		def authLinkLabel = uicomponent.getString('Moxtra.loginMoxtra') 
-  		def authLinkHint = uicomponent.getString('Moxtra.loginMoxtraHint')
-  		def authLink = uicomponent.authLink 
-%>
-	<a class="actionIcon moxtraAuthLink" rel="tooltip" data-placement="bottom" title="$authLinkHint" href="$authLink" target="_blank">$authLinkLabel</a>
-<%	} else { %>
 	<div id="moxtra-page-editor" style="display: none;" data-binder-id="$uicomponent.binderId" 
 			<% try {  
   					if (uicomponent.pageCreating) { 
 						%>
-				data-binder-space-name="$uicomponent.spaceName" data-binder-page-node-uuid="$uicomponent.pageNodeUUID"
+				data-binder-space-id="$uicomponent.spaceId" data-binder-page-node-uuid="$uicomponent.pageNodeUUID"
 			<% 		} else { %>
 				data-binder-page-id="$uicomponent.pageId"
 			<% 		} 
@@ -37,5 +34,4 @@
 	<div id="moxtra-page-notopen" style="display: none;">
 		<span><%=uicomponent.getString('Moxtra.conversationPageNotOpen') %></span>
 	</div>	
-<%	} %>		
 </div>

@@ -21,6 +21,7 @@ package org.exoplatform.moxtra.social.space;
 import org.exoplatform.portal.application.PortalRequestContext;
 import org.exoplatform.social.webui.composer.PopupContainer;
 import org.exoplatform.web.application.ApplicationMessage;
+import org.exoplatform.webui.application.WebuiRequestContext;
 import org.exoplatform.webui.config.annotation.ComponentConfig;
 import org.exoplatform.webui.config.annotation.EventConfig;
 import org.exoplatform.webui.core.UIContainer;
@@ -55,9 +56,10 @@ public class UIMoxtraBinderSpaceTools extends UIContainer {
 
       UIPortletApplication uiApp = toolsContainer.getAncestorOfType(UIPortletApplication.class);
 
-      String sessionId = event.getRequestContext().getRequestParameter(SESSION_ID);
-      String sessionKey = event.getRequestContext().getRequestParameter(SESSION_KEY);
-      String binderId = event.getRequestContext().getRequestParameter(BINDER_ID);
+      WebuiRequestContext context = event.getRequestContext();
+      String sessionId = context.getRequestParameter(SESSION_ID);
+      String sessionKey = context.getRequestParameter(SESSION_KEY);
+      String binderId = context.getRequestParameter(BINDER_ID);
 
       if (binderId == null || binderId.length() == 0 || sessionId == null || sessionId.length() == 0) {
         uiApp.addMessage(new ApplicationMessage("UIAddDocumentSelector.msg.moxtraSessionNotDefined",

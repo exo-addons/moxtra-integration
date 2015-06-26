@@ -88,36 +88,33 @@ public class MoxtraBinderSyncJob extends BaseMoxtraJob {
     try {
       moxtra.prepareJobEnvironment(job);
       try {
-        // String exoUserId = data.getString(DATA_USER_ID);
+        String spaceId = data.getString(DATA_SPACE_ID);
+        // binderId and groupId for information purpose only (logs)
         String binderId = data.getString(DATA_BINDER_ID);
         String groupId = data.getString(DATA_GROUP_ID);
-        if (binderId != null) {
-          try {
-            // TODO access binder space w/o calling Moxtra for binder, it has no sense
-            MoxtraBinder binder = moxtra.getBinder(binderId);
-            MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(binder);
+        try {
+          MoxtraBinderSpace binderSpace = moxtra.getBinderSpace(spaceId);
+          if (binderSpace != null) {
             binderSpace.syncPages();
-          } catch (MoxtraSocialException e) {
-            Throwable cause = e.getCause();
-            if (cause != null && cause instanceof OAuthSystemException) {
-              cause = cause.getCause();
-              if (cause != null && cause.getClass().getPackage().getName().startsWith("java.net")) {
-                // XXX if OAuth system error was caused by network exception (java.net.*) then postpone the
-                // job for later time
-                LOG.warn("Network error while synchronizing binder space. " + cause.getMessage()
-                    + ". Will try sync " + binderId + "@" + groupId + " next time");
-              } else {
-                throw e;
-              }
+          } else {
+            LOG.warn("Binder not enabled for space " + groupId + ", job canceled.");
+            cancel(context);
+          }
+        } catch (MoxtraSocialException e) {
+          Throwable cause = e.getCause();
+          if (cause != null && cause instanceof OAuthSystemException) {
+            cause = cause.getCause();
+            if (cause != null && cause.getClass().getPackage().getName().startsWith("java.net")) {
+              // XXX if OAuth system error was caused by network exception (java.net.*) then postpone the
+              // job for later time
+              LOG.warn("Network error while synchronizing binder space. " + cause.getMessage()
+                  + ". Will try sync " + binderId + "@" + groupId + " next time");
             } else {
               throw e;
             }
+          } else {
+            throw e;
           }
-        } else {
-          // TODO check when actually getting the binder
-          LOG.warn("Binder not found for space " + groupId
-              + ", job canceled. See above log messages for a cause.");
-          cancel(context);
         }
       } finally {
         moxtra.cleanupJobEnvironment(job);

@@ -9,7 +9,11 @@
   // eXo Moxtra script
   def currentUser = CalendarUtils.getCurrentUser()
   requireJS.require('SHARED/exoMoxtra','moxtra')
-  requireJS.addScripts("moxtra.initUser(\"$currentUser\", $uicomponent.authorized);")
+  if (uicomponent.authorized) {
+  	requireJS.addScripts("moxtra.initUser(\"$currentUser\");")
+  } else {
+  	requireJS.addScripts("moxtra.initUser(\"$currentUser\", \"$uicomponent.authLink\");")
+  }
   requireJS.addScripts("moxtra.initCalendar();")
   
   /**

@@ -48,6 +48,7 @@ import javax.jcr.RepositoryException;
  * 
  */
 @ComponentConfig(template = "classpath:templates/moxtra/social/ecms/UIMoxtraEditComponent.gtmpl")
+@Deprecated
 public class UIMoxtraEditComponent extends UIContainer implements UIPopupComponent {
 
   protected static final Log    LOG = ExoLogger.getLogger(UIMoxtraEditComponent.class);
@@ -70,8 +71,8 @@ public class UIMoxtraEditComponent extends UIContainer implements UIPopupCompone
     this.isPageCreating = isPageCreating;
   }
 
-  public String getSpaceName() throws MoxtraSocialException {
-    return moxtra.getBinderSpace().getSpace().getPrettyName();
+  public String getSpaceId() throws MoxtraSocialException {
+    return moxtra.getBinderSpace().getSpace().getId();
   }
 
   public String getBinderId() throws MoxtraSocialException {

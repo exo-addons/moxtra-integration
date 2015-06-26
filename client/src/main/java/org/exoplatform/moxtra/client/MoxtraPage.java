@@ -71,7 +71,7 @@ public class MoxtraPage {
 
   protected Long            index;
 
-  protected Long            number;
+  protected String          number;
 
   protected String          originalFileName;
 
@@ -101,7 +101,7 @@ public class MoxtraPage {
   public MoxtraPage(Long id,
                     Long revision,
                     Long index,
-                    Long number,
+                    String number,
                     String type,
                     String originalFileName,
                     String url,
@@ -135,6 +135,15 @@ public class MoxtraPage {
   }
 
   /**
+   * {@inheritDoc}
+   */
+  @Override
+  public String toString() {
+    return originalFileName != null ? originalFileName + (index > 0 ? " (" + index : ")")
+                                   : (url != null ? url : id + " (" + index + ")");
+  }
+
+  /**
    * @return the id
    */
   public Long getId() {
@@ -158,7 +167,7 @@ public class MoxtraPage {
   /**
    * @return the number
    */
-  public Long getNumber() {
+  public String getNumber() {
     return number;
   }
 
@@ -246,7 +255,7 @@ public class MoxtraPage {
   /**
    * @param number the number to set
    */
-  protected void setNumber(Long number) {
+  protected void setNumber(String number) {
     this.number = number;
   }
 

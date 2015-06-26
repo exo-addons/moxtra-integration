@@ -22,11 +22,16 @@ import org.apache.oltu.oauth2.common.exception.OAuthSystemException;
 import org.exoplatform.commons.utils.MimeTypeResolver;
 import org.exoplatform.container.ExoContainer;
 import org.exoplatform.container.ExoContainerContext;
+import org.exoplatform.ecm.utils.text.Text;
 import org.exoplatform.moxtra.MoxtraException;
 import org.exoplatform.moxtra.MoxtraService;
 import org.exoplatform.moxtra.client.MoxtraAuthenticationException;
 import org.exoplatform.moxtra.client.MoxtraClient;
 import org.exoplatform.moxtra.client.MoxtraUser;
+import org.exoplatform.services.cms.drives.DriveData;
+import org.exoplatform.services.cms.drives.ManageDriveService;
+import org.exoplatform.services.cms.impl.Utils;
+import org.exoplatform.services.idgenerator.IDGeneratorService;
 import org.exoplatform.services.jcr.ext.app.SessionProviderService;
 import org.exoplatform.services.jcr.ext.common.SessionProvider;
 import org.exoplatform.services.jcr.ext.hierarchy.NodeHierarchyCreator;
@@ -39,6 +44,9 @@ import java.util.Collection;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import javax.jcr.Node;
+import javax.jcr.Session;
 
 /**
  * Base class for building container components and services used Moxtra client.<br>
@@ -53,7 +61,7 @@ public abstract class BaseMoxtraService {
 
   public static final String MOXTRA_JOB_GROUP_NAME = "moxtra_sync";
 
-  public static final String MOXTRA_CURRENT_USER            = "moxtra.currentUser";
+  public static final String MOXTRA_CURRENT_USER   = "moxtra.currentUser";
 
   protected class UserSettings {
     final ConversationState conversation;
@@ -117,8 +125,7 @@ public abstract class BaseMoxtraService {
         sessionProviderService.setSessionProvider(null, settings.prevSessions);
         sp.close();
       } else {
-        throw new MoxtraServiceException("User setting not configured to clean " + userName
-            + " environment.");
+        throw new MoxtraServiceException("User setting not configured to clean " + userName + " environment.");
       }
     }
   }
@@ -134,11 +141,15 @@ public abstract class BaseMoxtraService {
    */
   protected final OrganizationService     orgService;
 
+  protected final IDGeneratorService      idGenerator;
+
   protected final JobSchedulerServiceImpl schedulerService;
 
   protected final NodeHierarchyCreator    hierarchyCreator;
 
   protected final SessionProviderService  sessionProviderService;
+
+  protected final ManageDriveService      driveService;
 
   /**
    * 
@@ -146,13 +157,17 @@ public abstract class BaseMoxtraService {
   public BaseMoxtraService(MoxtraService moxtraService,
                            SessionProviderService sessionProviderService,
                            NodeHierarchyCreator hierarchyCreator,
+                           IDGeneratorService idGenerator,
                            OrganizationService orgService,
-                           JobSchedulerServiceImpl schedulerService) {
+                           JobSchedulerServiceImpl schedulerService,
+                           ManageDriveService driveService) {
     this.moxtra = moxtraService;
     this.sessionProviderService = sessionProviderService;
     this.hierarchyCreator = hierarchyCreator;
+    this.idGenerator = idGenerator;
     this.orgService = orgService;
     this.schedulerService = schedulerService;
+    this.driveService = driveService;
   }
 
   /**
@@ -200,6 +215,61 @@ public abstract class BaseMoxtraService {
   public void cleanupJobEnvironment(JobDetail job) throws MoxtraServiceException {
     String exoUserId = job.getJobDataMap().getString(BaseMoxtraJob.DATA_USER_ID);
     jobEnvironment.cleanup(exoUserId);
+  }
+
+  public String cleanNodeName(String name) {
+    return Text.escapeIllegalJcrChars(Utils.cleanString(name));
+  }
+
+  /**
+   * Find given user Personal Documents folder using system session.
+   * 
+   * @param userName {@link String}
+   * @return {@link Node} Personal Documents folder node or <code>null</code>
+   * @throws Exception
+   */
+  protected Node getUserDocumentsNode(String userName) throws Exception {
+    // code idea based on ECMS's UIJCRExplorerPortlet.getUserDrive()
+    for (DriveData userDrive : driveService.getPersonalDrives(userName)) {
+      String homePath = userDrive.getHomePath();
+      if (homePath.endsWith("/Private")) {
+        // using system session!
+        SessionProvider sessionProvider = sessionProviderService.getSystemSessionProvider(null);
+        Node userNode = hierarchyCreator.getUserNode(sessionProvider, userName);
+        String driveRootPath = org.exoplatform.services.cms.impl.Utils.getPersonalDrivePath(homePath,
+                                                                                            userName);
+        int uhlen = userNode.getPath().length();
+        if (homePath.length() > uhlen) {
+          // it should be w/o leading slash, e.g. "Private"
+          String driveSubPath = driveRootPath.substring(uhlen + 1);
+          return userNode.getNode(driveSubPath);
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Find given group Documents folder using system session.
+   *
+   * @param userName {@link String}
+   * @param groupName {@link String}
+   * @return {@link Node} space's Documents folder node or <code>null</code>
+   * @throws Exception
+   */
+  protected Node getSpaceDocumentsNode(String userName, String groupName) throws Exception {
+    // DriveData groupDrive = driveService.getDriveByName("Groups");
+    String groupDriveName = groupName.replace("/", ".");
+    DriveData groupDrive = driveService.getDriveByName(groupDriveName);
+    if (groupDrive != null) {
+      // using system session!
+      SessionProvider sessionProvider = sessionProviderService.getSystemSessionProvider(null);
+      // we actually don't need user home node, just a JCR session
+      Session session = hierarchyCreator.getUserNode(sessionProvider, userName).getSession();
+      return (Node) session.getItem(groupDrive.getHomePath());
+    } else {
+      return null;
+    }
   }
 
 }

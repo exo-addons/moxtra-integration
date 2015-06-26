@@ -14,7 +14,7 @@
 	background-image: url("/moxtra/images/moxtra-icon-blue.png") !important;
 }
 
-.uiIconEcmsEditInMoxtra {
+.uiIconEcmsEditInMoxtra, .uiIconEcmsAddMoxtraNote, .uiIconEcmsAddMoxtraWhiteboard, .uiIconEcmsRecordMoxtraClip {
 	background-image: url("/moxtra/images/moxtra-icon-gray.png") !important;
 	background-repeat: no-repeat;
 	background-position: left center;
@@ -23,7 +23,7 @@
 	background-position: 0 0;
 }
 
-a:hover>.uiIconEcmsEditInMoxtra {
+a:hover>.uiIconEcmsEditInMoxtra, a:hover>.uiIconEcmsAddMoxtraNote, a:hover>.uiIconEcmsAddMoxtraWhiteboard, a:hover>.uiIconEcmsRecordMoxtraClip {
 	background-image: url("/moxtra/images/moxtra-icon-blue.png") !important;
 }
 

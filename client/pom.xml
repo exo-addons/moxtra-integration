@@ -97,6 +97,7 @@
           <include>**/*.xml</include>
           <include>**/*.properties</include>
           <include>**/*.html</include>
+          <include>**/*.png</include>
         </includes>
       </resource>
     </resources>

@@ -3,6 +3,9 @@
   <ECMContextMenu>
     <event>
       <EditInMoxtra>Open in Moxtra</EditInMoxtra>
+      <AddMoxtraNote>Add Moxtra Note</AddMoxtraNote>
+      <AddMoxtraWhiteboard>Add Moxtra Whiteboard</AddMoxtraWhiteboard>
+      <RecordMoxtraClip>Record Moxtra Clip</RecordMoxtraClip>
     </event>
   </ECMContextMenu>
   <UIAddDocumentSelector>
@@ -21,11 +24,26 @@
       <UIAddDocumentSelector>Select document</UIAddDocumentSelector>
     </title>
   </UIAddDocumentSelectorPopup>
-  <!-- XXX workaround to avoid exception when updating meet event from Moxtra app juzu portlet -->
+  <!-- XXX workaround to avoid exception when updating meet event from Moxtra app juzu portlet - DOESN'T WORK -->
   <CalendarUIActivity>
     <msg>
       <fromDateTime_updated>Start date has been updated to: {0}.</fromDateTime_updated>
       <toDateTime_updated>End date has been updated to: {0}.</toDateTime_updated>
     </msg>
   </CalendarUIActivity>
+  <UIAddMoxtraPageForm>
+    <label>
+      <pageNameTitle>Page Name:</pageNameTitle>
+      <Create>Create</Create>
+      <Cancel>Cancel</Cancel>
+    </label>
+    <error>
+      <errorOpenCreateMoxtraPage>Error opening page form</errorOpenCreateMoxtraPage>
+    </error>
+  </UIAddMoxtraPageForm>
+  <UIPopupWindow>
+    <title>
+      <UIAddMoxtraPageForm>Create new Moxtra page</UIAddMoxtraPageForm>
+    </title>
+  </UIPopupWindow>
 </bundle>

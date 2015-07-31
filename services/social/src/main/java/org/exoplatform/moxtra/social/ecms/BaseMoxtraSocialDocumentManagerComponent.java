@@ -60,43 +60,47 @@ public abstract class BaseMoxtraSocialDocumentManagerComponent extends UIAbstrac
   protected MoxtraBinderSpace initContext(WebuiRequestContext context) throws Exception {
     UIApplication uiApp = getAncestorOfType(UIApplication.class);
     MoxtraSocialService moxtra = getApplicationComponent(MoxtraSocialService.class);
+    if (moxtra.hasContextSpace()) {
+      try {
+        // add Moxtra JS to proceed auth if required
+        MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
+        if (binderSpace != null) {
+          if (context.getAttribute(MOXTRA_DOCUMENTS_CONTEXT) == null) {
+            RequireJS requireJS = context.getJavascriptManager().getRequireJS();
+            requireJS.require("SHARED/exoMoxtra", "moxtra");
+            if (moxtra.isAuthorized()) {
+              requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\");");
+            } else {
+              requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", \"" + moxtra.getOAuth2Link()
+                  + "\");");
+            }
+            String binderId = binderSpace.getBinder().getBinderId();
+            String spaceId = binderSpace.getSpace().getId();
+            requireJS.addScripts("moxtra.initDocuments(\"" + spaceId + "\", \"" + binderId + "\");");
 
-    try {
-      // add Moxtra JS to proceed auth if required
-      MoxtraBinderSpace binderSpace = moxtra.getBinderSpace();
-      if (binderSpace != null) {
-        if (context.getAttribute(MOXTRA_DOCUMENTS_CONTEXT) == null) {
-          RequireJS requireJS = context.getJavascriptManager().getRequireJS();
-          requireJS.require("SHARED/exoMoxtra", "moxtra");
-          if (moxtra.isAuthorized()) {
-            requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\");");
-          } else {
-            requireJS.addScripts("moxtra.initUser(\"" + context.getRemoteUser() + "\", \""
-                + moxtra.getOAuth2Link() + "\");");
+            context.setAttribute(MOXTRA_DOCUMENTS_CONTEXT, true);
           }
-          String binderId = binderSpace.getBinder().getBinderId();
-          String spaceId = binderSpace.getSpace().getId();
-          requireJS.addScripts("moxtra.initDocuments(\"" + spaceId + "\", \"" + binderId + "\");");
-
-          context.setAttribute(MOXTRA_DOCUMENTS_CONTEXT, true);
-        }
-        return binderSpace;
-      } else {
-        Space space = moxtra.getContextSpace();
-        if (space != null) {
-          LOG.warn("Binder not enabled for " + space.getGroupId());
+          return binderSpace;
         } else {
-          LOG.warn("No space in the context " + context.getRequestContextPath());
+          if (LOG.isDebugEnabled()) {
+            Space space = moxtra.getContextSpace();
+            if (space != null) {
+              LOG.debug("Binder not enabled for " + space.getGroupId());
+            } else {
+              LOG.debug("No space in the context " + context.getRequestContextPath());
+            }
+          }
+          // FYI we don't want warn user that no Moxtra binder found
+          // uiApp.addMessage(new ApplicationMessage("Moxtra.error.noMoxraBinder", null,
+          // ApplicationMessage.ERROR));
         }
-        uiApp.addMessage(new ApplicationMessage("Moxtra.error.noMoxraBinder", null, ApplicationMessage.ERROR));
+      } catch (MoxtraSocialException e) {
+        LOG.error("Error initializing Moxtra in space: " + moxtra.getContextSpace() + ". " + e.getMessage(), e);
+        uiApp.addMessage(new ApplicationMessage("Moxtra.error.errorInitMoxtra", null, ApplicationMessage.ERROR));
+      } catch (Exception e) {
+        JCRExceptionManager.process(uiApp, e);
       }
-    } catch (MoxtraSocialException e) {
-      LOG.error("Error initializing Moxtra in space: " + moxtra.getContextSpace() + ". " + e.getMessage(), e);
-      uiApp.addMessage(new ApplicationMessage("Moxtra.error.errorInitMoxtra", null, ApplicationMessage.ERROR));
-    } catch (Exception e) {
-      JCRExceptionManager.process(uiApp, e);
     }
-
     return null;
   }
 
